@@ -1,0 +1,9 @@
+{
+  "id": "office-viewer",
+  "name": "Office Viewer",
+  "version": "0.0.1",
+  "minAppVersion": "1.8.10",
+  "description": "View local PPTX files inside Obsidian.",
+  "author": "jerry4pan",
+  "isDesktopOnly": true
+}

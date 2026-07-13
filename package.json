@@ -1,0 +1,42 @@
+{
+  "name": "obsidian-office-viewer-plugin",
+  "version": "0.0.1",
+  "description": "Local, read-only PPTX viewing for Obsidian.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "fixtures": "node scripts/generate-minimal-fixture.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:e2e": "npm run build && wdio run wdio.conf.mts",
+    "verify": "npm run fixtures && npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "obsidian",
+    "pptx",
+    "powerpoint",
+    "viewer"
+  ],
+  "author": "jerry4pan",
+  "license": "MIT",
+  "dependencies": {
+    "@aiden0z/pptx-renderer": "1.2.4"
+  },
+  "devDependencies": {
+    "@types/mocha": "10.0.10",
+    "@types/node": "24.0.10",
+    "@wdio/cli": "9.29.1",
+    "@wdio/globals": "9.29.1",
+    "@wdio/mocha-framework": "9.29.1",
+    "esbuild": "0.28.1",
+    "happy-dom": "20.10.6",
+    "mocha": "11.7.4",
+    "obsidian": "1.13.1",
+    "pptxgenjs": "4.0.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wdio-obsidian-reporter": "3.1.1",
+    "wdio-obsidian-service": "3.1.1"
+  }
+}
