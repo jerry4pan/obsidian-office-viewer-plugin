@@ -220,6 +220,24 @@ describe("PptxPreviewRendererAdapter", () => {
     expect(container.childElementCount).toBe(0);
   });
 
+  it("classifies the representative performance fixture as incompatible", async () => {
+    const container = document.createElement("div");
+
+    await expect(
+      new PptxPreviewRendererAdapter().open(
+        await loadFixture(
+          "tests/fixtures/performance/representative-12-slides.pptx",
+        ),
+        container,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      name: "PptxOpenError",
+      category: "incompatible",
+    });
+    expect(container.childElementCount).toBe(0);
+  });
+
   it("keeps adapter-owned DOM cleanup isolated between sessions", async () => {
     const firstContainer = document.createElement("div");
     const secondContainer = document.createElement("div");
@@ -263,9 +281,7 @@ describe("PptxPreviewRendererAdapter", () => {
       const container = document.createElement("div");
 
       await expect(
-        new PreflightPptxRendererAdapter(
-          new PptxPreviewRendererAdapter(),
-        ).open(
+        new PreflightPptxRendererAdapter(new PptxPreviewRendererAdapter()).open(
           await loadFixture(fixturePath(fixture)),
           container,
           new AbortController().signal,
