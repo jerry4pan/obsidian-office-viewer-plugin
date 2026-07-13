@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CORPUS_ENVIRONMENT,
+  CORPUS_EXPECTED_GATE,
   REQUIRED_CORPUS_FEATURES,
   corpusManifest,
 } from "./corpus-manifest";
@@ -21,6 +22,8 @@ describe("PPTX compatibility corpus manifest", () => {
         "scripts/generate-compatibility-fixtures.mjs",
       );
       expect(fixture.mainContentMarkers.length).toBeGreaterThan(0);
+      expect(fixture.visualAssertions.containedLayout).toBe(true);
+      expect(fixture.visualAssertions.healthyImages).toBeGreaterThanOrEqual(0);
       expect(fixture.review.reason.length).toBeGreaterThan(10);
       expect(["supported", "degraded", "failed"]).toContain(
         fixture.review.classification,
@@ -37,6 +40,7 @@ describe("PPTX compatibility corpus manifest", () => {
   });
 
   it("pins the visual environment and M0 readability gate", () => {
+    expect(CORPUS_EXPECTED_GATE).toBe(false);
     expect(CORPUS_ENVIRONMENT).toEqual({
       viewport: { width: 1440, height: 1000 },
       theme: "light",

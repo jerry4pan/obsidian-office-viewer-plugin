@@ -24,6 +24,10 @@ export interface CorpusFixture {
   readonly vaultPath: `compatibility/${string}.pptx`;
   readonly features: readonly CorpusFeature[];
   readonly mainContentMarkers: readonly string[];
+  readonly visualAssertions: {
+    readonly containedLayout: true;
+    readonly healthyImages: number;
+  };
   readonly provenance: {
     readonly license: "MIT";
     readonly generator: "scripts/generate-compatibility-fixtures.mjs";
@@ -43,6 +47,8 @@ export const CORPUS_ENVIRONMENT = {
   maxVisualDiffRatio: 0.005,
 } as const;
 
+export const CORPUS_EXPECTED_GATE = false;
+
 const provenance = {
   license: "MIT",
   generator: "scripts/generate-compatibility-fixtures.mjs",
@@ -55,10 +61,11 @@ export const corpusManifest: readonly CorpusFixture[] = [
     vaultPath: "compatibility/text-theme-wide.pptx",
     features: ["text", "fonts", "theme", "master", "wide-layout"],
     mainContentMarkers: ["Quarterly Brief", "Revenue grew 24%", "Theme footer"],
+    visualAssertions: { containedLayout: true, healthyImages: 0 },
     provenance,
     review: {
-      classification: "supported",
-      reason: "Initial baseline requires all themed text and master content to remain readable.",
+      classification: "degraded",
+      reason: "Body text is readable, but the master footer falls below the visible slide boundary.",
     },
   },
   {
@@ -67,10 +74,11 @@ export const corpusManifest: readonly CorpusFixture[] = [
     vaultPath: "compatibility/images-transparency-standard.pptx",
     features: ["images", "transparency", "shapes", "standard-layout"],
     mainContentMarkers: ["Layered Product", "50% transparency", "Embedded SVG"],
+    visualAssertions: { containedLayout: true, healthyImages: 1 },
     provenance,
     review: {
-      classification: "supported",
-      reason: "Initial baseline requires the embedded image and translucent overlay to stay visible.",
+      classification: "degraded",
+      reason: "Embedded SVG is broken and the translucent overlay text is clipped at the right edge.",
     },
   },
   {
@@ -79,10 +87,11 @@ export const corpusManifest: readonly CorpusFixture[] = [
     vaultPath: "compatibility/tables-charts.pptx",
     features: ["table", "chart", "text"],
     mainContentMarkers: ["Regional performance", "North", "South", "FY26 plan"],
+    visualAssertions: { containedLayout: true, healthyImages: 0 },
     provenance,
     review: {
-      classification: "supported",
-      reason: "Initial baseline requires table labels and the chart context to remain readable.",
+      classification: "degraded",
+      reason: "Table content is readable, but the chart extends beyond the slide and is clipped.",
     },
   },
   {
@@ -91,10 +100,11 @@ export const corpusManifest: readonly CorpusFixture[] = [
     vaultPath: "compatibility/grouped-rotated.pptx",
     features: ["group", "rotation", "shapes", "text"],
     mainContentMarkers: ["Grouped workflow", "Discover", "Decide", "Deliver"],
+    visualAssertions: { containedLayout: true, healthyImages: 0 },
     provenance,
     review: {
-      classification: "supported",
-      reason: "Initial baseline requires the native group labels and rotated callout to render.",
+      classification: "degraded",
+      reason: "Rotation renders, but the third member of the native DrawingML group is clipped.",
     },
   },
   {
@@ -103,10 +113,11 @@ export const corpusManifest: readonly CorpusFixture[] = [
     vaultPath: "compatibility/complex-drawing.pptx",
     features: ["complex-drawing", "images", "text"],
     mainContentMarkers: ["Architecture map", "Client", "Plugin", "Renderer"],
+    visualAssertions: { containedLayout: true, healthyImages: 1 },
     provenance,
     review: {
-      classification: "supported",
-      reason: "Initial baseline requires the complex vector drawing and its labels to remain visible.",
+      classification: "degraded",
+      reason: "The complex SVG drawing is replaced by a broken-image placeholder.",
     },
   },
 ] as const;

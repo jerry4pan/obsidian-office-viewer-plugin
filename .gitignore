@@ -1,5 +1,6 @@
 .worktrees/
 node_modules/
+artifacts/
 main.js
 *.js.map
 .obsidian-cache/
