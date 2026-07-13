@@ -4,5 +4,6 @@
 PptxGenJS 4.0.1 (MIT). Its text and layout were authored for this repository,
 so the fixture contains no third-party presentation content.
 
-Run `npm run fixtures` to regenerate it and copy the same bytes into the e2e
-test Vault.
+Run `npm run fixtures` to copy the committed fixture into the e2e test Vault.
+Run `npm run fixtures:regenerate` only when intentionally rebuilding it; the
+ZIP container records generation metadata, so review and commit the new binary.

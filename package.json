@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "fixtures": "node scripts/generate-minimal-fixture.mjs",
+    "fixtures:regenerate": "node scripts/generate-minimal-fixture.mjs --force",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node esbuild.config.mjs production",
     "test": "vitest run",

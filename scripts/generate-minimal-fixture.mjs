@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from "node:fs/promises";
+import { access, copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import PptxGenJS from "pptxgenjs";
 
@@ -10,34 +10,42 @@ const vaultPath = path.join(vaultDir, "minimal.pptx");
 await mkdir(fixtureDir, { recursive: true });
 await mkdir(vaultDir, { recursive: true });
 
-const pptx = new PptxGenJS();
-pptx.author = "Obsidian Office Viewer";
-pptx.company = "Obsidian Office Viewer";
-pptx.subject = "Renderer smoke-test fixture";
-pptx.title = "Minimal PPTX fixture";
-pptx.lang = "en-US";
-pptx.layout = "LAYOUT_WIDE";
-pptx.theme = {
-  headFontFace: "Arial",
-  bodyFontFace: "Arial",
-  lang: "en-US"
-};
+const force = process.argv.includes("--force");
+const fixtureExists = await access(fixturePath).then(
+  () => true,
+  () => false,
+);
 
-const slide = pptx.addSlide();
-slide.background = { color: "FFFFFF" };
-slide.addText("Obsidian PPTX smoke test", {
-  x: 1,
-  y: 2.9,
-  w: 11.333,
-  h: 0.7,
-  align: "center",
-  color: "1F2937",
-  fontFace: "Arial",
-  fontSize: 28,
-  bold: true,
-  margin: 0,
-  breakLine: false
-});
+if (force || !fixtureExists) {
+  const pptx = new PptxGenJS();
+  pptx.author = "Obsidian Office Viewer";
+  pptx.company = "Obsidian Office Viewer";
+  pptx.subject = "Renderer smoke-test fixture";
+  pptx.title = "Minimal PPTX fixture";
+  pptx.lang = "en-US";
+  pptx.layout = "LAYOUT_WIDE";
+  pptx.theme = {
+    headFontFace: "Arial",
+    bodyFontFace: "Arial",
+    lang: "en-US"
+  };
 
-await pptx.writeFile({ fileName: fixturePath, compression: true });
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("Obsidian PPTX smoke test", {
+    x: 1,
+    y: 2.9,
+    w: 11.333,
+    h: 0.7,
+    align: "center",
+    color: "1F2937",
+    fontFace: "Arial",
+    fontSize: 28,
+    bold: true,
+    margin: 0,
+    breakLine: false
+  });
+
+  await pptx.writeFile({ fileName: fixturePath, compression: true });
+}
 await copyFile(fixturePath, vaultPath);
