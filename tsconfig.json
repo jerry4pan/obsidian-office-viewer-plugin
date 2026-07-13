@@ -12,7 +12,13 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2022",
-    "types": ["node", "vitest/globals"]
+    "types": [
+      "node",
+      "vitest/globals",
+      "@wdio/globals/types",
+      "@wdio/mocha-framework",
+      "wdio-obsidian-service"
+    ]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "wdio.conf.mts"]
 }
