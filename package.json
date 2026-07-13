@@ -7,6 +7,8 @@
   "scripts": {
     "fixtures:compatibility": "node scripts/generate-compatibility-fixtures.mjs",
     "fixtures:compatibility:regenerate": "node scripts/generate-compatibility-fixtures.mjs --force",
+    "fixtures:performance": "node scripts/generate-performance-fixtures.mjs",
+    "fixtures:performance:regenerate": "node scripts/generate-performance-fixtures.mjs --force",
     "fixtures": "node scripts/generate-minimal-fixture.mjs",
     "fixtures:regenerate": "node scripts/generate-minimal-fixture.mjs --force",
     "typecheck": "tsc --noEmit",
@@ -14,7 +16,7 @@
     "test": "vitest run",
     "test:compatibility": "npm run fixtures:compatibility && npm run build && wdio run wdio.compatibility.conf.mts",
     "test:e2e": "npm run build && wdio run wdio.conf.mts",
-    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run typecheck && npm test && npm run build"
+    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:performance && npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "obsidian",
