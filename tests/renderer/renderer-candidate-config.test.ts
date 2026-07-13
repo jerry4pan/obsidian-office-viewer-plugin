@@ -31,6 +31,20 @@ describe("renderer candidate acceptance configuration", () => {
     );
   });
 
+  it("binds both build adapter modules to the canonical candidate manifest", async () => {
+    const [aiden, preview] = await Promise.all([
+      import("../../src/renderer/selected-pptx-renderer-adapter.aiden"),
+      import("../../src/renderer/selected-pptx-renderer-adapter.pptx-preview"),
+    ]);
+
+    expect(aiden.SELECTED_PPTX_RENDERER).toEqual(
+      getRendererCandidateConfig("aiden"),
+    );
+    expect(preview.SELECTED_PPTX_RENDERER).toEqual(
+      getRendererCandidateConfig("pptx-preview"),
+    );
+  });
+
   it("provides candidate-specific compatibility and performance directories", async () => {
     const { acceptancePathsForCandidate } = await import(
       "../support/renderer-candidate"

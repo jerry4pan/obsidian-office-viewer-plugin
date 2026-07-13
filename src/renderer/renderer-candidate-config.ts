@@ -1,4 +1,6 @@
-export type PptxRendererCandidate = "aiden" | "pptx-preview";
+import candidateManifest from "./renderer-candidates.json";
+
+export type PptxRendererCandidate = keyof typeof candidateManifest;
 
 export interface RendererCandidateConfig {
   readonly id: PptxRendererCandidate;
@@ -8,30 +10,17 @@ export interface RendererCandidateConfig {
   readonly evidenceId: string;
 }
 
-const CANDIDATES: Readonly<
+const CANDIDATES = candidateManifest as Readonly<
   Record<PptxRendererCandidate, RendererCandidateConfig>
-> = {
-  aiden: {
-    id: "aiden",
-    packageName: "@aiden0z/pptx-renderer",
-    version: "1.2.4",
-    label: "@aiden0z/pptx-renderer@1.2.4",
-    evidenceId: "aiden-pptx-renderer-1.2.4",
-  },
-  "pptx-preview": {
-    id: "pptx-preview",
-    packageName: "pptx-preview",
-    version: "1.0.7",
-    label: "pptx-preview@1.0.7",
-    evidenceId: "pptx-preview-1.0.7",
-  },
-};
+>;
 
 export function resolveRendererCandidate(
   candidate: string | undefined,
 ): PptxRendererCandidate {
   const resolved = candidate ?? "aiden";
-  if (resolved === "aiden" || resolved === "pptx-preview") return resolved;
+  if (Object.hasOwn(CANDIDATES, resolved)) {
+    return resolved as PptxRendererCandidate;
+  }
   throw new Error(`Unsupported PPTX renderer candidate "${resolved}"`);
 }
 

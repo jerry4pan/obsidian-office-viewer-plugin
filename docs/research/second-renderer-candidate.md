@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 
-## Decision
+## Screening decision
 
 Advance [`pptx-preview@1.0.7`](https://www.npmjs.com/package/pptx-preview) to the Ticket #6 acceptance run. This is a PoC decision, not a shipping recommendation.
 
@@ -38,3 +38,13 @@ npm pack pptx-preview@1.0.7
 ```
 
 The comparison must pin exact versions and preserve raw compatibility, failure, and performance evidence even if the candidate is eliminated.
+
+## Final Ticket #6 outcome
+
+Eliminated for M0 after the shared acceptance run. The candidate reached the
+compatibility gate at exactly 16 / 20 readable units, but failed all 13 opens
+of the unchanged representative 12-slide performance presentation and
+therefore produced no valid first-readable or slide-switch samples. The raw
+failure evidence remains committed, and the exact package stays in
+`devDependencies` only for reproducibility. See
+`docs/research/renderer-comparison.md` for the full decision.

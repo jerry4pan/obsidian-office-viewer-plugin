@@ -644,10 +644,12 @@ function validateExpectedOpenFailureArtifact(
 export function validateInstalledPerformanceArtifact(
   value: unknown,
   expectedBundleBytes: number,
-  expectedOutcome: InstalledPerformanceExpectedOutcome = "pass",
+  expectedOutcome: InstalledPerformanceExpectedOutcome,
+  expectedRendererLabel: string,
 ): InstalledPerformanceArtifact {
   assertJsonSafe(value);
   nonNegative(expectedBundleBytes, "expectedBundleBytes");
+  string(expectedRendererLabel, "expectedRendererLabel");
   const top = record(value, "artifact");
   assertExactKeys(top, "artifact", [
     "protocol",
@@ -803,6 +805,11 @@ export function validateInstalledPerformanceArtifact(
   }
   for (const key of ["warmupRuns", "measuredRuns", "slideSwitchesPerRun"]) {
     integer(environment[key], `artifact.environment.${key}`);
+  }
+  if (environment.renderer !== expectedRendererLabel) {
+    throw new Error(
+      `artifact.environment.renderer must equal selected candidate ${expectedRendererLabel}`,
+    );
   }
   if (
     environment.warmupRuns !== protocol.warmupRuns ||

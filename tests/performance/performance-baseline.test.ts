@@ -33,6 +33,7 @@ describe("committed installed PPTX performance baseline", () => {
       baselineValue,
       actualBundleBytes(),
       expectedOutcome,
+      renderer.candidate.label,
     );
 
     expect(baseline.rawOpens).toHaveLength(13);
@@ -58,7 +59,12 @@ describe("committed installed PPTX performance baseline", () => {
       tampered.rawMemoryAttempts[0]!.peak.heapUsedBytes += 1;
 
       expect(() =>
-        validateInstalledPerformanceArtifact(tampered, actualBundleBytes()),
+        validateInstalledPerformanceArtifact(
+          tampered,
+          actualBundleBytes(),
+          expectedOutcome,
+          renderer.candidate.label,
+        ),
       ).toThrow(/selected peak snapshot/);
     },
   );
@@ -79,6 +85,7 @@ describe("committed installed PPTX performance baseline", () => {
         tampered,
         actualBundleBytes(),
         expectedOutcome,
+        renderer.candidate.label,
       ),
     ).toThrow(/selected in-flight snapshot/);
   });
@@ -94,6 +101,7 @@ describe("committed installed PPTX performance baseline", () => {
         tampered,
         actualBundleBytes(),
         expectedOutcome,
+        renderer.candidate.label,
       ),
     ).toThrow(/selected pre-open snapshot/);
   });
@@ -111,6 +119,7 @@ describe("committed installed PPTX performance baseline", () => {
         tampered,
         actualBundleBytes(),
         expectedOutcome,
+        renderer.candidate.label,
       ),
     ).toThrow(/exact cold, warmup, measured sequence/);
   });
@@ -128,10 +137,27 @@ describe("committed installed PPTX performance baseline", () => {
           tampered,
           actualBundleBytes(),
           expectedOutcome,
+          renderer.candidate.label,
         ),
       ).toThrow(/complete expected open-failure evidence/);
     },
   );
+
+  it("rejects evidence relabelled as a different renderer", () => {
+    const tampered = cloneBaseline() as {
+      environment: { renderer: string };
+    };
+    tampered.environment.renderer = "different-renderer@9.9.9";
+
+    expect(() =>
+      validateInstalledPerformanceArtifact(
+        tampered,
+        actualBundleBytes(),
+        expectedOutcome,
+        renderer.candidate.label,
+      ),
+    ).toThrow(/environment\.renderer must equal selected candidate/);
+  });
 
   it("rejects a baseline recorded for a different production bundle", () => {
     expect(() =>
@@ -139,6 +165,7 @@ describe("committed installed PPTX performance baseline", () => {
         baselineValue,
         actualBundleBytes() + 1,
         expectedOutcome,
+        renderer.candidate.label,
       ),
     ).toThrow(/bundleBytes must equal actual production main.js size/);
   });
@@ -148,6 +175,7 @@ describe("committed installed PPTX performance baseline", () => {
       baselineValue,
       actualBundleBytes(),
       expectedOutcome,
+      renderer.candidate.label,
     );
     expect(readFileSync(reportPath, "utf8")).toBe(
       renderInstalledPerformanceMarkdown(baseline),

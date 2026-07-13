@@ -43,8 +43,7 @@
   "dependencies": {
     "@aiden0z/pptx-renderer": "1.2.4",
     "cfb": "1.2.2",
-    "jszip": "3.10.1",
-    "pptx-preview": "1.0.7"
+    "jszip": "3.10.1"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",
@@ -60,6 +59,7 @@
     "obsidian": "1.13.1",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
+    "pptx-preview": "1.0.7",
     "pptxgenjs": "4.0.1",
     "typescript": "7.0.2",
     "vitest": "4.1.10",

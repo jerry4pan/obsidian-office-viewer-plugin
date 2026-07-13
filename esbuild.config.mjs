@@ -1,12 +1,15 @@
 import esbuild from "esbuild";
 import process from "node:process";
 import path from "node:path";
+import rendererCandidates from "./src/renderer/renderer-candidates.json" with {
+  type: "json",
+};
 
 const production = process.argv[2] === "production";
 const rendererCandidate = process.env.PPTX_RENDERER_CANDIDATE ?? "aiden";
 const outfile = process.env.PPTX_BUNDLE_OUTFILE ?? "main.js";
 
-if (rendererCandidate !== "aiden" && rendererCandidate !== "pptx-preview") {
+if (!Object.hasOwn(rendererCandidates, rendererCandidate)) {
   throw new Error(
     `Unsupported PPTX renderer candidate "${rendererCandidate}"`,
   );

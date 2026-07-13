@@ -1138,7 +1138,14 @@ describe("installed PPTX performance collector", () => {
       path.join(ARTIFACT_DIR, "summary.md"),
       renderInstalledPerformanceMarkdown(artifact),
     );
-    validateInstalledPerformanceArtifact(artifact, bundleBytes);
+    validateInstalledPerformanceArtifact(
+      artifact,
+      bundleBytes,
+      renderer.candidate.id === "pptx-preview"
+        ? "expected-open-failure"
+        : "pass",
+      renderer.candidate.label,
+    );
     if (invariantFailures.length > 0) throw new Error(invariantFailures.join("\n"));
   });
 });
