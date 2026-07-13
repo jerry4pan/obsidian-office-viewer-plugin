@@ -7,10 +7,19 @@ export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
 }
 
+export interface PptxViewSessionDiagnostics {
+  readonly generation: number;
+  readonly openPending: boolean;
+  readonly rendererActive: boolean;
+  readonly disposed: boolean;
+}
+
 export class PptxViewSession<FileRef> {
   private abortController: AbortController | null = null;
   private rendererSession: PptxRendererSession | null = null;
   private generation = 0;
+  private openPending = false;
+  private disposed = false;
 
   constructor(
     private readonly root: HTMLElement,
@@ -24,6 +33,8 @@ export class PptxViewSession<FileRef> {
     this.stopCurrentRun();
     this.clearTimings();
     const generation = ++this.generation;
+    this.openPending = true;
+    this.disposed = false;
     const controller = new AbortController();
     this.abortController = controller;
 
@@ -130,11 +141,24 @@ export class PptxViewSession<FileRef> {
       status.textContent = "Unable to open this PPTX file.";
       slideContainer.replaceChildren();
       throw error;
+    } finally {
+      if (generation === this.generation) this.openPending = false;
     }
+  }
+
+  getPerformanceDiagnostics(): PptxViewSessionDiagnostics {
+    return {
+      generation: this.generation,
+      openPending: this.openPending,
+      rendererActive: this.rendererSession !== null,
+      disposed: this.disposed,
+    };
   }
 
   dispose(): void {
     this.generation += 1;
+    this.openPending = false;
+    this.disposed = true;
     this.stopCurrentRun();
     this.root.replaceChildren();
     delete this.root.dataset.state;

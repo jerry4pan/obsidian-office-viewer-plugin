@@ -13,6 +13,7 @@ export interface PerformanceEnvironment {
   readonly warmDefinition: string;
   readonly warmupRuns: number;
   readonly measuredRuns: number;
+  readonly slideSwitchesPerRun?: number;
 }
 
 export interface MemoryObservation {
@@ -133,7 +134,8 @@ export function summarizePerformance(
   );
   const slideSwitch = summarizeSamples(
     input.slideSwitchMs,
-    input.environment.measuredRuns,
+    input.environment.measuredRuns *
+      (input.environment.slideSwitchesPerRun ?? 1),
   );
   const firstReadablePassed =
     firstReadable.p95 !== null &&

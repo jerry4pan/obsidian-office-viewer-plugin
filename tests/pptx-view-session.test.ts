@@ -21,6 +21,43 @@ function makeRenderer(slideCount = 1) {
 }
 
 describe("PptxViewSession", () => {
+  it("exposes adapter work diagnostics through open and disposal", async () => {
+    const root = document.createElement("div");
+    let finishRead: ((value: ArrayBuffer) => void) | undefined;
+    const reader = {
+      readBinary: vi.fn(
+        () =>
+          new Promise<ArrayBuffer>((resolve) => {
+            finishRead = resolve;
+          }),
+      ),
+    };
+    const { adapter } = makeRenderer();
+    const session = new PptxViewSession(root, reader, adapter);
+
+    const opening = session.open("deck.pptx");
+    expect(session.getPerformanceDiagnostics()).toMatchObject({
+      openPending: true,
+      rendererActive: false,
+      disposed: false,
+    });
+
+    finishRead?.(new ArrayBuffer(1));
+    await opening;
+    expect(session.getPerformanceDiagnostics()).toMatchObject({
+      openPending: false,
+      rendererActive: true,
+      disposed: false,
+    });
+
+    session.dispose();
+    expect(session.getPerformanceDiagnostics()).toMatchObject({
+      openPending: false,
+      rendererActive: false,
+      disposed: true,
+    });
+  });
+
   it("reads once, renders slide 1, and exposes ready state", async () => {
     const root = document.createElement("div");
     const bytes = new ArrayBuffer(8);
