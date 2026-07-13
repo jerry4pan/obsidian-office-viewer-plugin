@@ -4,7 +4,11 @@ import {
   CORPUS_EXPECTED_GATE,
   REQUIRED_CORPUS_FEATURES,
   corpusManifest,
+  getCandidateBaselineApproval,
+  getCandidateReview,
 } from "./corpus-manifest";
+
+const candidates = ["aiden", "pptx-preview"] as const;
 
 describe("PPTX compatibility corpus manifest", () => {
   it("uses unique identities and distributable repository-authored fixtures", () => {
@@ -25,13 +29,39 @@ describe("PPTX compatibility corpus manifest", () => {
       expect(
         new Set(fixture.mainContentChecks.map(({ label }) => label)).size,
       ).toBe(fixture.mainContentChecks.length);
-      expect(fixture.review.reason.length).toBeGreaterThan(10);
-      expect(fixture.baselineApproval.reason.length).toBeGreaterThan(10);
-      expect(fixture.baselineApproval.sha256).toMatch(/^[a-f0-9]{64}$/);
-      expect(["supported", "degraded", "failed"]).toContain(
-        fixture.review.classification,
-      );
+      for (const candidate of candidates) {
+        const review = getCandidateReview(fixture, candidate);
+        const approval = getCandidateBaselineApproval(fixture, candidate);
+        expect(review.reason.length).toBeGreaterThan(10);
+        expect(approval.reason.length).toBeGreaterThan(10);
+        expect(approval.sha256).toMatch(/^[a-f0-9]{64}$/);
+        expect(["supported", "degraded", "failed"]).toContain(
+          review.classification,
+        );
+        expect(
+          review.unreadableContent.every((label) =>
+            fixture.mainContentChecks.some((check) => check.label === label),
+          ),
+        ).toBe(true);
+      }
     }
+  });
+
+  it("stores independent approved evidence for each renderer candidate", () => {
+    const tables = corpusManifest.find(({ id }) => id === "tables-charts");
+    expect(tables).toBeDefined();
+
+    expect(getCandidateReview(tables!, "aiden")).toMatchObject({
+      classification: "supported",
+      unreadableContent: [],
+    });
+    expect(getCandidateReview(tables!, "pptx-preview")).toMatchObject({
+      classification: "degraded",
+      unreadableContent: ["Chart fully visible"],
+    });
+    expect(getCandidateBaselineApproval(tables!, "pptx-preview").sha256).toBe(
+      "277205fe5a6d1fad1822fcbcf290af10b91acf7eb5bf824dbbcf8ff2809286c7",
+    );
   });
 
   it("covers every representative feature required by Ticket #4", () => {

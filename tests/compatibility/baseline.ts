@@ -1,11 +1,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { CorpusFixture } from "./corpus-manifest";
+import {
+  getCandidateBaselineApproval,
+  type CorpusFixture,
+} from "./corpus-manifest";
 import { fileSha256, sha256 } from "./hash";
 import { assertVisualMatch, comparePngBuffers } from "./visual-regression";
 import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 
-const { paths } = activeRendererAcceptanceConfig();
+const renderer = activeRendererAcceptanceConfig();
+const { paths } = renderer;
 const artifactDir = path.join(paths.compatibilityArtifactDir, "current");
 const baselineDir = paths.compatibilityBaselineDir;
 
@@ -22,14 +26,17 @@ export async function captureApprovedBaseline(
   const current = await slide.saveScreenshot(currentPath);
   if (update) await writeFile(baselinePath, current);
 
+  const approval = getCandidateBaselineApproval(fixture, renderer.candidate.id);
   const approvedHash = await fileSha256(baselinePath);
-  if (approvedHash !== fixture.baselineApproval.sha256) {
+  if (approvedHash !== approval.sha256) {
     throw new Error(
-      `${fixture.id} baseline hash is not approved; update baselineApproval.sha256 and reason after visual review (actual ${approvedHash})`,
+      `${fixture.id} baseline hash is not approved for ${renderer.candidate.id}; update its baseline approval hash and reason after visual review (actual ${approvedHash})`,
     );
   }
-  if (fixture.baselineApproval.reason.trim().length < 10) {
-    throw new Error(`${fixture.id} baseline approval reason is missing`);
+  if (approval.reason.trim().length < 10) {
+    throw new Error(
+      `${fixture.id} baseline approval reason is missing for ${renderer.candidate.id}`,
+    );
   }
   const baseline = await readFile(baselinePath);
   if (sha256(current) === approvedHash) return 0;

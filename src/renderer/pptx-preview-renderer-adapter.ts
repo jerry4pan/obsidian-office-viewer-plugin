@@ -26,6 +26,18 @@ export type PptxPreviewerFactory = (
 const createPptxPreviewer: PptxPreviewerFactory = (container, options) =>
   init(container, options);
 
+function resolveViewport(container: HTMLElement): PptxPreviewerOptions {
+  const measuredWidth = Math.floor(container.clientWidth);
+  const measuredHeight = Math.floor(container.clientHeight);
+  const width = measuredWidth > 0 ? measuredWidth : 960;
+  const availableHeight = measuredHeight > 0 ? measuredHeight : 540;
+  return {
+    width,
+    height: Math.min(availableHeight, Math.round(width * 0.75)),
+    mode: "slide",
+  };
+}
+
 class PptxPreviewRendererSession implements PptxRendererSession {
   private disposed = false;
 
@@ -68,11 +80,7 @@ export class PptxPreviewRendererAdapter implements PptxRendererAdapter {
     container.replaceChildren();
     let previewer: PptxPreviewer | undefined;
     try {
-      previewer = this.previewerFactory(container, {
-        width: 960,
-        height: 540,
-        mode: "slide",
-      });
+      previewer = this.previewerFactory(container, resolveViewport(container));
       await previewer.load(buffer);
       signal.throwIfAborted();
       if (!Number.isInteger(previewer.slideCount) || previewer.slideCount < 1) {

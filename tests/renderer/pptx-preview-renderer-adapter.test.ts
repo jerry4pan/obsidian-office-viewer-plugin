@@ -42,6 +42,33 @@ describe("PptxPreviewRendererAdapter", () => {
     expect(previewer.load).toHaveBeenCalledWith(buffer);
   });
 
+  it("fits the candidate viewport to the available Obsidian slide surface", async () => {
+    const previewer = {
+      slideCount: 1,
+      load: vi.fn(async () => ({})),
+      renderSingleSlide: vi.fn(),
+      destroy: vi.fn(),
+    };
+    const createPreviewer = vi.fn(() => previewer);
+    const container = document.createElement("div");
+    Object.defineProperties(container, {
+      clientWidth: { value: 632 },
+      clientHeight: { value: 589 },
+    });
+
+    await new PptxPreviewRendererAdapter(createPreviewer).open(
+      new ArrayBuffer(8),
+      container,
+      new AbortController().signal,
+    );
+
+    expect(createPreviewer).toHaveBeenCalledWith(container, {
+      width: 632,
+      height: 474,
+      mode: "slide",
+    });
+  });
+
   it("passes zero-based slide indexes to the candidate", async () => {
     const previewer = {
       slideCount: 3,
