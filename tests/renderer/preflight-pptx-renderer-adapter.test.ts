@@ -28,12 +28,9 @@ describe("PreflightPptxRendererAdapter", () => {
     expect(candidate.open).not.toHaveBeenCalled();
   });
 
-  it("passes a preflight-safe candidate-limit package to the renderer", async () => {
-    const candidateFailure = new Error("candidate renderer reached");
+  it("blocks the shared single-entry limit before invoking a candidate", async () => {
     const candidate: PptxRendererAdapter = {
-      open: vi.fn(async () => {
-        throw candidateFailure;
-      }),
+      open: vi.fn(),
     };
 
     await expect(
@@ -42,7 +39,7 @@ describe("PreflightPptxRendererAdapter", () => {
         document.createElement("div"),
         new AbortController().signal,
       ),
-    ).rejects.toBe(candidateFailure);
-    expect(candidate.open).toHaveBeenCalledOnce();
+    ).rejects.toMatchObject({ category: "incompatible" });
+    expect(candidate.open).not.toHaveBeenCalled();
   });
 });

@@ -36,20 +36,32 @@ describe("PPTX package preflight", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("rejects a single ZIP entry above the shared candidate-neutral limit", async () => {
+    const fixture = expectedFailureFixtures.find(
+      ({ id }) => id === "renderer-resource-limit",
+    )!;
+
+    await expect(
+      inspectPptxPackage(
+        await loadFixture(fixturePath(fixture)),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({
+      name: "PptxOpenError",
+      category: "incompatible",
+    });
+  });
+
   for (const fixture of expectedFailureFixtures) {
     it(`classifies ${fixture.id} as ${fixture.category}`, async () => {
       const inspection = inspectPptxPackage(
         await loadFixture(fixturePath(fixture)),
         new AbortController().signal,
       );
-      if (fixture.id === "renderer-resource-limit") {
-        await expect(inspection).resolves.toBeUndefined();
-      } else {
-        await expect(inspection).rejects.toMatchObject({
-          name: "PptxOpenError",
-          category: fixture.category satisfies PptxOpenErrorCategory,
-        });
-      }
+      await expect(inspection).rejects.toMatchObject({
+        name: "PptxOpenError",
+        category: fixture.category satisfies PptxOpenErrorCategory,
+      });
     });
   }
 

@@ -1,4 +1,5 @@
 import { AidenPptxRendererAdapter } from "./aiden-pptx-renderer-adapter";
+import { PptxPreviewRendererAdapter } from "./pptx-preview-renderer-adapter";
 import type { PptxRendererAdapter } from "./pptx-renderer-adapter";
 import { PreflightPptxRendererAdapter } from "./preflight-pptx-renderer-adapter";
 
@@ -52,6 +53,12 @@ export function getPptxRendererMetadata(
 
 export type PptxRendererAdapterFactory = () => PptxRendererAdapter;
 
+const createBuildTimePptxRendererAdapter: PptxRendererAdapterFactory =
+  typeof __PPTX_RENDERER_CANDIDATE__ === "undefined" ||
+  __PPTX_RENDERER_CANDIDATE__ === "aiden"
+    ? () => new AidenPptxRendererAdapter()
+    : () => new PptxPreviewRendererAdapter();
+
 export interface CreatePptxRendererAdapterOptions {
   readonly candidate?: string;
   readonly factories?: Partial<
@@ -67,7 +74,9 @@ export function createPptxRendererAdapter(
   );
   const factory =
     options.factories?.[candidate] ??
-    (candidate === "aiden" ? () => new AidenPptxRendererAdapter() : undefined);
+    (candidate === BUILD_TIME_PPTX_RENDERER_CANDIDATE
+      ? createBuildTimePptxRendererAdapter
+      : undefined);
   if (!factory) {
     throw new Error(
       `PPTX renderer adapter for "${candidate}" is not registered`,
