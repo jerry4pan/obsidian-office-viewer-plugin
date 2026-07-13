@@ -1,0 +1,2711 @@
+{
+  "protocol": {
+    "coldRuns": 1,
+    "warmupRuns": 2,
+    "measuredRuns": 10,
+    "slideSwitchesPerMeasuredRun": 4,
+    "cancellationRuns": 5,
+    "observationWindowMs": 2000,
+    "postCloseSampleTargetMs": 1850,
+    "maxRetainedHeapFraction": 0.5,
+    "rssPolicy": "observed-only: allocator/shared resident-page noise makes short-window RSS return unsuitable as a hard invariant"
+  },
+  "memoryRuntime": {
+    "getProcessMemoryInfoAvailable": true,
+    "getProcessMemoryInfoError": null,
+    "getProcessMemoryInfoKeys": [
+      "private",
+      "shared"
+    ],
+    "getProcessMemoryInfoResidentSet": null,
+    "memoryUsageAvailable": true,
+    "rssFallbackReason": "process.getProcessMemoryInfo returned no finite residentSet in the installed renderer; using the measured process.memoryUsage().rss value.",
+    "selectedHeapSource": "process.memoryUsage().heapUsed",
+    "selectedRssSource": "process.memoryUsage().rss"
+  },
+  "rawOpens": [
+    {
+      "kind": "cold",
+      "sampleIndex": 1,
+      "token": "cold-1-1783934519563",
+      "status": "passed",
+      "metadataMs": 17.1,
+      "firstReadableMs": 21.9,
+      "slideSwitches": [],
+      "error": null
+    },
+    {
+      "kind": "warmup",
+      "sampleIndex": 1,
+      "token": "warmup-1-1783934519637",
+      "status": "passed",
+      "metadataMs": 6.1,
+      "firstReadableMs": 7.9,
+      "slideSwitches": [],
+      "error": null
+    },
+    {
+      "kind": "warmup",
+      "sampleIndex": 2,
+      "token": "warmup-2-1783934519690",
+      "status": "passed",
+      "metadataMs": 5.6,
+      "firstReadableMs": 7.1,
+      "slideSwitches": [],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 1,
+      "token": "measured-1-1783934519736",
+      "status": "passed",
+      "metadataMs": 5.1,
+      "firstReadableMs": 6.5,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.9
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.1
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.4
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.3
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 2,
+      "token": "measured-2-1783934522114",
+      "status": "passed",
+      "metadataMs": 11,
+      "firstReadableMs": 15,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.3
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.1
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.6
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.3
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 3,
+      "token": "measured-3-1783934524471",
+      "status": "passed",
+      "metadataMs": 11.3,
+      "firstReadableMs": 15.1,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.1
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.4
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.4
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 4,
+      "token": "measured-4-1783934526826",
+      "status": "passed",
+      "metadataMs": 12.6,
+      "firstReadableMs": 16.4,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.5
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.5
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 5,
+      "token": "measured-5-1783934529192",
+      "status": "passed",
+      "metadataMs": 7.6,
+      "firstReadableMs": 10.4,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.1
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.5
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.6
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 6,
+      "token": "measured-6-1783934531551",
+      "status": "passed",
+      "metadataMs": 9.8,
+      "firstReadableMs": 13.4,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.1
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.3
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.5
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.4
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 7,
+      "token": "measured-7-1783934533912",
+      "status": "passed",
+      "metadataMs": 11.6,
+      "firstReadableMs": 15.4,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.6
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.7
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 8,
+      "token": "measured-8-1783934536286",
+      "status": "passed",
+      "metadataMs": 10.9,
+      "firstReadableMs": 14.9,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.5
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.5
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 9,
+      "token": "measured-9-1783934538641",
+      "status": "passed",
+      "metadataMs": 13.2,
+      "firstReadableMs": 17.1,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.4
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.4
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.3
+        }
+      ],
+      "error": null
+    },
+    {
+      "kind": "measured",
+      "sampleIndex": 10,
+      "token": "measured-10-1783934540997",
+      "status": "passed",
+      "metadataMs": 7.9,
+      "firstReadableMs": 11.2,
+      "slideSwitches": [
+        {
+          "action": "next",
+          "from": "1 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "next",
+          "from": "2 / 12",
+          "to": "3 / 12",
+          "elapsedMs": 2.2
+        },
+        {
+          "action": "previous",
+          "from": "3 / 12",
+          "to": "2 / 12",
+          "elapsedMs": 1.7
+        },
+        {
+          "action": "previous",
+          "from": "2 / 12",
+          "to": "1 / 12",
+          "elapsedMs": 1.4
+        }
+      ],
+      "error": null
+    }
+  ],
+  "rawMemoryAttempts": [
+    {
+      "sampleIndex": 1,
+      "token": "measured-1-1783934519736",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20868756,
+          "label": "pre-open",
+          "rendererTimestampMs": 645.5,
+          "rssBytes": 241860608,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.6000000238418579,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20900132,
+          "label": "loading-transition",
+          "rendererTimestampMs": 646.1000000238419,
+          "rssBytes": 241958912,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 8.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 22740240,
+          "label": "open-settled",
+          "rendererTimestampMs": 653.6000000238419,
+          "rssBytes": 244383744,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 502.5,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 25597928,
+          "label": "steady",
+          "rendererTimestampMs": 1148,
+          "rssBytes": 257474560,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 510.60000002384186,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 25629456,
+          "label": "pre-close",
+          "rendererTimestampMs": 1156.1000000238419,
+          "rssBytes": 257490944,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852.3999999761581,
+          "elapsedSinceOpenMs": 2363,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18404148,
+          "label": "post-close",
+          "rendererTimestampMs": 3008.5,
+          "rssBytes": 240287744,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 1,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 20868756,
+        "label": "pre-open",
+        "rendererTimestampMs": 645.5,
+        "rssBytes": 241860608,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 502.5,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 25597928,
+        "label": "steady",
+        "rendererTimestampMs": 1148,
+        "rssBytes": 257474560,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 4,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 502.5,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 25597928,
+        "label": "steady",
+        "rendererTimestampMs": 1148,
+        "rssBytes": 257474560,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 4,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852.3999999761581,
+        "elapsedSinceOpenMs": 2363,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 18404148,
+        "label": "post-close",
+        "rendererTimestampMs": 3008.5,
+        "rssBytes": 240287744,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 6,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 1156.1000000238419,
+      "cleanupElapsedMs": 0.8999999761581421,
+      "gcCompletedElapsedMs": 40.299999952316284,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 4729172,
+        "retainedHeapBytes": 0,
+        "retainedHeapFraction": 0,
+        "allowedRetainedHeapBytes": 2364586,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 2,
+      "token": "measured-2-1783934522114",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18520304,
+          "label": "pre-open",
+          "rendererTimestampMs": 3026.5,
+          "rssBytes": 240386048,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.7000000476837158,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18550120,
+          "label": "loading-transition",
+          "rendererTimestampMs": 3028.100000023842,
+          "rssBytes": 240435200,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 6.399999976158142,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18939352,
+          "label": "open-interval",
+          "rendererTimestampMs": 3032.7999999523163,
+          "rssBytes": 240926720,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 18.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18979644,
+          "label": "open-settled",
+          "rendererTimestampMs": 3044.5,
+          "rssBytes": 241336320,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 482.5,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20640636,
+          "label": "steady",
+          "rendererTimestampMs": 3508.899999976158,
+          "rssBytes": 245907456,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 491,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20674588,
+          "label": "pre-close",
+          "rendererTimestampMs": 3517.399999976158,
+          "rssBytes": 245923840,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852,
+          "elapsedSinceOpenMs": 2343,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18827312,
+          "label": "post-close",
+          "rendererTimestampMs": 5369.399999976158,
+          "rssBytes": 241582080,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 18520304,
+        "label": "pre-open",
+        "rendererTimestampMs": 3026.5,
+        "rssBytes": 240386048,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 482.5,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 20640636,
+        "label": "steady",
+        "rendererTimestampMs": 3508.899999976158,
+        "rssBytes": 245907456,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 482.5,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 20640636,
+        "label": "steady",
+        "rendererTimestampMs": 3508.899999976158,
+        "rssBytes": 245907456,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852,
+        "elapsedSinceOpenMs": 2343,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 18827312,
+        "label": "post-close",
+        "rendererTimestampMs": 5369.399999976158,
+        "rssBytes": 241582080,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 3517.399999976158,
+      "cleanupElapsedMs": 0.8000000715255737,
+      "gcCompletedElapsedMs": 38.200000047683716,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2120332,
+        "retainedHeapBytes": 307008,
+        "retainedHeapFraction": 0.1447924193003737,
+        "allowedRetainedHeapBytes": 1060166,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 3,
+      "token": "measured-3-1783934524471",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18935676,
+          "label": "pre-open",
+          "rendererTimestampMs": 5381.200000047684,
+          "rssBytes": 241664000,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 2.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18965516,
+          "label": "loading-transition",
+          "rendererTimestampMs": 5383.200000047684,
+          "rssBytes": 241696768,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 7.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19363996,
+          "label": "open-interval",
+          "rendererTimestampMs": 5388.200000047684,
+          "rssBytes": 242188288,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 18.699999928474426,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19289964,
+          "label": "open-settled",
+          "rendererTimestampMs": 5399.799999952316,
+          "rssBytes": 242532352,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 475.39999997615814,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21142216,
+          "label": "steady",
+          "rendererTimestampMs": 5856.5,
+          "rssBytes": 246415360,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 483.60000002384186,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21178968,
+          "label": "pre-close",
+          "rendererTimestampMs": 5864.700000047684,
+          "rssBytes": 246464512,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852.0999999046326,
+          "elapsedSinceOpenMs": 2335.6999999284744,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19146884,
+          "label": "post-close",
+          "rendererTimestampMs": 7716.799999952316,
+          "rssBytes": 242024448,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 18935676,
+        "label": "pre-open",
+        "rendererTimestampMs": 5381.200000047684,
+        "rssBytes": 241664000,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 475.39999997615814,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21142216,
+        "label": "steady",
+        "rendererTimestampMs": 5856.5,
+        "rssBytes": 246415360,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 475.39999997615814,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21142216,
+        "label": "steady",
+        "rendererTimestampMs": 5856.5,
+        "rssBytes": 246415360,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852.0999999046326,
+        "elapsedSinceOpenMs": 2335.6999999284744,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19146884,
+        "label": "post-close",
+        "rendererTimestampMs": 7716.799999952316,
+        "rssBytes": 242024448,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 5864.700000047684,
+      "cleanupElapsedMs": 0.6999999284744263,
+      "gcCompletedElapsedMs": 36.09999990463257,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2206540,
+        "retainedHeapBytes": 211208,
+        "retainedHeapFraction": 0.09571908961541599,
+        "allowedRetainedHeapBytes": 1103270,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 4,
+      "token": "measured-4-1783934526826",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19255372,
+          "label": "pre-open",
+          "rendererTimestampMs": 7737.799999952316,
+          "rssBytes": 242122752,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.3000000715255737,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19285432,
+          "label": "loading-transition",
+          "rendererTimestampMs": 7739.100000023842,
+          "rssBytes": 242155520,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 7,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19678176,
+          "label": "open-interval",
+          "rendererTimestampMs": 7744.799999952316,
+          "rssBytes": 242630656,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 19.300000071525574,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19579160,
+          "label": "open-settled",
+          "rendererTimestampMs": 7757.100000023842,
+          "rssBytes": 242974720,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 481.7000000476837,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21490220,
+          "label": "steady",
+          "rendererTimestampMs": 8219.5,
+          "rssBytes": 246775808,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 489.5,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21524172,
+          "label": "pre-close",
+          "rendererTimestampMs": 8227.299999952316,
+          "rssBytes": 246808576,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852.5,
+          "elapsedSinceOpenMs": 2342,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19655988,
+          "label": "post-close",
+          "rendererTimestampMs": 10079.799999952316,
+          "rssBytes": 242745344,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19255372,
+        "label": "pre-open",
+        "rendererTimestampMs": 7737.799999952316,
+        "rssBytes": 242122752,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 481.7000000476837,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21490220,
+        "label": "steady",
+        "rendererTimestampMs": 8219.5,
+        "rssBytes": 246775808,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 481.7000000476837,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21490220,
+        "label": "steady",
+        "rendererTimestampMs": 8219.5,
+        "rssBytes": 246775808,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852.5,
+        "elapsedSinceOpenMs": 2342,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19655988,
+        "label": "post-close",
+        "rendererTimestampMs": 10079.799999952316,
+        "rssBytes": 242745344,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 8227.299999952316,
+      "cleanupElapsedMs": 0.8000000715255737,
+      "gcCompletedElapsedMs": 37.60000002384186,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2234848,
+        "retainedHeapBytes": 400616,
+        "retainedHeapFraction": 0.1792587236357909,
+        "allowedRetainedHeapBytes": 1117424,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 5,
+      "token": "measured-5-1783934529192",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19765228,
+          "label": "pre-open",
+          "rendererTimestampMs": 10103.5,
+          "rssBytes": 242860032,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.8999999761581421,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19794404,
+          "label": "loading-transition",
+          "rendererTimestampMs": 10104.299999952316,
+          "rssBytes": 242876416,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 5.200000047683716,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19586248,
+          "label": "open-interval",
+          "rendererTimestampMs": 10108.600000023842,
+          "rssBytes": 243040256,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 13.600000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20222544,
+          "label": "open-settled",
+          "rendererTimestampMs": 10117,
+          "rssBytes": 243449856,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 485.89999997615814,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21889084,
+          "label": "steady",
+          "rendererTimestampMs": 10589.299999952316,
+          "rssBytes": 247398400,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 492.60000002384186,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21923048,
+          "label": "pre-close",
+          "rendererTimestampMs": 10596,
+          "rssBytes": 247414784,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852.2999999523163,
+          "elapsedSinceOpenMs": 2345,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19751432,
+          "label": "post-close",
+          "rendererTimestampMs": 12448.399999976158,
+          "rssBytes": 243187712,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19765228,
+        "label": "pre-open",
+        "rendererTimestampMs": 10103.5,
+        "rssBytes": 242860032,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 485.89999997615814,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21889084,
+        "label": "steady",
+        "rendererTimestampMs": 10589.299999952316,
+        "rssBytes": 247398400,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 485.89999997615814,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21889084,
+        "label": "steady",
+        "rendererTimestampMs": 10589.299999952316,
+        "rssBytes": 247398400,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852.2999999523163,
+        "elapsedSinceOpenMs": 2345,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19751432,
+        "label": "post-close",
+        "rendererTimestampMs": 12448.399999976158,
+        "rssBytes": 243187712,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 10596.100000023842,
+      "cleanupElapsedMs": 0.6999999284744263,
+      "gcCompletedElapsedMs": 36.39999997615814,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2123856,
+        "retainedHeapBytes": 0,
+        "retainedHeapFraction": 0,
+        "allowedRetainedHeapBytes": 1061928,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 6,
+      "token": "measured-6-1783934531551",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20132240,
+          "label": "pre-open",
+          "rendererTimestampMs": 12461.700000047684,
+          "rssBytes": 243286016,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19896448,
+          "label": "loading-transition",
+          "rendererTimestampMs": 12462.700000047684,
+          "rssBytes": 243318784,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 5.399999976158142,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18872628,
+          "label": "open-interval",
+          "rendererTimestampMs": 12467,
+          "rssBytes": 243957760,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 15.799999952316284,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 20228284,
+          "label": "open-settled",
+          "rendererTimestampMs": 12477.399999976158,
+          "rssBytes": 244121600,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 481.89999997615814,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21208388,
+          "label": "steady",
+          "rendererTimestampMs": 12943.5,
+          "rssBytes": 247840768,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 489.2999999523163,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21242344,
+          "label": "pre-close",
+          "rendererTimestampMs": 12950.899999976158,
+          "rssBytes": 247840768,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1851.7999999523163,
+          "elapsedSinceOpenMs": 2341.1999999284744,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19396456,
+          "label": "post-close",
+          "rendererTimestampMs": 14802.799999952316,
+          "rssBytes": 243580928,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 20132240,
+        "label": "pre-open",
+        "rendererTimestampMs": 12461.700000047684,
+        "rssBytes": 243286016,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 481.89999997615814,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21208388,
+        "label": "steady",
+        "rendererTimestampMs": 12943.5,
+        "rssBytes": 247840768,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 481.89999997615814,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21208388,
+        "label": "steady",
+        "rendererTimestampMs": 12943.5,
+        "rssBytes": 247840768,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1851.7999999523163,
+        "elapsedSinceOpenMs": 2341.1999999284744,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19396456,
+        "label": "post-close",
+        "rendererTimestampMs": 14802.799999952316,
+        "rssBytes": 243580928,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 12951,
+      "cleanupElapsedMs": 0.6000000238418579,
+      "gcCompletedElapsedMs": 36.89999997615814,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 1076148,
+        "retainedHeapBytes": 0,
+        "retainedHeapFraction": 0,
+        "allowedRetainedHeapBytes": 538074,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 7,
+      "token": "measured-7-1783934533912",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19504920,
+          "label": "pre-open",
+          "rendererTimestampMs": 14823.100000023842,
+          "rssBytes": 243695616,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.899999976158142,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19534456,
+          "label": "loading-transition",
+          "rendererTimestampMs": 14824.899999976158,
+          "rssBytes": 243728384,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 6.600000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19921488,
+          "label": "open-interval",
+          "rendererTimestampMs": 14829.600000023842,
+          "rssBytes": 244236288,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 18.799999952316284,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19835592,
+          "label": "open-settled",
+          "rendererTimestampMs": 14841.799999952316,
+          "rssBytes": 244465664,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 499.60000002384186,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21201952,
+          "label": "steady",
+          "rendererTimestampMs": 15322.600000023842,
+          "rssBytes": 248086528,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 506.7000000476837,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21235916,
+          "label": "pre-close",
+          "rendererTimestampMs": 15329.700000047684,
+          "rssBytes": 248086528,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852.2999999523163,
+          "elapsedSinceOpenMs": 2359,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19003372,
+          "label": "post-close",
+          "rendererTimestampMs": 17182,
+          "rssBytes": 243793920,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19504920,
+        "label": "pre-open",
+        "rendererTimestampMs": 14823.100000023842,
+        "rssBytes": 243695616,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 499.60000002384186,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21201952,
+        "label": "steady",
+        "rendererTimestampMs": 15322.600000023842,
+        "rssBytes": 248086528,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 499.60000002384186,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21201952,
+        "label": "steady",
+        "rendererTimestampMs": 15322.600000023842,
+        "rssBytes": 248086528,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852.2999999523163,
+        "elapsedSinceOpenMs": 2359,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19003372,
+        "label": "post-close",
+        "rendererTimestampMs": 17182,
+        "rssBytes": 243793920,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 15329.700000047684,
+      "cleanupElapsedMs": 0.8999999761581421,
+      "gcCompletedElapsedMs": 38.199999928474426,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 1697032,
+        "retainedHeapBytes": 0,
+        "retainedHeapFraction": 0,
+        "allowedRetainedHeapBytes": 848516,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 8,
+      "token": "measured-8-1783934536286",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19111852,
+          "label": "pre-open",
+          "rendererTimestampMs": 17197.200000047684,
+          "rssBytes": 243892224,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.399999976158142,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19140852,
+          "label": "loading-transition",
+          "rendererTimestampMs": 17198.5,
+          "rssBytes": 243924992,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 5.799999952316284,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19533760,
+          "label": "open-interval",
+          "rendererTimestampMs": 17202.899999976158,
+          "rssBytes": 244432896,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 17.799999952316284,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19487812,
+          "label": "open-settled",
+          "rendererTimestampMs": 17214.899999976158,
+          "rssBytes": 244695040,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 472,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21178692,
+          "label": "steady",
+          "rendererTimestampMs": 17669.100000023842,
+          "rssBytes": 248496128,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 478.39999997615814,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21212644,
+          "label": "pre-close",
+          "rendererTimestampMs": 17675.5,
+          "rssBytes": 248528896,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1852,
+          "elapsedSinceOpenMs": 2330.399999976158,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19277732,
+          "label": "post-close",
+          "rendererTimestampMs": 19527.5,
+          "rssBytes": 244236288,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19111852,
+        "label": "pre-open",
+        "rendererTimestampMs": 17197.200000047684,
+        "rssBytes": 243892224,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 472,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21178692,
+        "label": "steady",
+        "rendererTimestampMs": 17669.100000023842,
+        "rssBytes": 248496128,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 472,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21178692,
+        "label": "steady",
+        "rendererTimestampMs": 17669.100000023842,
+        "rssBytes": 248496128,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1852,
+        "elapsedSinceOpenMs": 2330.399999976158,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19277732,
+        "label": "post-close",
+        "rendererTimestampMs": 19527.5,
+        "rssBytes": 244236288,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 17675.5,
+      "cleanupElapsedMs": 1.100000023841858,
+      "gcCompletedElapsedMs": 34.5,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2066840,
+        "retainedHeapBytes": 165880,
+        "retainedHeapFraction": 0.08025778483094967,
+        "allowedRetainedHeapBytes": 1033420,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 9,
+      "token": "measured-9-1783934538641",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0.10000002384185791,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19386072,
+          "label": "pre-open",
+          "rendererTimestampMs": 19553.100000023842,
+          "rssBytes": 244334592,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.7000000476837158,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19414976,
+          "label": "loading-transition",
+          "rendererTimestampMs": 19554.700000047684,
+          "rssBytes": 244367360,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 7.5,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19800144,
+          "label": "open-interval",
+          "rendererTimestampMs": 19560.5,
+          "rssBytes": 244875264,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 20.299999952316284,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19732568,
+          "label": "open-settled",
+          "rendererTimestampMs": 19573.299999952316,
+          "rssBytes": 245088256,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 473.7999999523163,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21587764,
+          "label": "steady",
+          "rendererTimestampMs": 20026.799999952316,
+          "rssBytes": 248594432,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 479.89999997615814,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21621728,
+          "label": "pre-close",
+          "rendererTimestampMs": 20032.899999976158,
+          "rssBytes": 248610816,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1850.8999999761581,
+          "elapsedSinceOpenMs": 2330.7999999523163,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19569904,
+          "label": "post-close",
+          "rendererTimestampMs": 21883.799999952316,
+          "rssBytes": 244760576,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0.10000002384185791,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19386072,
+        "label": "pre-open",
+        "rendererTimestampMs": 19553.100000023842,
+        "rssBytes": 244334592,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 473.7999999523163,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21587764,
+        "label": "steady",
+        "rendererTimestampMs": 20026.799999952316,
+        "rssBytes": 248594432,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 473.7999999523163,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21587764,
+        "label": "steady",
+        "rendererTimestampMs": 20026.799999952316,
+        "rssBytes": 248594432,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1850.8999999761581,
+        "elapsedSinceOpenMs": 2330.7999999523163,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19569904,
+        "label": "post-close",
+        "rendererTimestampMs": 21883.799999952316,
+        "rssBytes": 244760576,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 20032.899999976158,
+      "cleanupElapsedMs": 0.30000007152557373,
+      "gcCompletedElapsedMs": 29.100000023841858,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2201692,
+        "retainedHeapBytes": 183832,
+        "retainedHeapFraction": 0.0834957841514617,
+        "allowedRetainedHeapBytes": 1100846,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    },
+    {
+      "sampleIndex": 10,
+      "token": "measured-10-1783934540997",
+      "status": "passed",
+      "snapshots": [
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 0,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19685812,
+          "label": "pre-open",
+          "rendererTimestampMs": 21906.899999976158,
+          "rssBytes": 244858880,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 1,
+          "state": "not-mounted"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 1.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19716604,
+          "label": "loading-transition",
+          "rendererTimestampMs": 21908,
+          "rssBytes": 244891648,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 2,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 5.100000023841858,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 18971376,
+          "label": "open-interval",
+          "rendererTimestampMs": 21912,
+          "rssBytes": 245497856,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 3,
+          "state": "loading"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 13.399999976158142,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19998632,
+          "label": "open-settled",
+          "rendererTimestampMs": 21920.299999952316,
+          "rssBytes": 245612544,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 4,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 482.8000000715256,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21960320,
+          "label": "steady",
+          "rendererTimestampMs": 22389.700000047684,
+          "rssBytes": 249348096,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 5,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": null,
+          "elapsedSinceOpenMs": 489.5,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 21994284,
+          "label": "pre-close",
+          "rendererTimestampMs": 22396.399999976158,
+          "rssBytes": 249348096,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 6,
+          "state": "ready"
+        },
+        {
+          "elapsedSinceCloseMs": 1850.8999999761581,
+          "elapsedSinceOpenMs": 2340.399999976158,
+          "heapSource": "process.memoryUsage().heapUsed",
+          "heapUsedBytes": 19823476,
+          "label": "post-close",
+          "rendererTimestampMs": 24247.299999952316,
+          "rssBytes": 245104640,
+          "rssSource": "process.memoryUsage().rss",
+          "sequence": 7,
+          "state": "detached"
+        }
+      ],
+      "loadingSnapshotCount": 2,
+      "peakDefinition": "actual snapshot with maximum heapUsedBytes between open start and steady capture",
+      "preOpen": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 0,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19685812,
+        "label": "pre-open",
+        "rendererTimestampMs": 21906.899999976158,
+        "rssBytes": 244858880,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 1,
+        "state": "not-mounted"
+      },
+      "peak": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 482.8000000715256,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21960320,
+        "label": "steady",
+        "rendererTimestampMs": 22389.700000047684,
+        "rssBytes": 249348096,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "steady": {
+        "elapsedSinceCloseMs": null,
+        "elapsedSinceOpenMs": 482.8000000715256,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 21960320,
+        "label": "steady",
+        "rendererTimestampMs": 22389.700000047684,
+        "rssBytes": 249348096,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 5,
+        "state": "ready"
+      },
+      "postClose": {
+        "elapsedSinceCloseMs": 1850.8999999761581,
+        "elapsedSinceOpenMs": 2340.399999976158,
+        "heapSource": "process.memoryUsage().heapUsed",
+        "heapUsedBytes": 19823476,
+        "label": "post-close",
+        "rendererTimestampMs": 24247.299999952316,
+        "rssBytes": 245104640,
+        "rssSource": "process.memoryUsage().rss",
+        "sequence": 7,
+        "state": "detached"
+      },
+      "closeStartedAtRendererMs": 22396.399999976158,
+      "cleanupElapsedMs": 0.5,
+      "gcCompletedElapsedMs": 30.700000047683716,
+      "garbageCollection": {
+        "forced": true,
+        "method": "cdp-heap-profiler"
+      },
+      "diagnosticsAfterClose": {
+        "disposed": true,
+        "generation": 2,
+        "openPending": false,
+        "rendererActive": false
+      },
+      "resourceReturn": {
+        "passed": true,
+        "deadlinePassed": true,
+        "adapterStopped": true,
+        "heapIncrementBytes": 2274508,
+        "retainedHeapBytes": 137664,
+        "retainedHeapFraction": 0.06052473765755056,
+        "allowedRetainedHeapBytes": 1137254,
+        "postCloseAtOrBelowSteady": true
+      },
+      "error": null
+    }
+  ],
+  "rawCancellationAttempts": [
+    {
+      "sampleIndex": 1,
+      "token": "cancellation-1-1783934543359",
+      "status": "passed",
+      "sawLoading": true,
+      "elapsedMs": 6.899999976158142,
+      "detached": true,
+      "viewerAbsent": true,
+      "openSettled": true,
+      "adapterDisposed": true,
+      "error": null
+    },
+    {
+      "sampleIndex": 2,
+      "token": "cancellation-2-1783934543381",
+      "status": "passed",
+      "sawLoading": true,
+      "elapsedMs": 4.700000047683716,
+      "detached": true,
+      "viewerAbsent": true,
+      "openSettled": true,
+      "adapterDisposed": true,
+      "error": null
+    },
+    {
+      "sampleIndex": 3,
+      "token": "cancellation-3-1783934543400",
+      "status": "passed",
+      "sawLoading": true,
+      "elapsedMs": 3,
+      "detached": true,
+      "viewerAbsent": true,
+      "openSettled": true,
+      "adapterDisposed": true,
+      "error": null
+    },
+    {
+      "sampleIndex": 4,
+      "token": "cancellation-4-1783934543413",
+      "status": "passed",
+      "sawLoading": true,
+      "elapsedMs": 3.799999952316284,
+      "detached": true,
+      "viewerAbsent": true,
+      "openSettled": true,
+      "adapterDisposed": true,
+      "error": null
+    },
+    {
+      "sampleIndex": 5,
+      "token": "cancellation-5-1783934543427",
+      "status": "passed",
+      "sawLoading": true,
+      "elapsedMs": 5.899999976158142,
+      "detached": true,
+      "viewerAbsent": true,
+      "openSettled": true,
+      "adapterDisposed": true,
+      "error": null
+    }
+  ],
+  "analysis": {
+    "metadata": {
+      "samples": [
+        5.1,
+        11,
+        11.3,
+        12.6,
+        7.6,
+        9.8,
+        11.6,
+        10.9,
+        13.2,
+        7.9
+      ],
+      "sampleCount": 10,
+      "expectedSampleCount": 10,
+      "missingSampleCount": 0,
+      "p50": 10.9,
+      "p95": 13.2
+    },
+    "firstReadable": {
+      "samples": [
+        6.5,
+        15,
+        15.1,
+        16.4,
+        10.4,
+        13.4,
+        15.4,
+        14.9,
+        17.1,
+        11.2
+      ],
+      "sampleCount": 10,
+      "expectedSampleCount": 10,
+      "missingSampleCount": 0,
+      "p50": 14.9,
+      "p95": 17.1
+    },
+    "slideSwitch": {
+      "samples": [
+        1.9,
+        2.1,
+        1.4,
+        1.3,
+        2.3,
+        2.1,
+        1.6,
+        1.3,
+        2.1,
+        2.2,
+        1.4,
+        1.4,
+        2,
+        2,
+        1.5,
+        1.5,
+        2.2,
+        2.1,
+        1.5,
+        1.6,
+        2.1,
+        2.3,
+        1.5,
+        1.4,
+        2.2,
+        2,
+        1.6,
+        1.7,
+        2.2,
+        2,
+        1.5,
+        1.5,
+        2.4,
+        2.2,
+        1.4,
+        1.3,
+        2.2,
+        2.2,
+        1.7,
+        1.4
+      ],
+      "sampleCount": 40,
+      "expectedSampleCount": 40,
+      "missingSampleCount": 0,
+      "p50": 1.7,
+      "p95": 2.3
+    },
+    "memory": {
+      "peak": {
+        "heapUsedBytes": {
+          "samples": [
+            25597928,
+            20640636,
+            21142216,
+            21490220,
+            21889084,
+            21208388,
+            21201952,
+            21178692,
+            21587764,
+            21960320
+          ],
+          "sampleCount": 10,
+          "expectedSampleCount": 10,
+          "missingSampleCount": 0,
+          "p50": 21208388,
+          "p95": 25597928
+        },
+        "rssBytes": {
+          "samples": [
+            257474560,
+            245907456,
+            246415360,
+            246775808,
+            247398400,
+            247840768,
+            248086528,
+            248496128,
+            248594432,
+            249348096
+          ],
+          "sampleCount": 10,
+          "expectedSampleCount": 10,
+          "missingSampleCount": 0,
+          "p50": 247840768,
+          "p95": 257474560
+        }
+      },
+      "steady": {
+        "heapUsedBytes": {
+          "samples": [
+            25597928,
+            20640636,
+            21142216,
+            21490220,
+            21889084,
+            21208388,
+            21201952,
+            21178692,
+            21587764,
+            21960320
+          ],
+          "sampleCount": 10,
+          "expectedSampleCount": 10,
+          "missingSampleCount": 0,
+          "p50": 21208388,
+          "p95": 25597928
+        },
+        "rssBytes": {
+          "samples": [
+            257474560,
+            245907456,
+            246415360,
+            246775808,
+            247398400,
+            247840768,
+            248086528,
+            248496128,
+            248594432,
+            249348096
+          ],
+          "sampleCount": 10,
+          "expectedSampleCount": 10,
+          "missingSampleCount": 0,
+          "p50": 247840768,
+          "p95": 257474560
+        }
+      },
+      "postClose": {
+        "heapUsedBytes": {
+          "samples": [
+            18404148,
+            18827312,
+            19146884,
+            19655988,
+            19751432,
+            19396456,
+            19003372,
+            19277732,
+            19569904,
+            19823476
+          ],
+          "sampleCount": 10,
+          "expectedSampleCount": 10,
+          "missingSampleCount": 0,
+          "p50": 19277732,
+          "p95": 19823476
+        },
+        "rssBytes": {
+          "samples": [
+            240287744,
+            241582080,
+            242024448,
+            242745344,
+            243187712,
+            243580928,
+            243793920,
+            244236288,
+            244760576,
+            245104640
+          ],
+          "sampleCount": 10,
+          "expectedSampleCount": 10,
+          "missingSampleCount": 0,
+          "p50": 243187712,
+          "p95": 245104640
+        }
+      }
+    },
+    "cancellationElapsedMs": {
+      "samples": [
+        6.899999976158142,
+        4.700000047683716,
+        3,
+        3.799999952316284,
+        5.899999976158142
+      ],
+      "sampleCount": 5,
+      "expectedSampleCount": 5,
+      "missingSampleCount": 0,
+      "p50": 4.700000047683716,
+      "p95": 6.899999976158142
+    },
+    "cleanupElapsedMs": {
+      "samples": [
+        1852.3999999761581,
+        1852,
+        1852.0999999046326,
+        1852.5,
+        1852.2999999523163,
+        1851.7999999523163,
+        1852.2999999523163,
+        1852,
+        1850.8999999761581,
+        1850.8999999761581
+      ],
+      "sampleCount": 10,
+      "expectedSampleCount": 10,
+      "missingSampleCount": 0,
+      "p50": 1852,
+      "p95": 1852.5
+    },
+    "failureSummary": [],
+    "budgetMisses": []
+  },
+  "environment": {
+    "device": "panjieruideMacBook-Pro.local (Apple M4 Pro, 48 GiB)",
+    "os": "Darwin 24.6.0 arm64",
+    "obsidianVersion": "1.12.7",
+    "installerVersion": "1.12.7",
+    "electronVersion": "39.8.3",
+    "chromiumVersion": "142.0.7444.265",
+    "nodeVersion": "22.22.1",
+    "renderer": "@aiden0z/pptx-renderer@1.2.4",
+    "coldDefinition": "First representative open after installed Obsidian launch; excluded from gates.",
+    "warmDefinition": "Same-process opens after closing the prior leaf; two warmups excluded, ten measured.",
+    "warmupRuns": 2,
+    "measuredRuns": 10,
+    "slideSwitchesPerRun": 4
+  },
+  "firstReadable": {
+    "samples": [
+      6.5,
+      15,
+      15.1,
+      16.4,
+      10.4,
+      13.4,
+      15.4,
+      14.9,
+      17.1,
+      11.2
+    ],
+    "invalidSamples": [],
+    "expectedSampleCount": 10,
+    "missingSampleCount": 0,
+    "p50": 14.9,
+    "p95": 17.1
+  },
+  "slideSwitch": {
+    "samples": [
+      1.9,
+      2.1,
+      1.4,
+      1.3,
+      2.3,
+      2.1,
+      1.6,
+      1.3,
+      2.1,
+      2.2,
+      1.4,
+      1.4,
+      2,
+      2,
+      1.5,
+      1.5,
+      2.2,
+      2.1,
+      1.5,
+      1.6,
+      2.1,
+      2.3,
+      1.5,
+      1.4,
+      2.2,
+      2,
+      1.6,
+      1.7,
+      2.2,
+      2,
+      1.5,
+      1.5,
+      2.4,
+      2.2,
+      1.4,
+      1.3,
+      2.2,
+      2.2,
+      1.7,
+      1.4
+    ],
+    "invalidSamples": [],
+    "expectedSampleCount": 40,
+    "missingSampleCount": 0,
+    "p50": 1.7,
+    "p95": 2.3
+  },
+  "resources": {
+    "memory": [
+      {
+        "label": "measured-1-peak-actual-snapshot-4",
+        "heapUsedBytes": 25597928,
+        "rssBytes": 257474560
+      },
+      {
+        "label": "measured-1-steady",
+        "heapUsedBytes": 25597928,
+        "rssBytes": 257474560
+      },
+      {
+        "label": "measured-1-post-close",
+        "heapUsedBytes": 18404148,
+        "rssBytes": 240287744
+      },
+      {
+        "label": "measured-2-peak-actual-snapshot-5",
+        "heapUsedBytes": 20640636,
+        "rssBytes": 245907456
+      },
+      {
+        "label": "measured-2-steady",
+        "heapUsedBytes": 20640636,
+        "rssBytes": 245907456
+      },
+      {
+        "label": "measured-2-post-close",
+        "heapUsedBytes": 18827312,
+        "rssBytes": 241582080
+      },
+      {
+        "label": "measured-3-peak-actual-snapshot-5",
+        "heapUsedBytes": 21142216,
+        "rssBytes": 246415360
+      },
+      {
+        "label": "measured-3-steady",
+        "heapUsedBytes": 21142216,
+        "rssBytes": 246415360
+      },
+      {
+        "label": "measured-3-post-close",
+        "heapUsedBytes": 19146884,
+        "rssBytes": 242024448
+      },
+      {
+        "label": "measured-4-peak-actual-snapshot-5",
+        "heapUsedBytes": 21490220,
+        "rssBytes": 246775808
+      },
+      {
+        "label": "measured-4-steady",
+        "heapUsedBytes": 21490220,
+        "rssBytes": 246775808
+      },
+      {
+        "label": "measured-4-post-close",
+        "heapUsedBytes": 19655988,
+        "rssBytes": 242745344
+      },
+      {
+        "label": "measured-5-peak-actual-snapshot-5",
+        "heapUsedBytes": 21889084,
+        "rssBytes": 247398400
+      },
+      {
+        "label": "measured-5-steady",
+        "heapUsedBytes": 21889084,
+        "rssBytes": 247398400
+      },
+      {
+        "label": "measured-5-post-close",
+        "heapUsedBytes": 19751432,
+        "rssBytes": 243187712
+      },
+      {
+        "label": "measured-6-peak-actual-snapshot-5",
+        "heapUsedBytes": 21208388,
+        "rssBytes": 247840768
+      },
+      {
+        "label": "measured-6-steady",
+        "heapUsedBytes": 21208388,
+        "rssBytes": 247840768
+      },
+      {
+        "label": "measured-6-post-close",
+        "heapUsedBytes": 19396456,
+        "rssBytes": 243580928
+      },
+      {
+        "label": "measured-7-peak-actual-snapshot-5",
+        "heapUsedBytes": 21201952,
+        "rssBytes": 248086528
+      },
+      {
+        "label": "measured-7-steady",
+        "heapUsedBytes": 21201952,
+        "rssBytes": 248086528
+      },
+      {
+        "label": "measured-7-post-close",
+        "heapUsedBytes": 19003372,
+        "rssBytes": 243793920
+      },
+      {
+        "label": "measured-8-peak-actual-snapshot-5",
+        "heapUsedBytes": 21178692,
+        "rssBytes": 248496128
+      },
+      {
+        "label": "measured-8-steady",
+        "heapUsedBytes": 21178692,
+        "rssBytes": 248496128
+      },
+      {
+        "label": "measured-8-post-close",
+        "heapUsedBytes": 19277732,
+        "rssBytes": 244236288
+      },
+      {
+        "label": "measured-9-peak-actual-snapshot-5",
+        "heapUsedBytes": 21587764,
+        "rssBytes": 248594432
+      },
+      {
+        "label": "measured-9-steady",
+        "heapUsedBytes": 21587764,
+        "rssBytes": 248594432
+      },
+      {
+        "label": "measured-9-post-close",
+        "heapUsedBytes": 19569904,
+        "rssBytes": 244760576
+      },
+      {
+        "label": "measured-10-peak-actual-snapshot-5",
+        "heapUsedBytes": 21960320,
+        "rssBytes": 249348096
+      },
+      {
+        "label": "measured-10-steady",
+        "heapUsedBytes": 21960320,
+        "rssBytes": 249348096
+      },
+      {
+        "label": "measured-10-post-close",
+        "heapUsedBytes": 19823476,
+        "rssBytes": 245104640
+      }
+    ],
+    "cancellation": [
+      {
+        "elapsedMs": 6.899999976158142,
+        "detached": true,
+        "viewerAbsent": true
+      },
+      {
+        "elapsedMs": 4.700000047683716,
+        "detached": true,
+        "viewerAbsent": true
+      },
+      {
+        "elapsedMs": 3,
+        "detached": true,
+        "viewerAbsent": true
+      },
+      {
+        "elapsedMs": 3.799999952316284,
+        "detached": true,
+        "viewerAbsent": true
+      },
+      {
+        "elapsedMs": 5.899999976158142,
+        "detached": true,
+        "viewerAbsent": true
+      }
+    ],
+    "cleanup": [
+      {
+        "elapsedMs": 1852.3999999761581,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1852,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1852.0999999046326,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1852.5,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1852.2999999523163,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1851.7999999523163,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1852.2999999523163,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1852,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1850.8999999761581,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 1850.8999999761581,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 6.899999976158142,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 4.700000047683716,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 3,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 3.799999952316284,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      },
+      {
+        "elapsedMs": 5.899999976158142,
+        "unfinishedWorkStopped": true,
+        "resourcesReleased": true
+      }
+    ],
+    "bundleBytes": 1099705,
+    "observationWindowMs": 2000
+  },
+  "failures": [],
+  "gates": {
+    "firstReadable": {
+      "budgetMs": 3000,
+      "passed": true
+    },
+    "slideSwitch": {
+      "budgetMs": 100,
+      "passed": true
+    },
+    "overallPassed": true
+  }
+}

@@ -16,6 +16,8 @@ npm run fixtures
 npm run verify
 npm run test:e2e
 npm run test:compatibility
+npm run test:performance
+npm run test:performance:baseline
 ```
 
 `npm run test:e2e` downloads and launches a sandboxed Obsidian instance. It
@@ -28,13 +30,29 @@ with approved visual baselines, and writes ignored run artifacts under
 main content and meets the 80% M0 gate with known SVG degradation; see
 `docs/compatibility/aiden-pptx-renderer-1.2.4.md`.
 
+`npm run test:performance` repeats the installed-Obsidian benchmark on the
+current machine and writes ignored evidence to `artifacts/performance/`. The
+committed reference-machine result for `@aiden0z/pptx-renderer@1.2.4` is
+`tests/performance/baselines/aiden-pptx-renderer-1.2.4.json`, with the matching
+human-readable report in
+`docs/performance/aiden-pptx-renderer-1.2.4.md`. Validate the committed evidence
+shape and fixed gate calculation with `npm run test:performance:baseline`.
+
+To refresh the reference baseline, run `npm run test:performance` without
+changing its samples or thresholds, inspect the recorded verdict, then copy
+`artifacts/performance/results.json` and `artifacts/performance/summary.md`
+byte-for-byte over those two committed files. Run
+`npm run test:performance:baseline` after the copy. A budget miss remains valid
+evidence and must be committed as FAIL rather than tuned away.
+
 ## Current boundaries
 
 - `.pptx` only; legacy `.ppt` is not supported.
 - Read-only and local; the plugin never writes back to the source file.
 - No Office, LibreOffice, PDF conversion, cloud renderer, or document server.
-- Only the first-slide tracer bullet is implemented. Navigation, thumbnails,
-  compatibility warnings, and performance work belong to later M0/M1 tickets.
+- The installed path has previous/next navigation and candidate-independent
+  timing instrumentation. Thumbnails and compatibility warnings remain later
+  M0/M1 work.
 
 ## Test fixture
 
