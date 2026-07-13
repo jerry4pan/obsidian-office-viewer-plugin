@@ -5,6 +5,8 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
+    "fixtures:failure": "node scripts/generate-failure-fixtures.mjs",
+    "fixtures:failure:regenerate": "node scripts/generate-failure-fixtures.mjs --force",
     "fixtures:compatibility": "node scripts/generate-compatibility-fixtures.mjs",
     "fixtures:compatibility:regenerate": "node scripts/generate-compatibility-fixtures.mjs --force",
     "fixtures": "node scripts/generate-minimal-fixture.mjs",
@@ -13,8 +15,8 @@
     "build": "npm run typecheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:compatibility": "npm run fixtures:compatibility && npm run build && wdio run wdio.compatibility.conf.mts",
-    "test:e2e": "npm run build && wdio run wdio.conf.mts",
-    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run typecheck && npm test && npm run build"
+    "test:e2e": "npm run fixtures:failure && npm run build && wdio run wdio.conf.mts",
+    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:failure && npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "obsidian",
@@ -25,7 +27,9 @@
   "author": "jerry4pan",
   "license": "MIT",
   "dependencies": {
-    "@aiden0z/pptx-renderer": "1.2.4"
+    "@aiden0z/pptx-renderer": "1.2.4",
+    "cfb": "1.2.2",
+    "jszip": "3.10.1"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",
@@ -37,7 +41,6 @@
     "@wdio/mocha-framework": "9.29.1",
     "esbuild": "0.28.1",
     "jsdom": "^29.1.1",
-    "jszip": "^3.10.1",
     "mocha": "11.7.4",
     "obsidian": "1.13.1",
     "pixelmatch": "^7.1.0",
