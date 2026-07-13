@@ -38,6 +38,17 @@ export async function inspectActiveFixture(
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
     const images = Array.from(root.querySelectorAll("img"));
+    const fontAvailable = (family: string) => {
+      const context = document.createElement("canvas").getContext("2d");
+      if (!context) return false;
+      const sample = "mmmmmmmmmwwwwwiiiiii";
+      return ["monospace", "serif", "sans-serif"].some((fallback) => {
+        context.font = `72px ${fallback}`;
+        const fallbackWidth = context.measureText(sample).width;
+        context.font = `72px "${family}", ${fallback}`;
+        return context.measureText(sample).width !== fallbackWidth;
+      });
+    };
     let imageIndex = 0;
     return expectedChecks.flatMap((check) => {
       if (check.kind === "text") {
@@ -48,6 +59,21 @@ export async function inspectActiveFixture(
             withinClip(node.parentElement),
         );
         return readable ? [check.label] : [];
+      }
+      if (check.kind === "font") {
+        const node = textNodes.find((candidate) =>
+          candidate.textContent?.includes(check.text),
+        );
+        const parent = node?.parentElement;
+        const declared = parent
+          ? getComputedStyle(parent).fontFamily.includes(check.family)
+          : false;
+        return parent &&
+          withinClip(parent) &&
+          declared &&
+          fontAvailable(check.family) === check.expectedAvailable
+          ? [check.label]
+          : [];
       }
       if (check.kind === "image") {
         const candidate = images[imageIndex++];

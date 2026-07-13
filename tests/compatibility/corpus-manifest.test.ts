@@ -53,5 +53,16 @@ describe("PPTX compatibility corpus manifest", () => {
       readabilityGate: 0.8,
       maxVisualDiffRatio: 0,
     });
+    const fontChecks = corpusManifest.flatMap(({ mainContentChecks }) =>
+      mainContentChecks.filter((check) => check.kind === "font"),
+    );
+    expect(fontChecks.map(({ family }) => family)).toEqual(
+      CORPUS_ENVIRONMENT.fontSamples,
+    );
+    expect(fontChecks.map(({ expectedAvailable }) => expectedAvailable)).toEqual([
+      true,
+      true,
+      false,
+    ]);
   });
 });

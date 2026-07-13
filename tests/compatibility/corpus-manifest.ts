@@ -18,6 +18,13 @@ export const REQUIRED_CORPUS_FEATURES = [
 export type CorpusFeature = (typeof REQUIRED_CORPUS_FEATURES)[number];
 export type MainContentCheck =
   | { readonly kind: "text"; readonly label: string; readonly text: string }
+  | {
+      readonly kind: "font";
+      readonly label: string;
+      readonly text: string;
+      readonly family: string;
+      readonly expectedAvailable: boolean;
+    }
   | { readonly kind: "image"; readonly label: string }
   | {
       readonly kind: "contained";
@@ -69,6 +76,17 @@ const text = (value: string): MainContentCheck => ({
   text: value,
 });
 const image = (label: string): MainContentCheck => ({ kind: "image", label });
+const font = (
+  textValue: string,
+  family: string,
+  expectedAvailable: boolean,
+): MainContentCheck => ({
+  kind: "font",
+  label: `${textValue} [${family}]`,
+  text: textValue,
+  family,
+  expectedAvailable,
+});
 const contained = (label: string): MainContentCheck => ({
   kind: "contained",
   label,
@@ -82,11 +100,11 @@ export const corpusManifest: readonly CorpusFixture[] = [
     vaultPath: "compatibility/text-theme-wide.pptx",
     features: ["text", "fonts", "theme", "master", "wide-layout"],
     mainContentChecks: [
-      text("Quarterly Brief"),
+      font("Quarterly Brief", "Arial", true),
       text("Revenue grew 24%"),
       text("Theme footer"),
-      text("Times New Roman sample"),
-      text("Missing font fallback sample"),
+      font("Times New Roman sample", "Times New Roman", true),
+      font("Missing font fallback sample", "Definitely Missing Font", false),
     ],
     provenance,
     review: {

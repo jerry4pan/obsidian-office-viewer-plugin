@@ -49,9 +49,9 @@ describe("installed PPTX compatibility corpus", () => {
       let readableContent: readonly string[] = [];
       try {
         const currentMarker = fixture.mainContentChecks.find(
-          (check) => check.kind === "text",
+          (check) => check.kind === "text" || check.kind === "font",
         );
-        if (!currentMarker || currentMarker.kind !== "text") {
+        if (!currentMarker || (currentMarker.kind !== "text" && currentMarker.kind !== "font")) {
           throw new Error(`${fixture.id} has no text synchronization marker`);
         }
         await obsidianPage.openFile(fixture.vaultPath);
