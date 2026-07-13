@@ -5,13 +5,15 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
+    "fixtures:compatibility": "node scripts/generate-compatibility-fixtures.mjs",
+    "fixtures:compatibility:regenerate": "node scripts/generate-compatibility-fixtures.mjs --force",
     "fixtures": "node scripts/generate-minimal-fixture.mjs",
     "fixtures:regenerate": "node scripts/generate-minimal-fixture.mjs --force",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:e2e": "npm run build && wdio run wdio.conf.mts",
-    "verify": "npm run fixtures && npm run typecheck && npm test && npm run build"
+    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "obsidian",
@@ -33,6 +35,7 @@
     "@wdio/mocha-framework": "9.29.1",
     "esbuild": "0.28.1",
     "jsdom": "^29.1.1",
+    "jszip": "^3.10.1",
     "mocha": "11.7.4",
     "obsidian": "1.13.1",
     "pptxgenjs": "4.0.1",
