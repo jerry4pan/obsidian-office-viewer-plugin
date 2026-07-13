@@ -1,4 +1,7 @@
-import { pollUntilAttemptDeadline } from "./attempt-timeout";
+import {
+  attemptRemainingMs,
+  pollUntilAttemptDeadline,
+} from "./attempt-timeout";
 
 describe("attempt-level monotonic timeout", () => {
   it("times out even when the observed run never starts closing", async () => {
@@ -40,5 +43,13 @@ describe("attempt-level monotonic timeout", () => {
       timedOut: false,
       elapsedMs: 2,
     });
+  });
+
+  it("spends one shared budget across open, switches, and cleanup", () => {
+    const deadline = { startedAtMs: 100, timeoutMs: 10 };
+
+    expect(attemptRemainingMs(deadline, 104)).toBe(6);
+    expect(attemptRemainingMs(deadline, 109)).toBe(1);
+    expect(attemptRemainingMs(deadline, 111)).toBe(0);
   });
 });

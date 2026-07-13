@@ -36,13 +36,14 @@ export interface MemoryRunInput {
 export interface InstalledPerformanceAnalysisInput {
   readonly expectedMeasuredRuns: number;
   readonly expectedCancellationRuns: number;
+  readonly expectedResourceCompletionRuns: number;
   readonly switchesPerRun: number;
   readonly metadataMs: readonly number[];
   readonly firstReadableMs: readonly number[];
   readonly slideSwitchMs: readonly number[];
   readonly memory: readonly MemoryRunInput[];
   readonly cancellationElapsedMs: readonly number[];
-  readonly cleanupElapsedMs: readonly number[];
+  readonly resourceCompletionElapsedMs: readonly number[];
   readonly failures: readonly PerformanceFailure[];
   readonly budgets: {
     readonly firstReadableMs: number;
@@ -161,9 +162,9 @@ export function summarizeInstalledPerformance(
       input.cancellationElapsedMs,
       input.expectedCancellationRuns,
     ),
-    cleanupElapsedMs: distribution(
-      input.cleanupElapsedMs,
-      input.expectedMeasuredRuns,
+    resourceCompletionElapsedMs: distribution(
+      input.resourceCompletionElapsedMs,
+      input.expectedResourceCompletionRuns,
     ),
     failureSummary,
     budgetMisses,

@@ -12,13 +12,15 @@ export interface InstalledMarkdownArtifact extends PerformanceSummary {
     readonly observationWindowMs: number;
     readonly postCloseSampleTargetMs: number;
     readonly maxRetainedHeapFraction: number;
+    readonly attemptTimeoutMs: number;
   };
   readonly memoryRuntime: ElectronMemoryRuntimeProbe;
   readonly rawMemoryAttempts: readonly {
     readonly loadingSnapshotCount: number;
   }[];
   readonly rawCancellationAttempts: readonly {
-    readonly elapsedMs: number | null;
+    readonly cancellationElapsedMs: number | null;
+    readonly resourceCompletionElapsedMs: number | null;
     readonly sawInFlight: boolean;
     readonly inFlightSnapshotCount: number;
   }[];
@@ -47,8 +49,11 @@ function renderInstalledAnalysis(artifact: InstalledMarkdownArtifact): string {
     metricRow("Metadata/open", analysis.metadata),
     metricRow("First readable", analysis.firstReadable),
     metricRow("Slide switch", analysis.slideSwitch),
-    metricRow("Cancellation elapsed", analysis.cancellationElapsedMs),
-    metricRow("Cleanup/resource return elapsed", analysis.cleanupElapsedMs),
+    metricRow("Cancellation / adapter-stop elapsed", analysis.cancellationElapsedMs),
+    metricRow(
+      "Full resource completion elapsed",
+      analysis.resourceCompletionElapsedMs,
+    ),
     "",
     "| Memory phase | Heap p50 | Heap p95 | RSS p50 | RSS p95 |",
     "| --- | ---: | ---: | ---: | ---: |",
@@ -78,11 +83,12 @@ function renderInstalledAnalysis(artifact: InstalledMarkdownArtifact): string {
     "### Memory provenance and resource-return policy",
     "",
     "- Every measured run starts a renderer-side 5 ms sampler before `leaf.openFile`; a MutationObserver adds an immediate snapshot at the real loading transition.",
+    `- One monotonic ${protocol.attemptTimeoutMs} ms deadline covers open, all slide switches, and cleanup for each attempt; it is never reset between phases. Atomic progress evidence is replaced after every completed attempt.`,
     "- Peak means the single actual snapshot with maximum heap used between open start and the explicit steady capture. Its RSS is from that same instant; independent maxima are not combined.",
     `- Post-close capture target: ${protocol.postCloseSampleTargetMs} ms from the renderer timestamp immediately before detach; hard deadline: ${protocol.observationWindowMs} ms, including detach, CDP GC, adapter settlement, and post-close sampling.`,
     `- Heap release passes only when post-close heap is at or below the workload peak and retained incremental heap is no greater than ${protocol.maxRetainedHeapFraction * 100}% of the observed positive pre-open-to-workload increment. The allowance is capped by that measured increment; no uncalibrated floor is used. RSS is reported but not gated because Electron/Chromium allocators retain and share resident pages noisily.`,
     `- Memory attempts: ${artifact.rawMemoryAttempts.length}; all have loading snapshot: ${artifact.rawMemoryAttempts.every(({ loadingSnapshotCount }) => loadingSnapshotCount > 0) ? "yes" : "no"}.`,
-    `- In-flight cancellation attempts: ${artifact.rawCancellationAttempts.length}; all prove adapter-opening: ${artifact.rawCancellationAttempts.every(({ sawInFlight, inFlightSnapshotCount }) => sawInFlight && inFlightSnapshotCount > 0) ? "yes" : "no"}; all met deadline: ${artifact.rawCancellationAttempts.every(({ elapsedMs }) => elapsedMs !== null && elapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}.`,
+    `- In-flight cancellation attempts: ${artifact.rawCancellationAttempts.length}; all prove adapter-opening: ${artifact.rawCancellationAttempts.every(({ sawInFlight, inFlightSnapshotCount }) => sawInFlight && inFlightSnapshotCount > 0) ? "yes" : "no"}; all adapter stops met deadline: ${artifact.rawCancellationAttempts.every(({ cancellationElapsedMs }) => cancellationElapsedMs !== null && cancellationElapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}; all full resource completions met deadline: ${artifact.rawCancellationAttempts.every(({ resourceCompletionElapsedMs }) => resourceCompletionElapsedMs !== null && resourceCompletionElapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}.`,
     `- Renderer memory source: ${memoryRuntime.selectedHeapSource ?? "none"}; RSS source: ${memoryRuntime.selectedRssSource ?? "none"}.`,
   ];
   return `${lines.join("\n")}\n`;

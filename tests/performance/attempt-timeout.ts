@@ -13,6 +13,13 @@ export interface AttemptPollResult<T> {
   readonly elapsedMs: number;
 }
 
+export function attemptRemainingMs(
+  deadline: Pick<AttemptPollOptions<unknown>, "startedAtMs" | "timeoutMs">,
+  nowMs: number,
+): number {
+  return Math.max(0, deadline.timeoutMs - (nowMs - deadline.startedAtMs));
+}
+
 export async function pollUntilAttemptDeadline<T>(
   options: AttemptPollOptions<T>,
 ): Promise<AttemptPollResult<T>> {

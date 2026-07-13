@@ -12,6 +12,7 @@ function analysisInput(
   return {
     expectedMeasuredRuns: 2,
     expectedCancellationRuns: 5,
+    expectedResourceCompletionRuns: 7,
     switchesPerRun: 3,
     metadataMs: [10, 20],
     firstReadableMs: [30, 50],
@@ -29,7 +30,7 @@ function analysisInput(
       },
     ],
     cancellationElapsedMs: [7, 9, 8, 6, 10],
-    cleanupElapsedMs: [20, 30],
+    resourceCompletionElapsedMs: [20, 30, 40, 41, 42, 43, 44],
     failures: [{ phase: "memory", message: "sample missing", sampleIndex: 2 }],
     budgets: { firstReadableMs: 3_000, slideSwitchMs: 100 },
     ...overrides,
@@ -60,7 +61,11 @@ describe("installed performance analysis", () => {
     expect(summary.memory.steady.rssBytes).toMatchObject({ p50: 1_800, p95: 2_800 });
     expect(summary.memory.postClose.heapUsedBytes).toMatchObject({ p50: 110, p95: 120 });
     expect(summary.cancellationElapsedMs).toMatchObject({ p50: 8, p95: 10 });
-    expect(summary.cleanupElapsedMs).toMatchObject({ p50: 20, p95: 30 });
+    expect(summary.resourceCompletionElapsedMs).toMatchObject({
+      p50: 41,
+      p95: 44,
+      sampleCount: 7,
+    });
     expect(summary.failureSummary).toEqual([
       { phase: "memory", count: 1, sampleIndexes: [2], messages: ["sample missing"] },
     ]);
@@ -99,6 +104,21 @@ describe("installed performance analysis", () => {
       sampleCount: 2,
       expectedSampleCount: 5,
       missingSampleCount: 3,
+    });
+  });
+
+  it("keeps adapter-stop cancellation latency separate from full resource completion", () => {
+    const summary = summarizeInstalledPerformance(
+      analysisInput({
+        cancellationElapsedMs: [3, 4, 3, 4, 3],
+        resourceCompletionElapsedMs: [1_850, 1_851, 1_852, 1_853, 1_854, 1_855, 1_856],
+      }),
+    );
+
+    expect(summary.cancellationElapsedMs).toMatchObject({ p50: 3, p95: 4 });
+    expect(summary.resourceCompletionElapsedMs).toMatchObject({
+      p50: 1_853,
+      p95: 1_856,
     });
   });
 });

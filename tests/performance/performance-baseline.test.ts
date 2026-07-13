@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { validateInstalledPerformanceArtifact } from "./installed-performance-artifact";
@@ -12,6 +12,7 @@ const reportPath = path.resolve(
 );
 const baselineSource = readFileSync(baselinePath, "utf8");
 const baselineValue: unknown = JSON.parse(baselineSource);
+const expectedBundleBytes = statSync(path.resolve("main.js")).size;
 
 function cloneBaseline(): unknown {
   return JSON.parse(baselineSource) as unknown;
@@ -19,7 +20,10 @@ function cloneBaseline(): unknown {
 
 describe("committed installed PPTX performance baseline", () => {
   it("validates the full schema and recomputes every derived value from raw evidence", () => {
-    const baseline = validateInstalledPerformanceArtifact(baselineValue);
+    const baseline = validateInstalledPerformanceArtifact(
+      baselineValue,
+      expectedBundleBytes,
+    );
 
     expect(baseline.rawOpens).toHaveLength(13);
     expect(baseline.rawMemoryAttempts).toHaveLength(10);
@@ -37,8 +41,10 @@ describe("committed installed PPTX performance baseline", () => {
     };
     tampered.rawMemoryAttempts[0]!.peak.heapUsedBytes += 1;
 
-    expect(() => validateInstalledPerformanceArtifact(tampered)).toThrow(
-      /recomputed from raw evidence/,
+    expect(() =>
+      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+    ).toThrow(
+      /selected peak snapshot/,
     );
   });
 
@@ -53,13 +59,48 @@ describe("committed installed PPTX performance baseline", () => {
         ({ lifecyclePhase }) => lifecyclePhase !== "adapter-opening",
       );
 
-    expect(() => validateInstalledPerformanceArtifact(tampered)).toThrow(
-      /prove strict in-flight resource return/,
+    expect(() =>
+      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+    ).toThrow(
+      /selected in-flight snapshot/,
     );
   });
 
+  it("rejects selected snapshots that are not the corresponding raw snapshots", () => {
+    const tampered = cloneBaseline() as {
+      rawMemoryAttempts: Array<{ preOpen: { heapUsedBytes: number } }>;
+    };
+    tampered.rawMemoryAttempts[0]!.preOpen.heapUsedBytes += 1;
+
+    expect(() =>
+      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+    ).toThrow(/selected pre-open snapshot/);
+  });
+
+  it("rejects an incorrect attempt kind, index, or status sequence", () => {
+    const tampered = cloneBaseline() as {
+      rawOpens: Array<{ kind: string; sampleIndex: number; status: string }>;
+    };
+    tampered.rawOpens[0]!.kind = "warmup";
+    tampered.rawOpens[0]!.sampleIndex = 2;
+    tampered.rawOpens[0]!.status = "failed";
+
+    expect(() =>
+      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+    ).toThrow(/exact cold, warmup, measured sequence/);
+  });
+
+  it("rejects a baseline recorded for a different production bundle", () => {
+    expect(() =>
+      validateInstalledPerformanceArtifact(baselineValue, expectedBundleBytes + 1),
+    ).toThrow(/bundleBytes must equal actual production main.js size/);
+  });
+
   it("keeps the committed Markdown byte-for-byte reproducible", () => {
-    const baseline = validateInstalledPerformanceArtifact(baselineValue);
+    const baseline = validateInstalledPerformanceArtifact(
+      baselineValue,
+      expectedBundleBytes,
+    );
     expect(readFileSync(reportPath, "utf8")).toBe(
       renderInstalledPerformanceMarkdown(baseline),
     );
