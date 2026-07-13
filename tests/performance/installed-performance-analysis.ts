@@ -178,7 +178,6 @@ export interface ResourceReturnInput {
   readonly openSettled: boolean;
   readonly adapterDisposed: boolean;
   readonly maxRetainedHeapFraction: number;
-  readonly heapNoiseAllowanceBytes: number;
   readonly deadlineMs: number;
 }
 
@@ -193,20 +192,22 @@ export function evaluateResourceReturn(input: ResourceReturnInput) {
   );
   const retainedHeapFraction: number | null =
     heapIncrementBytes === 0
-      ? retainedHeapBytes === 0
-        ? 0
-        : null
+      ? null
       : retainedHeapBytes / heapIncrementBytes;
   const deadlinePassed = input.postCloseElapsedMs <= input.deadlineMs;
   const adapterStopped = input.openSettled && input.adapterDisposed;
-  const allowedRetainedHeapBytes = Math.max(
-    heapIncrementBytes * input.maxRetainedHeapFraction,
-    input.heapNoiseAllowanceBytes,
+  const allowedRetainedHeapBytes = Math.min(
+    heapIncrementBytes,
+    heapIncrementBytes *
+      Math.max(0, Math.min(1, input.maxRetainedHeapFraction)),
   );
+  const postCloseAtOrBelowSteady =
+    input.postCloseHeapBytes <= input.steadyHeapBytes;
   return {
     passed:
       deadlinePassed &&
       adapterStopped &&
+      postCloseAtOrBelowSteady &&
       retainedHeapBytes <= allowedRetainedHeapBytes,
     deadlinePassed,
     adapterStopped,
@@ -214,5 +215,6 @@ export function evaluateResourceReturn(input: ResourceReturnInput) {
     retainedHeapBytes,
     retainedHeapFraction,
     allowedRetainedHeapBytes,
+    postCloseAtOrBelowSteady,
   };
 }

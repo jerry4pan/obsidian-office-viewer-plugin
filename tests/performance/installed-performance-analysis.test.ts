@@ -113,7 +113,6 @@ describe("post-close resource return", () => {
         openSettled: true,
         adapterDisposed: true,
         maxRetainedHeapFraction: 0.25,
-        heapNoiseAllowanceBytes: 0,
         deadlineMs: 2_000,
       }),
     ).toEqual({
@@ -124,6 +123,7 @@ describe("post-close resource return", () => {
       retainedHeapBytes: 20,
       retainedHeapFraction: 0.2,
       allowedRetainedHeapBytes: 25,
+      postCloseAtOrBelowSteady: true,
     });
   });
 
@@ -137,7 +137,6 @@ describe("post-close resource return", () => {
         openSettled: true,
         adapterDisposed: false,
         maxRetainedHeapFraction: 0.25,
-        heapNoiseAllowanceBytes: 0,
         deadlineMs: 2_000,
       }),
     ).toMatchObject({
@@ -148,7 +147,7 @@ describe("post-close resource return", () => {
     });
   });
 
-  it("uses an explicit measured-heap noise allowance without changing raw retained values", () => {
+  it("fails when post-close heap exceeds steady heap even if a former noise floor would allow it", () => {
     expect(
       evaluateResourceReturn({
         preOpenHeapBytes: 10_000_000,
@@ -158,14 +157,14 @@ describe("post-close resource return", () => {
         openSettled: true,
         adapterDisposed: true,
         maxRetainedHeapFraction: 0.5,
-        heapNoiseAllowanceBytes: 2_097_152,
         deadlineMs: 2_000,
       }),
     ).toMatchObject({
-      passed: true,
+      passed: false,
       retainedHeapBytes: 1_500_000,
       retainedHeapFraction: 1.5,
-      allowedRetainedHeapBytes: 2_097_152,
+      allowedRetainedHeapBytes: 500_000,
+      postCloseAtOrBelowSteady: false,
     });
   });
 
@@ -179,9 +178,29 @@ describe("post-close resource return", () => {
         openSettled: true,
         adapterDisposed: true,
         maxRetainedHeapFraction: 0.5,
-        heapNoiseAllowanceBytes: 0,
         deadlineMs: 2_000,
       }),
     ).toMatchObject({ passed: false, retainedHeapFraction: null });
+  });
+
+  it("handles a negative workload increment conservatively and JSON-safely", () => {
+    const result = evaluateResourceReturn({
+      preOpenHeapBytes: 200,
+      steadyHeapBytes: 150,
+      postCloseHeapBytes: 175,
+      postCloseElapsedMs: 1_900,
+      openSettled: true,
+      adapterDisposed: true,
+      maxRetainedHeapFraction: 0.5,
+      deadlineMs: 2_000,
+    });
+    expect(result).toMatchObject({
+      passed: false,
+      heapIncrementBytes: 0,
+      allowedRetainedHeapBytes: 0,
+      retainedHeapFraction: null,
+      postCloseAtOrBelowSteady: false,
+    });
+    expect(stringifyJsonEvidence(result)).not.toContain("Infinity");
   });
 });

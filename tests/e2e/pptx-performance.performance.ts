@@ -31,7 +31,6 @@ const ACTIVE_ROOT = ".workspace-leaf.mod-active .pptx-viewer";
 const OBSERVATION_WINDOW_MS = 2_000;
 const POST_CLOSE_SAMPLE_TARGET_MS = 1_850;
 const MAX_RETAINED_HEAP_FRACTION = 0.5;
-const HEAP_NOISE_ALLOWANCE_BYTES = 2 * 1024 * 1024;
 const WARMUP_RUNS = 2;
 const MEASURED_RUNS = 10;
 const CANCELLATION_RUNS = 5;
@@ -130,6 +129,7 @@ interface ResourceReturnResult {
   retainedHeapBytes: number;
   retainedHeapFraction: number | null;
   allowedRetainedHeapBytes: number;
+  postCloseAtOrBelowSteady: boolean;
 }
 
 interface RawMemoryAttempt {
@@ -492,7 +492,7 @@ function renderInstalledAnalysis(
     "- Every measured run starts a renderer-side 5 ms sampler before `leaf.openFile`; a MutationObserver adds an immediate snapshot at the real loading transition.",
     "- Peak means the single actual snapshot with maximum heap used between open start and the explicit steady capture. Its RSS is from that same instant; independent maxima are not combined.",
     `- Post-close capture target: ${POST_CLOSE_SAMPLE_TARGET_MS} ms from the renderer timestamp immediately before detach; hard deadline: ${OBSERVATION_WINDOW_MS} ms, including detach, CDP GC, adapter settlement, and post-close sampling.`,
-    `- Heap release passes when retained incremental heap is no greater than the larger of ${MAX_RETAINED_HEAP_FRACTION * 100}% of the pre-open-to-steady increment or an explicit ${HEAP_NOISE_ALLOWANCE_BYTES}-byte V8/collector allocation-noise allowance. Raw values and fractions remain reported. RSS is reported but not gated because Electron/Chromium allocators retain and share resident pages noisily.`,
+    `- Heap release passes only when post-close heap is at or below steady heap and retained incremental heap is no greater than ${MAX_RETAINED_HEAP_FRACTION * 100}% of the observed positive pre-open-to-steady workload increment. The allowance is capped by that measured increment; no uncalibrated floor is used. RSS is reported but not gated because Electron/Chromium allocators retain and share resident pages noisily.`,
     `- Memory attempts: ${rawMemoryAttempts.length}; all have loading snapshot: ${rawMemoryAttempts.every(({ loadingSnapshotCount }) => loadingSnapshotCount > 0) ? "yes" : "no"}.`,
     `- Cancellation attempts: ${rawCancellationAttempts.length}; all met deadline: ${rawCancellationAttempts.every(({ elapsedMs }) => elapsedMs !== null && elapsedMs <= OBSERVATION_WINDOW_MS) ? "yes" : "no"}.`,
     `- Renderer memory source: ${memoryRuntime.selectedHeapSource ?? "none"}; RSS source: ${memoryRuntime.selectedRssSource ?? "none"}.`,
@@ -668,7 +668,6 @@ describe("installed PPTX performance collector", () => {
                   status.diagnostics.openPending === false &&
                   status.diagnostics.rendererActive === false,
                 maxRetainedHeapFraction: MAX_RETAINED_HEAP_FRACTION,
-                heapNoiseAllowanceBytes: HEAP_NOISE_ALLOWANCE_BYTES,
                 deadlineMs: OBSERVATION_WINDOW_MS,
               });
               const completionElapsed =
@@ -881,7 +880,6 @@ describe("installed PPTX performance collector", () => {
       observationWindowMs: OBSERVATION_WINDOW_MS,
       postCloseSampleTargetMs: POST_CLOSE_SAMPLE_TARGET_MS,
       maxRetainedHeapFraction: MAX_RETAINED_HEAP_FRACTION,
-      heapNoiseAllowanceBytes: HEAP_NOISE_ALLOWANCE_BYTES,
       rssPolicy: "observed-only: allocator/shared resident-page noise makes short-window RSS return unsuitable as a hard invariant",
     };
     await writeFile(
