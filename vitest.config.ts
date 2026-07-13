@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    exclude: ["node_modules/**", ".worktrees/**"],
     globals: true,
     setupFiles: ["tests/setup-dom.ts"]
   }
