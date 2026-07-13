@@ -18,6 +18,18 @@
   text-align: center;
 }
 
+.pptx-viewer__controls {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--size-4-2);
+  justify-content: center;
+}
+
+.pptx-viewer__controls .pptx-viewer__page-counter {
+  min-width: 5em;
+}
+
 .pptx-viewer__slide {
   align-items: center;
   display: flex;
