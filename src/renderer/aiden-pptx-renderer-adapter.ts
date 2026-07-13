@@ -41,16 +41,26 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
     signal: AbortSignal,
   ): Promise<PptxRendererSession> {
     signal.throwIfAborted();
-    const viewer = await PptxViewer.open(buffer, container, {
+    const viewerOptions = {
       fitMode: "contain",
       lazyMedia: true,
       lazySlides: true,
       pdfjs: false,
-      renderMode: "slide",
-      signal,
       zipLimits: RECOMMENDED_ZIP_LIMITS,
-    });
-    signal.throwIfAborted();
-    return new AidenPptxRendererSession(viewer, container);
+    } as const;
+    const viewer = new PptxViewer(container, viewerOptions);
+    try {
+      await viewer.open(buffer, {
+        renderMode: "slide",
+        signal,
+        lazyMedia: true,
+        lazySlides: true,
+      });
+      signal.throwIfAborted();
+      return new AidenPptxRendererSession(viewer, container);
+    } catch (error) {
+      viewer.destroy();
+      throw error;
+    }
   }
 }

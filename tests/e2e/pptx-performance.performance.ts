@@ -4,7 +4,6 @@ import path from "node:path";
 import { browser, expect } from "@wdio/globals";
 import {
   PERFORMANCE_BUDGETS,
-  renderPerformanceMarkdown,
   summarizePerformance,
   type CancellationObservation,
   type CleanupObservation,
@@ -16,21 +15,25 @@ import {
   probeElectronMemoryRuntime,
   requestElectronGarbageCollection,
   type ElectronMemoryBrowser,
-  type ElectronMemoryRuntimeProbe,
   type GarbageCollectionObservation,
 } from "../performance/electron-memory";
 import {
   evaluateResourceReturn,
+  resourceCompletionElapsedMs,
   stringifyJsonEvidence,
   summarizeInstalledPerformance,
   type MemoryRunInput,
 } from "../performance/installed-performance-analysis";
+import { pollUntilAttemptDeadline } from "../performance/attempt-timeout";
+import { validateInstalledPerformanceArtifact } from "../performance/installed-performance-artifact";
+import { renderInstalledPerformanceMarkdown } from "../performance/installed-performance-markdown";
 
 const ARTIFACT_DIR = path.resolve("artifacts/performance");
 const ACTIVE_ROOT = ".workspace-leaf.mod-active .pptx-viewer";
 const OBSERVATION_WINDOW_MS = 2_000;
 const POST_CLOSE_SAMPLE_TARGET_MS = 1_850;
 const MAX_RETAINED_HEAP_FRACTION = 0.5;
+const ATTEMPT_TIMEOUT_MS = 30_000;
 const WARMUP_RUNS = 2;
 const MEASURED_RUNS = 10;
 const CANCELLATION_RUNS = 5;
@@ -44,12 +47,14 @@ interface SessionDiagnostics {
   openPending: boolean;
   rendererActive: boolean;
   disposed: boolean;
+  lifecyclePhase: string;
 }
 
 interface RendererMemorySnapshot {
   sequence: number;
   label: string;
   state: string;
+  lifecyclePhase: string;
   rendererTimestampMs: number;
   elapsedSinceOpenMs: number;
   elapsedSinceCloseMs: number | null;
@@ -73,6 +78,7 @@ interface RegisteredRun {
   settledAt: number | null;
   error: string | null;
   sawLoading: boolean;
+  sawInFlight: boolean;
   memorySnapshots: RendererMemorySnapshot[];
   samplingError: string | null;
   closeStartedAt: number | null;
@@ -92,6 +98,7 @@ interface RunStatus {
   settled: boolean;
   error: string | null;
   sawLoading: boolean;
+  sawInFlight: boolean;
   detached: boolean;
   viewerAbsent: boolean;
   diagnostics: SessionDiagnostics | null;
@@ -156,7 +163,21 @@ interface RawCancellationAttempt {
   sampleIndex: number;
   token: string;
   status: AttemptStatus;
+  timedOut: boolean;
   sawLoading: boolean;
+  sawInFlight: boolean;
+  snapshots: RendererMemorySnapshot[];
+  loadingSnapshotCount: number;
+  inFlightSnapshotCount: number;
+  preOpen: RendererMemorySnapshot | null;
+  inFlight: RendererMemorySnapshot | null;
+  peak: RendererMemorySnapshot | null;
+  postClose: RendererMemorySnapshot | null;
+  cleanupElapsedMs: number | null;
+  gcCompletedElapsedMs: number | null;
+  garbageCollection: GarbageCollectionObservation | null;
+  diagnosticsAfterClose: SessionDiagnostics | null;
+  resourceReturn: ResourceReturnResult | null;
   elapsedMs: number | null;
   detached: boolean | null;
   viewerAbsent: boolean | null;
@@ -186,7 +207,11 @@ function parseTiming(value: string | null, label: string): number {
 async function startInstalledRun(
   vaultPath: string,
   token: string,
-  options: { sampleMemory: boolean; cancelOnLoading: boolean },
+  options: {
+    sampleMemory: boolean;
+    cancelOnInFlight: boolean;
+    postCloseTargetMs: number;
+  },
 ) {
   await browser.executeObsidian(
     ({ app, obsidian }, filePath, runToken, runOptions) => {
@@ -211,6 +236,7 @@ async function startInstalledRun(
         settledAt: null,
         error: null,
         sawLoading: false,
+        sawInFlight: false,
         memorySnapshots: [],
         samplingError: null,
         closeStartedAt: null,
@@ -238,6 +264,9 @@ async function startInstalledRun(
           sequence: run.memorySnapshots.length + 1,
           label,
           state: root?.dataset.state ?? (run.closeStartedAt === null ? "not-mounted" : "detached"),
+          lifecyclePhase:
+            root?.dataset.lifecyclePhase ??
+            (run.closeStartedAt === null ? "not-mounted" : "disposed"),
           rendererTimestampMs: timestamp,
           elapsedSinceOpenMs: timestamp - run.openStartedAt,
           elapsedSinceCloseMs:
@@ -289,24 +318,32 @@ async function startInstalledRun(
       if (runOptions.sampleMemory) {
         interval = setInterval(() => sample("open-interval"), 5);
       }
-      const observeLoading = () => {
+      const observeLifecycle = () => {
         const loading = leaf.view?.containerEl?.querySelector<HTMLElement>(
           '.pptx-viewer[data-state="loading"]',
         );
-        if (!loading || run.sawLoading) return;
-        run.sawLoading = true;
-        sample("loading-transition");
-        if (runOptions.cancelOnLoading) beginClose(0);
+        if (loading && !run.sawLoading) {
+          run.sawLoading = true;
+          sample("loading-transition");
+        }
+        const inFlight = leaf.view?.containerEl?.querySelector<HTMLElement>(
+          '.pptx-viewer[data-lifecycle-phase="adapter-opening"]',
+        );
+        if (inFlight && !run.sawInFlight) {
+          run.sawInFlight = true;
+          sample("adapter-opening-transition");
+          if (runOptions.cancelOnInFlight) beginClose(runOptions.postCloseTargetMs);
+        }
       };
-      observer = new MutationObserver(observeLoading);
+      observer = new MutationObserver(observeLifecycle);
       observer.observe(document.body, {
         attributes: true,
-        attributeFilter: ["data-state"],
+        attributeFilter: ["data-state", "data-lifecycle-phase"],
         childList: true,
         subtree: true,
       });
       const opening = leaf.openFile(file);
-      observeLoading();
+      observeLifecycle();
       void opening.then(
         () => {
           if (run.closeStartedAt === null) {
@@ -315,7 +352,7 @@ async function startInstalledRun(
           run.settled = true;
           run.settledAt = performance.now();
           sample("open-settled");
-          if (!runOptions.cancelOnLoading) {
+          if (!runOptions.cancelOnInFlight) {
             if (interval !== null) clearInterval(interval);
             observer?.disconnect();
           }
@@ -369,6 +406,7 @@ async function getRunStatus(token: string): Promise<RunStatus> {
       settled: run?.settled ?? false,
       error: run?.error ?? null,
       sawLoading: run?.sawLoading ?? false,
+      sawInFlight: run?.sawInFlight ?? false,
       detached: run === undefined || !run.view?.containerEl?.isConnected,
       viewerAbsent:
         run === undefined ||
@@ -405,19 +443,17 @@ async function releaseRunEvidence(token: string): Promise<void> {
 async function waitForStatus(
   token: string,
   predicate: (status: RunStatus) => boolean,
-): Promise<RunStatus> {
-  let status = await getRunStatus(token);
-  while (!predicate(status)) {
-    if (
-      status.closeElapsedMs !== null &&
-      status.closeElapsedMs > OBSERVATION_WINDOW_MS
-    ) {
-      return status;
-    }
-    await browser.pause(10);
-    status = await getRunStatus(token);
-  }
-  return status;
+  startedAtMs: number,
+  timeoutMs: number,
+) {
+  return pollUntilAttemptDeadline({
+    read: () => getRunStatus(token),
+    isComplete: predicate,
+    now: () => performance.now(),
+    pause: () => browser.pause(10),
+    startedAtMs,
+    timeoutMs,
+  });
 }
 
 function actualPeakSnapshot(
@@ -440,64 +476,6 @@ function actualPeakSnapshot(
       null,
     ) ?? null
   );
-}
-
-function metricRow(label: string, summary: { p50: number | null; p95: number | null; sampleCount: number; expectedSampleCount: number }) {
-  return `| ${label} | ${summary.sampleCount}/${summary.expectedSampleCount} | ${summary.p50 ?? "n/a"} | ${summary.p95 ?? "n/a"} |`;
-}
-
-function renderInstalledAnalysis(
-  analysis: ReturnType<typeof summarizeInstalledPerformance>,
-  rawMemoryAttempts: readonly RawMemoryAttempt[],
-  rawCancellationAttempts: readonly RawCancellationAttempt[],
-  memoryRuntime: ElectronMemoryRuntimeProbe,
-): string {
-  const lines = [
-    "## Expanded statistical summaries",
-    "",
-    "| Metric | Samples | p50 | p95 |",
-    "| --- | ---: | ---: | ---: |",
-    metricRow("Metadata/open", analysis.metadata),
-    metricRow("First readable", analysis.firstReadable),
-    metricRow("Slide switch", analysis.slideSwitch),
-    metricRow("Cancellation elapsed", analysis.cancellationElapsedMs),
-    metricRow("Cleanup/resource return elapsed", analysis.cleanupElapsedMs),
-    "",
-    "| Memory phase | Heap p50 | Heap p95 | RSS p50 | RSS p95 |",
-    "| --- | ---: | ---: | ---: | ---: |",
-    ...(["peak", "steady", "postClose"] as const).map((phase) =>
-      `| ${phase} | ${analysis.memory[phase].heapUsedBytes.p50 ?? "n/a"} | ${analysis.memory[phase].heapUsedBytes.p95 ?? "n/a"} | ${analysis.memory[phase].rssBytes.p50 ?? "n/a"} | ${analysis.memory[phase].rssBytes.p95 ?? "n/a"} |`,
-    ),
-    "",
-    "### Budget misses and bottlenecks",
-    "",
-    ...(analysis.budgetMisses.length === 0
-      ? ["None."]
-      : analysis.budgetMisses.map(
-          (miss) =>
-            `- ${miss.metric}: p95 ${miss.observedP95Ms} ms > ${miss.budgetMs} ms; bottleneck=${miss.bottleneck}`,
-        )),
-    "",
-    "### Failure summary",
-    "",
-    ...(analysis.failureSummary.length === 0
-      ? ["None."]
-      : analysis.failureSummary.map(
-          (failure) =>
-            `- ${failure.phase}: ${failure.count} failure(s), samples=${failure.sampleIndexes.join(", ") || "n/a"}; ${failure.messages.join("; ")}`,
-        )),
-    "",
-    "### Memory provenance and resource-return policy",
-    "",
-    "- Every measured run starts a renderer-side 5 ms sampler before `leaf.openFile`; a MutationObserver adds an immediate snapshot at the real loading transition.",
-    "- Peak means the single actual snapshot with maximum heap used between open start and the explicit steady capture. Its RSS is from that same instant; independent maxima are not combined.",
-    `- Post-close capture target: ${POST_CLOSE_SAMPLE_TARGET_MS} ms from the renderer timestamp immediately before detach; hard deadline: ${OBSERVATION_WINDOW_MS} ms, including detach, CDP GC, adapter settlement, and post-close sampling.`,
-    `- Heap release passes only when post-close heap is at or below steady heap and retained incremental heap is no greater than ${MAX_RETAINED_HEAP_FRACTION * 100}% of the observed positive pre-open-to-steady workload increment. The allowance is capped by that measured increment; no uncalibrated floor is used. RSS is reported but not gated because Electron/Chromium allocators retain and share resident pages noisily.`,
-    `- Memory attempts: ${rawMemoryAttempts.length}; all have loading snapshot: ${rawMemoryAttempts.every(({ loadingSnapshotCount }) => loadingSnapshotCount > 0) ? "yes" : "no"}.`,
-    `- Cancellation attempts: ${rawCancellationAttempts.length}; all met deadline: ${rawCancellationAttempts.every(({ elapsedMs }) => elapsedMs !== null && elapsedMs <= OBSERVATION_WINDOW_MS) ? "yes" : "no"}.`,
-    `- Renderer memory source: ${memoryRuntime.selectedHeapSource ?? "none"}; RSS source: ${memoryRuntime.selectedRssSource ?? "none"}.`,
-  ];
-  return `${lines.join("\n")}\n`;
 }
 
 describe("installed PPTX performance collector", () => {
@@ -545,6 +523,7 @@ describe("installed PPTX performance collector", () => {
     };
 
     const collectOpen = async (kind: OpenKind, sampleIndex: number, measured: boolean) => {
+      const attemptStartedAtMs = performance.now();
       const token = `${kind}-${sampleIndex}-${Date.now()}`;
       const openAttempt: RawOpenAttempt = {
         kind,
@@ -580,7 +559,8 @@ describe("installed PPTX performance collector", () => {
       try {
         await startInstalledRun(representative.vaultPath, token, {
           sampleMemory: measured,
-          cancelOnLoading: false,
+          cancelOnInFlight: false,
+          postCloseTargetMs: measured ? POST_CLOSE_SAMPLE_TARGET_MS : 0,
         });
         const root = await browser.$(ACTIVE_ROOT);
         await root.waitForExist({ timeout: 30_000 });
@@ -625,14 +605,32 @@ describe("installed PPTX performance collector", () => {
         recordFailure(`${kind}-open`, openAttempt.error, sampleIndex);
       } finally {
         try {
+          const closeStartedAtMs = performance.now();
           await beginClose(token, measured ? POST_CLOSE_SAMPLE_TARGET_MS : 0);
           if (measured) {
-            let status = await waitForStatus(token, (candidate) => candidate.closeStarted);
+            let waited = await waitForStatus(
+              token,
+              (candidate) => candidate.closeStarted,
+              closeStartedAtMs,
+              OBSERVATION_WINDOW_MS,
+            );
+            if (waited.timedOut) throw new Error("timed out waiting for close to start");
+            let status = waited.value;
+            await browser.pause(POST_CLOSE_SAMPLE_TARGET_MS - 250);
             memoryAttempt!.garbageCollection = await requestElectronGarbageCollection(memoryBrowser);
             status = await getRunStatus(token);
             memoryAttempt!.gcCompletedElapsedMs = status.closeElapsedMs;
             if (!status.postCloseSnapshot && (status.closeElapsedMs ?? 0) <= OBSERVATION_WINDOW_MS) {
-              status = await waitForStatus(token, (candidate) => candidate.postCloseSnapshot !== null);
+              waited = await waitForStatus(
+                token,
+                (candidate) => candidate.postCloseSnapshot !== null,
+                closeStartedAtMs,
+                OBSERVATION_WINDOW_MS,
+              );
+              status = waited.value;
+              if (waited.timedOut) {
+                throw new Error("timed out waiting for the post-close memory snapshot");
+              }
             }
             memoryAttempt!.snapshots = status.snapshots;
             memoryAttempt!.loadingSnapshotCount = status.snapshots.filter(({ state }) => state === "loading").length;
@@ -674,11 +672,11 @@ describe("installed PPTX performance collector", () => {
                 status.cleanupElapsedMs === null ||
                 memoryAttempt!.gcCompletedElapsedMs === null
                   ? null
-                  : Math.max(
-                      status.cleanupElapsedMs,
-                      postClose.elapsedSinceCloseMs,
-                      memoryAttempt!.gcCompletedElapsedMs,
-                    );
+                  : resourceCompletionElapsedMs({
+                      cleanupElapsedMs: status.cleanupElapsedMs,
+                      postCloseElapsedMs: postClose.elapsedSinceCloseMs,
+                      gcCompletedElapsedMs: memoryAttempt!.gcCompletedElapsedMs,
+                    });
               const resourcePassed =
                 memoryAttempt!.resourceReturn.passed &&
                 completionElapsed !== null &&
@@ -719,7 +717,13 @@ describe("installed PPTX performance collector", () => {
               memoryAttempt!.error = "memory or cleanup invariant failed; see failure summary";
             }
           } else {
-            await waitForStatus(token, (status) => status.cleanupElapsedMs !== null);
+            const waited = await waitForStatus(
+              token,
+              (status) => status.cleanupElapsedMs !== null,
+              attemptStartedAtMs,
+              ATTEMPT_TIMEOUT_MS,
+            );
+            if (waited.timedOut) throw new Error("timed out waiting for cleanup");
           }
         } catch (error) {
           const failureMessage = message(error);
@@ -745,12 +749,27 @@ describe("installed PPTX performance collector", () => {
     for (let index = 1; index <= MEASURED_RUNS; index += 1) await collectOpen("measured", index, true);
 
     for (let index = 1; index <= CANCELLATION_RUNS; index += 1) {
+      const attemptStartedAtMs = performance.now();
       const token = `cancellation-${index}-${Date.now()}`;
       const attempt: RawCancellationAttempt = {
         sampleIndex: index,
         token,
         status: "pending",
+        timedOut: false,
         sawLoading: false,
+        sawInFlight: false,
+        snapshots: [],
+        loadingSnapshotCount: 0,
+        inFlightSnapshotCount: 0,
+        preOpen: null,
+        inFlight: null,
+        peak: null,
+        postClose: null,
+        cleanupElapsedMs: null,
+        gcCompletedElapsedMs: null,
+        garbageCollection: null,
+        diagnosticsAfterClose: null,
+        resourceReturn: null,
         elapsedMs: null,
         detached: null,
         viewerAbsent: null,
@@ -760,15 +779,76 @@ describe("installed PPTX performance collector", () => {
       };
       try {
         await startInstalledRun(stress.vaultPath, token, {
-          sampleMemory: false,
-          cancelOnLoading: true,
+          sampleMemory: true,
+          cancelOnInFlight: true,
+          postCloseTargetMs: POST_CLOSE_SAMPLE_TARGET_MS,
         });
-        const status = await waitForStatus(
+        let waited = await waitForStatus(
           token,
-          (candidate) => candidate.closeStarted && candidate.cleanupElapsedMs !== null,
+          (candidate) => candidate.sawInFlight && candidate.closeStarted,
+          attemptStartedAtMs,
+          ATTEMPT_TIMEOUT_MS,
         );
+        let status = waited.value;
+        if (waited.timedOut) {
+          attempt.timedOut = true;
+          attempt.error = "timed out before observing adapter-opening lifecycle phase";
+          recordFailure("cancellation-phase", attempt.error, index);
+          const fallbackCloseStartedAtMs = performance.now();
+          await beginClose(token, POST_CLOSE_SAMPLE_TARGET_MS);
+          status = await getRunStatus(token);
+          waited = await waitForStatus(
+            token,
+            (candidate) =>
+              candidate.cleanupElapsedMs !== null &&
+              candidate.postCloseSnapshot !== null,
+            fallbackCloseStartedAtMs,
+            OBSERVATION_WINDOW_MS,
+          );
+          status = waited.value;
+        }
+        const closeObservationStartedAtMs =
+          performance.now() - (status.closeElapsedMs ?? 0);
+        const beforeGcDelayMs = Math.max(
+          0,
+          POST_CLOSE_SAMPLE_TARGET_MS - 250 - (status.closeElapsedMs ?? 0),
+        );
+        await browser.pause(beforeGcDelayMs);
+        attempt.garbageCollection =
+          await requestElectronGarbageCollection(memoryBrowser);
+        status = await getRunStatus(token);
+        attempt.gcCompletedElapsedMs = status.closeElapsedMs;
+        waited = await waitForStatus(
+          token,
+          (candidate) =>
+            candidate.cleanupElapsedMs !== null &&
+            candidate.postCloseSnapshot !== null,
+          closeObservationStartedAtMs,
+          OBSERVATION_WINDOW_MS,
+        );
+        status = waited.value;
+        if (waited.timedOut) attempt.timedOut = true;
         attempt.sawLoading = status.sawLoading;
-        attempt.elapsedMs = status.cleanupElapsedMs;
+        attempt.sawInFlight = status.sawInFlight;
+        attempt.snapshots = status.snapshots;
+        attempt.loadingSnapshotCount = status.snapshots.filter(
+          ({ state }) => state === "loading",
+        ).length;
+        attempt.inFlightSnapshotCount = status.snapshots.filter(
+          ({ lifecyclePhase }) => lifecyclePhase === "adapter-opening",
+        ).length;
+        attempt.preOpen =
+          status.snapshots.find(({ label }) => label === "pre-open") ?? null;
+        attempt.inFlight =
+          status.snapshots.find(
+            ({ lifecyclePhase }) => lifecyclePhase === "adapter-opening",
+          ) ?? null;
+        attempt.peak = attempt.inFlight
+          ? actualPeakSnapshot(status.snapshots, attempt.inFlight)
+          : null;
+        attempt.postClose = status.postCloseSnapshot;
+        attempt.cleanupElapsedMs = status.cleanupElapsedMs;
+        attempt.diagnosticsAfterClose = status.diagnostics;
         attempt.detached = status.detached;
         attempt.viewerAbsent = status.viewerAbsent;
         attempt.openSettled = status.settled;
@@ -776,14 +856,47 @@ describe("installed PPTX performance collector", () => {
           status.diagnostics?.disposed === true &&
           status.diagnostics.openPending === false &&
           status.diagnostics.rendererActive === false;
+        if (
+          attempt.preOpen &&
+          attempt.peak &&
+          attempt.postClose?.elapsedSinceCloseMs !== null &&
+          attempt.postClose?.elapsedSinceCloseMs !== undefined
+        ) {
+          attempt.resourceReturn = evaluateResourceReturn({
+            preOpenHeapBytes: attempt.preOpen.heapUsedBytes,
+            steadyHeapBytes: attempt.peak.heapUsedBytes,
+            postCloseHeapBytes: attempt.postClose.heapUsedBytes,
+            postCloseElapsedMs: attempt.postClose.elapsedSinceCloseMs,
+            openSettled: status.settled,
+            adapterDisposed: attempt.adapterDisposed,
+            maxRetainedHeapFraction: MAX_RETAINED_HEAP_FRACTION,
+            deadlineMs: OBSERVATION_WINDOW_MS,
+          });
+        }
+        if (
+          attempt.cleanupElapsedMs !== null &&
+          attempt.gcCompletedElapsedMs !== null &&
+          attempt.postClose?.elapsedSinceCloseMs !== null &&
+          attempt.postClose?.elapsedSinceCloseMs !== undefined
+        ) {
+          attempt.elapsedMs = resourceCompletionElapsedMs({
+            cleanupElapsedMs: attempt.cleanupElapsedMs,
+            gcCompletedElapsedMs: attempt.gcCompletedElapsedMs,
+            postCloseElapsedMs: attempt.postClose.elapsedSinceCloseMs,
+          });
+        }
         const passed =
+          !attempt.timedOut &&
           attempt.sawLoading &&
+          attempt.sawInFlight &&
+          attempt.inFlightSnapshotCount > 0 &&
           attempt.elapsedMs !== null &&
           attempt.elapsedMs <= OBSERVATION_WINDOW_MS &&
           attempt.detached &&
           attempt.viewerAbsent &&
           attempt.openSettled &&
-          attempt.adapterDisposed;
+          attempt.adapterDisposed &&
+          attempt.resourceReturn?.passed === true;
         attempt.status = passed ? "passed" : "failed";
         if (attempt.elapsedMs !== null) {
           cancellation.push({
@@ -798,7 +911,8 @@ describe("installed PPTX performance collector", () => {
           });
         }
         if (!passed) {
-          attempt.error = `loading cancellation missed adapter/resource ${OBSERVATION_WINDOW_MS} ms deadline`;
+          attempt.error ??=
+            `in-flight cancellation missed lifecycle/adapter/resource ${OBSERVATION_WINDOW_MS} ms deadline`;
           recordFailure("cancellation", attempt.error, index);
         }
       } catch (error) {
@@ -861,12 +975,19 @@ describe("installed PPTX performance collector", () => {
       cancellationElapsedMs: rawCancellationAttempts.flatMap(({ elapsedMs }) =>
         elapsedMs === null ? [] : [elapsedMs],
       ),
-      cleanupElapsedMs: rawMemoryAttempts.flatMap(({ cleanupElapsedMs, postClose }) =>
+      cleanupElapsedMs: rawMemoryAttempts.flatMap(({ cleanupElapsedMs, gcCompletedElapsedMs, postClose }) =>
         cleanupElapsedMs === null ||
+        gcCompletedElapsedMs === null ||
         postClose === null ||
         postClose.elapsedSinceCloseMs === null
           ? []
-          : [Math.max(cleanupElapsedMs, postClose.elapsedSinceCloseMs)],
+          : [
+              resourceCompletionElapsedMs({
+                cleanupElapsedMs,
+                gcCompletedElapsedMs,
+                postCloseElapsedMs: postClose.elapsedSinceCloseMs,
+              }),
+            ],
       ),
       failures: summary.failures,
       budgets: PERFORMANCE_BUDGETS,
@@ -882,14 +1003,24 @@ describe("installed PPTX performance collector", () => {
       maxRetainedHeapFraction: MAX_RETAINED_HEAP_FRACTION,
       rssPolicy: "observed-only: allocator/shared resident-page noise makes short-window RSS return unsuitable as a hard invariant",
     };
+    const artifact = {
+      protocol,
+      memoryRuntime,
+      rawOpens,
+      rawMemoryAttempts,
+      rawCancellationAttempts,
+      analysis,
+      ...summary,
+    };
     await writeFile(
       path.join(ARTIFACT_DIR, "results.json"),
-      `${stringifyJsonEvidence({ protocol, memoryRuntime, rawOpens, rawMemoryAttempts, rawCancellationAttempts, analysis, ...summary }, 2)}\n`,
+      `${stringifyJsonEvidence(artifact, 2)}\n`,
     );
     await writeFile(
       path.join(ARTIFACT_DIR, "summary.md"),
-      `${renderPerformanceMarkdown(summary)}\n${renderInstalledAnalysis(analysis, rawMemoryAttempts, rawCancellationAttempts, memoryRuntime)}`,
+      renderInstalledPerformanceMarkdown(artifact),
     );
+    validateInstalledPerformanceArtifact(artifact);
     if (invariantFailures.length > 0) throw new Error(invariantFailures.join("\n"));
   });
 });

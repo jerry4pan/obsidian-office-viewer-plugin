@@ -181,6 +181,18 @@ export interface ResourceReturnInput {
   readonly deadlineMs: number;
 }
 
+export function resourceCompletionElapsedMs(input: {
+  readonly cleanupElapsedMs: number;
+  readonly gcCompletedElapsedMs: number;
+  readonly postCloseElapsedMs: number;
+}): number {
+  return Math.max(
+    input.cleanupElapsedMs,
+    input.gcCompletedElapsedMs,
+    input.postCloseElapsedMs,
+  );
+}
+
 export function evaluateResourceReturn(input: ResourceReturnInput) {
   const heapIncrementBytes = Math.max(
     0,

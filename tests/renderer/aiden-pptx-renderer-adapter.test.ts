@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { PptxViewer } from "@aiden0z/pptx-renderer";
 import { AidenPptxRendererAdapter } from "../../src/renderer/aiden-pptx-renderer-adapter";
 
 async function loadFixture(): Promise<ArrayBuffer> {
@@ -39,5 +40,55 @@ describe("AidenPptxRendererAdapter", () => {
         controller.signal,
       ),
     ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("destroys an allocated viewer exactly once when instance open rejects", async () => {
+    const failure = new Error("parse failed");
+    const open = vi.spyOn(PptxViewer.prototype, "open").mockRejectedValue(failure);
+    const destroy = vi
+      .spyOn(PptxViewer.prototype, "destroy")
+      .mockImplementation(() => {});
+
+    try {
+      await expect(
+        new AidenPptxRendererAdapter().open(
+          await loadFixture(),
+          document.createElement("div"),
+          new AbortController().signal,
+        ),
+      ).rejects.toBe(failure);
+      expect(open).toHaveBeenCalledOnce();
+      expect(destroy).toHaveBeenCalledOnce();
+    } finally {
+      open.mockRestore();
+      destroy.mockRestore();
+    }
+  });
+
+  it("destroys an allocated viewer exactly once when abort wins after open", async () => {
+    const controller = new AbortController();
+    const open = vi
+      .spyOn(PptxViewer.prototype, "open")
+      .mockImplementation(async () => {
+        controller.abort();
+      });
+    const destroy = vi
+      .spyOn(PptxViewer.prototype, "destroy")
+      .mockImplementation(() => {});
+
+    try {
+      await expect(
+        new AidenPptxRendererAdapter().open(
+          await loadFixture(),
+          document.createElement("div"),
+          controller.signal,
+        ),
+      ).rejects.toMatchObject({ name: "AbortError" });
+      expect(open).toHaveBeenCalledOnce();
+      expect(destroy).toHaveBeenCalledOnce();
+    } finally {
+      open.mockRestore();
+      destroy.mockRestore();
+    }
   });
 });

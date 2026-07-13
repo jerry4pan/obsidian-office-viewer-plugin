@@ -21,6 +21,48 @@ function makeRenderer(slideCount = 1) {
 }
 
 describe("PptxViewSession", () => {
+  it("exposes a candidate-independent in-flight phase after Vault reading completes", async () => {
+    const root = document.createElement("div");
+    let finishRead: ((bytes: ArrayBuffer) => void) | undefined;
+    let finishAdapterOpen: ((session: PptxRendererSession) => void) | undefined;
+    const rendererSession = makeRenderer().rendererSession;
+    const reader = {
+      readBinary: vi.fn(
+        () =>
+          new Promise<ArrayBuffer>((resolve) => {
+            finishRead = resolve;
+          }),
+      ),
+    };
+    const adapter: PptxRendererAdapter = {
+      open: vi.fn(
+        () =>
+          new Promise<PptxRendererSession>((resolve) => {
+            finishAdapterOpen = resolve;
+          }),
+      ),
+    };
+    const session = new PptxViewSession(root, reader, adapter);
+
+    const opening = session.open("stress.pptx");
+    expect(root.dataset.lifecyclePhase).toBe("reading");
+
+    finishRead?.(new ArrayBuffer(1));
+    await vi.waitFor(() => expect(adapter.open).toHaveBeenCalledOnce());
+    expect(root.dataset.lifecyclePhase).toBe("adapter-opening");
+    expect(session.getPerformanceDiagnostics().lifecyclePhase).toBe(
+      "adapter-opening",
+    );
+
+    finishAdapterOpen?.(rendererSession);
+    await opening;
+    expect(root.dataset.lifecyclePhase).toBe("ready");
+
+    session.dispose();
+    expect(root.dataset.lifecyclePhase).toBeUndefined();
+    expect(session.getPerformanceDiagnostics().lifecyclePhase).toBe("disposed");
+  });
+
   it("exposes adapter work diagnostics through open and disposal", async () => {
     const root = document.createElement("div");
     let finishRead: ((value: ArrayBuffer) => void) | undefined;

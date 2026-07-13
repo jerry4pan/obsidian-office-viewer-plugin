@@ -1,0 +1,699 @@
+import {
+  PERFORMANCE_BUDGETS,
+  summarizePerformance,
+  type PerformanceSummary,
+} from "../../src/performance/performance-report";
+import type {
+  ElectronMemoryRuntimeProbe,
+  GarbageCollectionObservation,
+} from "./electron-memory";
+import {
+  evaluateResourceReturn,
+  resourceCompletionElapsedMs,
+  stringifyJsonEvidence,
+  summarizeInstalledPerformance,
+} from "./installed-performance-analysis";
+import type { InstalledMarkdownArtifact } from "./installed-performance-markdown";
+
+type AttemptStatus = "pending" | "passed" | "failed";
+type Analysis = ReturnType<typeof summarizeInstalledPerformance>;
+
+export interface InstalledSnapshot {
+  readonly sequence: number;
+  readonly label: string;
+  readonly state: string;
+  readonly lifecyclePhase: string;
+  readonly rendererTimestampMs: number;
+  readonly elapsedSinceOpenMs: number;
+  readonly elapsedSinceCloseMs: number | null;
+  readonly heapUsedBytes: number;
+  readonly rssBytes: number;
+  readonly heapSource: "process.memoryUsage().heapUsed";
+  readonly rssSource: "process.memoryUsage().rss";
+}
+
+interface ResourceReturn {
+  readonly passed: boolean;
+  readonly deadlinePassed: boolean;
+  readonly adapterStopped: boolean;
+  readonly heapIncrementBytes: number;
+  readonly retainedHeapBytes: number;
+  readonly retainedHeapFraction: number | null;
+  readonly allowedRetainedHeapBytes: number;
+  readonly postCloseAtOrBelowSteady: boolean;
+}
+
+interface Diagnostics {
+  readonly generation: number;
+  readonly openPending: boolean;
+  readonly rendererActive: boolean;
+  readonly disposed: boolean;
+  readonly lifecyclePhase: string;
+}
+
+export interface InstalledOpenAttempt {
+  readonly kind: "cold" | "warmup" | "measured";
+  readonly sampleIndex: number;
+  readonly token: string;
+  readonly status: AttemptStatus;
+  readonly metadataMs: number | null;
+  readonly firstReadableMs: number | null;
+  readonly slideSwitches: readonly {
+    readonly action: "next" | "previous";
+    readonly from: string;
+    readonly to: string;
+    readonly elapsedMs: number;
+  }[];
+  readonly error: string | null;
+}
+
+export interface InstalledMemoryAttempt {
+  readonly sampleIndex: number;
+  readonly token: string;
+  readonly status: AttemptStatus;
+  readonly snapshots: readonly InstalledSnapshot[];
+  readonly loadingSnapshotCount: number;
+  readonly preOpen: InstalledSnapshot | null;
+  readonly peak: InstalledSnapshot | null;
+  readonly steady: InstalledSnapshot | null;
+  readonly postClose: InstalledSnapshot | null;
+  readonly cleanupElapsedMs: number | null;
+  readonly gcCompletedElapsedMs: number | null;
+  readonly garbageCollection: GarbageCollectionObservation | null;
+  readonly diagnosticsAfterClose: Diagnostics | null;
+  readonly resourceReturn: ResourceReturn | null;
+  readonly error: string | null;
+}
+
+export interface InstalledCancellationAttempt {
+  readonly sampleIndex: number;
+  readonly token: string;
+  readonly status: AttemptStatus;
+  readonly timedOut: boolean;
+  readonly sawLoading: boolean;
+  readonly sawInFlight: boolean;
+  readonly snapshots: readonly InstalledSnapshot[];
+  readonly loadingSnapshotCount: number;
+  readonly inFlightSnapshotCount: number;
+  readonly preOpen: InstalledSnapshot | null;
+  readonly inFlight: InstalledSnapshot | null;
+  readonly peak: InstalledSnapshot | null;
+  readonly postClose: InstalledSnapshot | null;
+  readonly cleanupElapsedMs: number | null;
+  readonly gcCompletedElapsedMs: number | null;
+  readonly garbageCollection: GarbageCollectionObservation | null;
+  readonly diagnosticsAfterClose: Diagnostics | null;
+  readonly resourceReturn: ResourceReturn | null;
+  readonly elapsedMs: number | null;
+  readonly detached: boolean | null;
+  readonly viewerAbsent: boolean | null;
+  readonly openSettled: boolean | null;
+  readonly adapterDisposed: boolean | null;
+  readonly error: string | null;
+}
+
+export interface InstalledPerformanceArtifact
+  extends PerformanceSummary,
+    InstalledMarkdownArtifact {
+  readonly protocol: InstalledMarkdownArtifact["protocol"] & {
+    readonly coldRuns: number;
+    readonly warmupRuns: number;
+    readonly measuredRuns: number;
+    readonly slideSwitchesPerMeasuredRun: number;
+    readonly cancellationRuns: number;
+    readonly rssPolicy: string;
+  };
+  readonly memoryRuntime: ElectronMemoryRuntimeProbe;
+  readonly rawOpens: readonly InstalledOpenAttempt[];
+  readonly rawMemoryAttempts: readonly InstalledMemoryAttempt[];
+  readonly rawCancellationAttempts: readonly InstalledCancellationAttempt[];
+  readonly analysis: Analysis;
+}
+
+function fail(path: string, expected: string): never {
+  throw new Error(`${path} must be ${expected}`);
+}
+
+function record(value: unknown, path: string): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return fail(path, "an object");
+  }
+  return value as Record<string, unknown>;
+}
+
+function array(value: unknown, path: string): readonly unknown[] {
+  if (!Array.isArray(value)) return fail(path, "an array");
+  return value;
+}
+
+function string(value: unknown, path: string): string {
+  if (typeof value !== "string") return fail(path, "a string");
+  return value;
+}
+
+function finite(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fail(path, "a finite number");
+  }
+  return value;
+}
+
+function nonNegative(value: unknown, path: string): number {
+  const result = finite(value, path);
+  if (result < 0) return fail(path, "a non-negative finite number");
+  return result;
+}
+
+function integer(value: unknown, path: string): number {
+  const result = nonNegative(value, path);
+  if (!Number.isInteger(result)) return fail(path, "a non-negative integer");
+  return result;
+}
+
+function boolean(value: unknown, path: string): boolean {
+  if (typeof value !== "boolean") return fail(path, "a boolean");
+  return value;
+}
+
+function nullable<T>(
+  value: unknown,
+  path: string,
+  validate: (value: unknown, path: string) => T,
+): T | null {
+  return value === null ? null : validate(value, path);
+}
+
+function enumeration<T extends string>(
+  value: unknown,
+  path: string,
+  values: readonly T[],
+): T {
+  const result = string(value, path);
+  if (!values.includes(result as T)) return fail(path, values.join(" | "));
+  return result as T;
+}
+
+function assertJsonSafe(value: unknown, path = "artifact"): void {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return;
+  if (typeof value === "number") {
+    finite(value, path);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertJsonSafe(item, `${path}[${index}]`));
+    return;
+  }
+  const object = record(value, path);
+  for (const [key, item] of Object.entries(object)) {
+    assertJsonSafe(item, `${path}.${key}`);
+  }
+}
+
+function assertSnapshot(value: unknown, path: string): void {
+  const snapshot = record(value, path);
+  integer(snapshot.sequence, `${path}.sequence`);
+  string(snapshot.label, `${path}.label`);
+  string(snapshot.state, `${path}.state`);
+  string(snapshot.lifecyclePhase, `${path}.lifecyclePhase`);
+  nonNegative(snapshot.rendererTimestampMs, `${path}.rendererTimestampMs`);
+  nonNegative(snapshot.elapsedSinceOpenMs, `${path}.elapsedSinceOpenMs`);
+  nullable(snapshot.elapsedSinceCloseMs, `${path}.elapsedSinceCloseMs`, nonNegative);
+  nonNegative(snapshot.heapUsedBytes, `${path}.heapUsedBytes`);
+  nonNegative(snapshot.rssBytes, `${path}.rssBytes`);
+  enumeration(snapshot.heapSource, `${path}.heapSource`, [
+    "process.memoryUsage().heapUsed",
+  ]);
+  enumeration(snapshot.rssSource, `${path}.rssSource`, [
+    "process.memoryUsage().rss",
+  ]);
+}
+
+function assertDiagnostics(value: unknown, path: string): void {
+  const diagnostics = record(value, path);
+  integer(diagnostics.generation, `${path}.generation`);
+  boolean(diagnostics.openPending, `${path}.openPending`);
+  boolean(diagnostics.rendererActive, `${path}.rendererActive`);
+  boolean(diagnostics.disposed, `${path}.disposed`);
+  string(diagnostics.lifecyclePhase, `${path}.lifecyclePhase`);
+}
+
+function assertResourceReturn(value: unknown, path: string): void {
+  const result = record(value, path);
+  for (const key of [
+    "passed",
+    "deadlinePassed",
+    "adapterStopped",
+    "postCloseAtOrBelowSteady",
+  ]) {
+    boolean(result[key], `${path}.${key}`);
+  }
+  for (const key of [
+    "heapIncrementBytes",
+    "retainedHeapBytes",
+    "allowedRetainedHeapBytes",
+  ]) {
+    nonNegative(result[key], `${path}.${key}`);
+  }
+  nullable(result.retainedHeapFraction, `${path}.retainedHeapFraction`, nonNegative);
+}
+
+function assertGarbageCollection(value: unknown, path: string): void {
+  const gc = record(value, path);
+  boolean(gc.forced, `${path}.forced`);
+  enumeration(gc.method, `${path}.method`, [
+    "cdp-heap-profiler",
+    "renderer-global-gc",
+    "observation-window-only",
+  ]);
+  if (gc.cdpError !== undefined) string(gc.cdpError, `${path}.cdpError`);
+  if (gc.fallbackReason !== undefined) {
+    string(gc.fallbackReason, `${path}.fallbackReason`);
+  }
+}
+
+function assertAttemptBase(attempt: Record<string, unknown>, path: string): void {
+  integer(attempt.sampleIndex, `${path}.sampleIndex`);
+  string(attempt.token, `${path}.token`);
+  enumeration(attempt.status, `${path}.status`, ["pending", "passed", "failed"]);
+  nullable(attempt.error, `${path}.error`, string);
+}
+
+function assertCommonResourceAttempt(
+  attempt: Record<string, unknown>,
+  path: string,
+): void {
+  assertAttemptBase(attempt, path);
+  array(attempt.snapshots, `${path}.snapshots`).forEach((snapshot, index) =>
+    assertSnapshot(snapshot, `${path}.snapshots[${index}]`),
+  );
+  for (const key of ["preOpen", "peak", "postClose"] as const) {
+    if (attempt[key] !== null) assertSnapshot(attempt[key], `${path}.${key}`);
+  }
+  nullable(attempt.cleanupElapsedMs, `${path}.cleanupElapsedMs`, nonNegative);
+  nullable(attempt.gcCompletedElapsedMs, `${path}.gcCompletedElapsedMs`, nonNegative);
+  if (attempt.garbageCollection !== null) {
+    assertGarbageCollection(attempt.garbageCollection, `${path}.garbageCollection`);
+  }
+  if (attempt.diagnosticsAfterClose !== null) {
+    assertDiagnostics(attempt.diagnosticsAfterClose, `${path}.diagnosticsAfterClose`);
+  }
+  if (attempt.resourceReturn !== null) {
+    assertResourceReturn(attempt.resourceReturn, `${path}.resourceReturn`);
+  }
+}
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, canonical(item)]),
+    );
+  }
+  return value;
+}
+
+function assertEqual(actual: unknown, expected: unknown, path: string): void {
+  if (stringifyJsonEvidence(canonical(actual)) !== stringifyJsonEvidence(canonical(expected))) {
+    throw new Error(`${path} does not match values recomputed from raw evidence`);
+  }
+}
+
+export function validateInstalledPerformanceArtifact(
+  value: unknown,
+): InstalledPerformanceArtifact {
+  assertJsonSafe(value);
+  const top = record(value, "artifact");
+  const protocol = record(top.protocol, "artifact.protocol");
+  for (const key of [
+    "coldRuns",
+    "warmupRuns",
+    "measuredRuns",
+    "slideSwitchesPerMeasuredRun",
+    "cancellationRuns",
+    "observationWindowMs",
+    "postCloseSampleTargetMs",
+  ]) {
+    integer(protocol[key], `artifact.protocol.${key}`);
+  }
+  const maxRetainedHeapFraction = finite(
+    protocol.maxRetainedHeapFraction,
+    "artifact.protocol.maxRetainedHeapFraction",
+  );
+  if (maxRetainedHeapFraction < 0 || maxRetainedHeapFraction > 1) {
+    fail("artifact.protocol.maxRetainedHeapFraction", "between zero and one");
+  }
+  string(protocol.rssPolicy, "artifact.protocol.rssPolicy");
+  const fixedProtocol = {
+    coldRuns: 1,
+    warmupRuns: 2,
+    measuredRuns: 10,
+    slideSwitchesPerMeasuredRun: 4,
+    cancellationRuns: 5,
+    observationWindowMs: 2_000,
+    postCloseSampleTargetMs: 1_850,
+    maxRetainedHeapFraction: 0.5,
+  } as const;
+  for (const [key, expected] of Object.entries(fixedProtocol)) {
+    if (protocol[key] !== expected) {
+      throw new Error(`artifact.protocol.${key} must equal fixed value ${expected}`);
+    }
+  }
+
+  const memoryRuntime = record(top.memoryRuntime, "artifact.memoryRuntime");
+  boolean(
+    memoryRuntime.memoryUsageAvailable,
+    "artifact.memoryRuntime.memoryUsageAvailable",
+  );
+  boolean(
+    memoryRuntime.getProcessMemoryInfoAvailable,
+    "artifact.memoryRuntime.getProcessMemoryInfoAvailable",
+  );
+  nullable(
+    memoryRuntime.getProcessMemoryInfoError,
+    "artifact.memoryRuntime.getProcessMemoryInfoError",
+    string,
+  );
+  array(
+    memoryRuntime.getProcessMemoryInfoKeys,
+    "artifact.memoryRuntime.getProcessMemoryInfoKeys",
+  ).forEach((key, index) =>
+    string(key, `artifact.memoryRuntime.getProcessMemoryInfoKeys[${index}]`),
+  );
+  nullable(
+    memoryRuntime.getProcessMemoryInfoResidentSet,
+    "artifact.memoryRuntime.getProcessMemoryInfoResidentSet",
+    nonNegative,
+  );
+  nullable(
+    memoryRuntime.rssFallbackReason,
+    "artifact.memoryRuntime.rssFallbackReason",
+    string,
+  );
+  nullable(
+    memoryRuntime.selectedHeapSource,
+    "artifact.memoryRuntime.selectedHeapSource",
+    (source, path) =>
+      enumeration(source, path, ["process.memoryUsage().heapUsed"]),
+  );
+  nullable(
+    memoryRuntime.selectedRssSource,
+    "artifact.memoryRuntime.selectedRssSource",
+    (source, path) =>
+      enumeration(source, path, [
+        "process.getProcessMemoryInfo().residentSet * 1024",
+        "process.memoryUsage().rss",
+      ]),
+  );
+
+  const environment = record(top.environment, "artifact.environment");
+  for (const key of [
+    "device",
+    "os",
+    "obsidianVersion",
+    "electronVersion",
+    "renderer",
+    "coldDefinition",
+    "warmDefinition",
+  ]) {
+    string(environment[key], `artifact.environment.${key}`);
+  }
+  for (const key of ["warmupRuns", "measuredRuns", "slideSwitchesPerRun"]) {
+    integer(environment[key], `artifact.environment.${key}`);
+  }
+  if (
+    environment.warmupRuns !== protocol.warmupRuns ||
+    environment.measuredRuns !== protocol.measuredRuns ||
+    environment.slideSwitchesPerRun !== protocol.slideSwitchesPerMeasuredRun
+  ) {
+    throw new Error("artifact environment run counts do not match protocol");
+  }
+
+  const rawOpens = array(top.rawOpens, "artifact.rawOpens");
+  const rawMemory = array(top.rawMemoryAttempts, "artifact.rawMemoryAttempts");
+  const rawCancellation = array(
+    top.rawCancellationAttempts,
+    "artifact.rawCancellationAttempts",
+  );
+  const expectedOpenCount =
+    (protocol.coldRuns as number) +
+    (protocol.warmupRuns as number) +
+    (protocol.measuredRuns as number);
+  if (rawOpens.length !== expectedOpenCount) {
+    throw new Error(`artifact.rawOpens must contain exactly ${expectedOpenCount} attempts`);
+  }
+  if (rawMemory.length !== protocol.measuredRuns) {
+    throw new Error(`artifact.rawMemoryAttempts must contain exactly ${protocol.measuredRuns} attempts`);
+  }
+  if (rawCancellation.length !== protocol.cancellationRuns) {
+    throw new Error(`artifact.rawCancellationAttempts must contain exactly ${protocol.cancellationRuns} attempts`);
+  }
+
+  rawOpens.forEach((value, index) => {
+    const path = `artifact.rawOpens[${index}]`;
+    const attempt = record(value, path);
+    assertAttemptBase(attempt, path);
+    enumeration(attempt.kind, `${path}.kind`, ["cold", "warmup", "measured"]);
+    nullable(attempt.metadataMs, `${path}.metadataMs`, nonNegative);
+    nullable(attempt.firstReadableMs, `${path}.firstReadableMs`, nonNegative);
+    const switches = array(attempt.slideSwitches, `${path}.slideSwitches`);
+    switches.forEach((value, switchIndex) => {
+      const switchPath = `${path}.slideSwitches[${switchIndex}]`;
+      const slideSwitch = record(value, switchPath);
+      enumeration(slideSwitch.action, `${switchPath}.action`, ["next", "previous"]);
+      string(slideSwitch.from, `${switchPath}.from`);
+      string(slideSwitch.to, `${switchPath}.to`);
+      nonNegative(slideSwitch.elapsedMs, `${switchPath}.elapsedMs`);
+    });
+  });
+
+  rawMemory.forEach((value, index) => {
+    const path = `artifact.rawMemoryAttempts[${index}]`;
+    const attempt = record(value, path);
+    assertCommonResourceAttempt(attempt, path);
+    integer(attempt.loadingSnapshotCount, `${path}.loadingSnapshotCount`);
+    if (attempt.steady !== null) assertSnapshot(attempt.steady, `${path}.steady`);
+  });
+
+  rawCancellation.forEach((value, index) => {
+    const path = `artifact.rawCancellationAttempts[${index}]`;
+    const attempt = record(value, path);
+    assertCommonResourceAttempt(attempt, path);
+    for (const key of ["timedOut", "sawLoading", "sawInFlight"] as const) {
+      boolean(attempt[key], `${path}.${key}`);
+    }
+    for (const key of ["loadingSnapshotCount", "inFlightSnapshotCount"] as const) {
+      integer(attempt[key], `${path}.${key}`);
+    }
+    if (attempt.inFlight !== null) assertSnapshot(attempt.inFlight, `${path}.inFlight`);
+    nullable(attempt.elapsedMs, `${path}.elapsedMs`, nonNegative);
+    for (const key of [
+      "detached",
+      "viewerAbsent",
+      "openSettled",
+      "adapterDisposed",
+    ] as const) {
+      nullable(attempt[key], `${path}.${key}`, boolean);
+    }
+  });
+
+  const artifact = value as InstalledPerformanceArtifact;
+  const measuredOpens = artifact.rawOpens.filter(({ kind }) => kind === "measured");
+  if (
+    measuredOpens.length !== artifact.protocol.measuredRuns ||
+    measuredOpens.some(
+      ({ status, metadataMs, firstReadableMs, slideSwitches, error }) =>
+        status !== "passed" ||
+        metadataMs === null ||
+        firstReadableMs === null ||
+        slideSwitches.length !== artifact.protocol.slideSwitchesPerMeasuredRun ||
+        error !== null,
+    )
+  ) {
+    throw new Error("artifact measured opens must be complete passed attempts with exact switch counts");
+  }
+  if (
+    artifact.rawMemoryAttempts.some(
+      (attempt) =>
+        attempt.status !== "passed" ||
+        attempt.loadingSnapshotCount < 1 ||
+        !attempt.snapshots.some(({ state }) => state === "loading") ||
+        !attempt.preOpen ||
+        !attempt.peak ||
+        !attempt.steady ||
+        !attempt.postClose ||
+        attempt.cleanupElapsedMs === null ||
+        attempt.gcCompletedElapsedMs === null ||
+        !attempt.garbageCollection ||
+        !attempt.diagnosticsAfterClose ||
+        !attempt.resourceReturn ||
+        !attempt.resourceReturn.passed ||
+        attempt.error !== null,
+    )
+  ) {
+    throw new Error("artifact memory attempts must contain complete strict resource-return evidence");
+  }
+  if (
+    artifact.rawCancellationAttempts.some(
+      (attempt) =>
+        attempt.status !== "passed" ||
+        attempt.timedOut ||
+        !attempt.sawLoading ||
+        !attempt.sawInFlight ||
+        attempt.inFlightSnapshotCount < 1 ||
+        !attempt.snapshots.some(
+          ({ lifecyclePhase }) => lifecyclePhase === "adapter-opening",
+        ) ||
+        !attempt.preOpen ||
+        !attempt.inFlight ||
+        !attempt.peak ||
+        !attempt.postClose ||
+        attempt.cleanupElapsedMs === null ||
+        attempt.gcCompletedElapsedMs === null ||
+        !attempt.garbageCollection ||
+        !attempt.diagnosticsAfterClose ||
+        !attempt.resourceReturn?.passed ||
+        attempt.elapsedMs === null ||
+        attempt.elapsedMs > artifact.protocol.observationWindowMs ||
+        attempt.detached !== true ||
+        attempt.viewerAbsent !== true ||
+        attempt.openSettled !== true ||
+        attempt.adapterDisposed !== true ||
+        attempt.error !== null,
+    )
+  ) {
+    throw new Error("artifact cancellation attempts must prove strict in-flight resource return");
+  }
+  if (artifact.failures.length > 0) {
+    throw new Error("artifact committed baseline must not contain failures");
+  }
+
+  for (const attempt of artifact.rawMemoryAttempts) {
+    const expected = evaluateResourceReturn({
+      preOpenHeapBytes: attempt.preOpen!.heapUsedBytes,
+      steadyHeapBytes: attempt.steady!.heapUsedBytes,
+      postCloseHeapBytes: attempt.postClose!.heapUsedBytes,
+      postCloseElapsedMs: attempt.postClose!.elapsedSinceCloseMs!,
+      openSettled: true,
+      adapterDisposed:
+        attempt.diagnosticsAfterClose!.disposed &&
+        !attempt.diagnosticsAfterClose!.openPending &&
+        !attempt.diagnosticsAfterClose!.rendererActive,
+      maxRetainedHeapFraction: artifact.protocol.maxRetainedHeapFraction,
+      deadlineMs: artifact.protocol.observationWindowMs,
+    });
+    assertEqual(attempt.resourceReturn, expected, `memory attempt ${attempt.sampleIndex} resourceReturn`);
+  }
+  for (const attempt of artifact.rawCancellationAttempts) {
+    const expected = evaluateResourceReturn({
+      preOpenHeapBytes: attempt.preOpen!.heapUsedBytes,
+      steadyHeapBytes: attempt.peak!.heapUsedBytes,
+      postCloseHeapBytes: attempt.postClose!.heapUsedBytes,
+      postCloseElapsedMs: attempt.postClose!.elapsedSinceCloseMs!,
+      openSettled: attempt.openSettled!,
+      adapterDisposed: attempt.adapterDisposed!,
+      maxRetainedHeapFraction: artifact.protocol.maxRetainedHeapFraction,
+      deadlineMs: artifact.protocol.observationWindowMs,
+    });
+    assertEqual(attempt.resourceReturn, expected, `cancellation attempt ${attempt.sampleIndex} resourceReturn`);
+  }
+
+  const firstReadableMs = measuredOpens.map(({ firstReadableMs }) => firstReadableMs!);
+  const metadataMs = measuredOpens.map(({ metadataMs }) => metadataMs!);
+  const slideSwitchMs = measuredOpens.flatMap(({ slideSwitches }) =>
+    slideSwitches.map(({ elapsedMs }) => elapsedMs),
+  );
+  const measuredCleanup = artifact.rawMemoryAttempts.map((attempt) =>
+    resourceCompletionElapsedMs({
+      cleanupElapsedMs: attempt.cleanupElapsedMs!,
+      gcCompletedElapsedMs: attempt.gcCompletedElapsedMs!,
+      postCloseElapsedMs: attempt.postClose!.elapsedSinceCloseMs!,
+    }),
+  );
+  const cancellationElapsed = artifact.rawCancellationAttempts.map(
+    ({ elapsedMs }) => elapsedMs!,
+  );
+  const expectedResources = {
+    memory: artifact.rawMemoryAttempts.flatMap(
+      ({ peak, steady, postClose, sampleIndex }) => [
+        {
+          label: `measured-${sampleIndex}-peak-actual-snapshot-${peak!.sequence}`,
+          heapUsedBytes: peak!.heapUsedBytes,
+          rssBytes: peak!.rssBytes,
+        },
+        {
+          label: `measured-${sampleIndex}-steady`,
+          heapUsedBytes: steady!.heapUsedBytes,
+          rssBytes: steady!.rssBytes,
+        },
+        {
+          label: `measured-${sampleIndex}-post-close`,
+          heapUsedBytes: postClose!.heapUsedBytes,
+          rssBytes: postClose!.rssBytes,
+        },
+      ],
+    ),
+    cancellation: artifact.rawCancellationAttempts.map((attempt) => ({
+      elapsedMs: attempt.elapsedMs!,
+      detached: attempt.detached!,
+      viewerAbsent: attempt.viewerAbsent!,
+    })),
+    cleanup: [
+      ...artifact.rawMemoryAttempts.map((attempt, index) => ({
+        elapsedMs: measuredCleanup[index]!,
+        unfinishedWorkStopped: attempt.resourceReturn!.adapterStopped,
+        resourcesReleased:
+          attempt.resourceReturn!.passed &&
+          measuredCleanup[index]! <= artifact.protocol.observationWindowMs,
+      })),
+      ...artifact.rawCancellationAttempts.map((attempt) => ({
+        elapsedMs: attempt.elapsedMs!,
+        unfinishedWorkStopped: Boolean(
+          attempt.openSettled && attempt.adapterDisposed,
+        ),
+        resourcesReleased: true,
+      })),
+    ],
+    bundleBytes: artifact.resources.bundleBytes,
+    observationWindowMs: artifact.protocol.observationWindowMs,
+  };
+  assertEqual(artifact.resources, expectedResources, "artifact.resources");
+
+  const expectedSummary = summarizePerformance({
+    environment: artifact.environment,
+    firstReadableMs,
+    slideSwitchMs,
+    resources: expectedResources,
+    failures: [],
+  });
+  for (const key of [
+    "environment",
+    "firstReadable",
+    "slideSwitch",
+    "resources",
+    "failures",
+    "gates",
+  ] as const) {
+    assertEqual(artifact[key], expectedSummary[key], `artifact.${key}`);
+  }
+  const expectedAnalysis = summarizeInstalledPerformance({
+    expectedMeasuredRuns: artifact.protocol.measuredRuns,
+    expectedCancellationRuns: artifact.protocol.cancellationRuns,
+    switchesPerRun: artifact.protocol.slideSwitchesPerMeasuredRun,
+    metadataMs,
+    firstReadableMs,
+    slideSwitchMs,
+    memory: artifact.rawMemoryAttempts.map(({ peak, steady, postClose }) => ({
+      peak: peak!,
+      steady: steady!,
+      postClose: postClose!,
+    })),
+    cancellationElapsedMs: cancellationElapsed,
+    cleanupElapsedMs: measuredCleanup,
+    failures: expectedSummary.failures,
+    budgets: PERFORMANCE_BUDGETS,
+  });
+  assertEqual(artifact.analysis, expectedAnalysis, "artifact.analysis");
+  return artifact;
+}

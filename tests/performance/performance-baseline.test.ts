@@ -1,33 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  summarizePerformance,
-  type PerformanceSummary,
-} from "../../src/performance/performance-report";
-
-interface CommittedPerformanceBaseline extends PerformanceSummary {
-  readonly protocol: {
-    readonly coldRuns: number;
-    readonly warmupRuns: number;
-    readonly measuredRuns: number;
-    readonly slideSwitchesPerMeasuredRun: number;
-    readonly cancellationRuns: number;
-    readonly observationWindowMs: number;
-  };
-  readonly rawOpens: readonly unknown[];
-  readonly rawMemoryAttempts: readonly unknown[];
-  readonly rawCancellationAttempts: readonly unknown[];
-  readonly analysis: {
-    readonly metadata: { readonly sampleCount: number };
-    readonly firstReadable: { readonly sampleCount: number };
-    readonly slideSwitch: { readonly sampleCount: number };
-    readonly cancellationElapsedMs: { readonly sampleCount: number };
-    readonly cleanupElapsedMs: { readonly sampleCount: number };
-    readonly failureSummary: readonly unknown[];
-    readonly budgetMisses: readonly unknown[];
-  };
-}
+import { validateInstalledPerformanceArtifact } from "./installed-performance-artifact";
+import { renderInstalledPerformanceMarkdown } from "./installed-performance-markdown";
 
 const baselinePath = path.resolve(
   "tests/performance/baselines/aiden-pptx-renderer-1.2.4.json",
@@ -35,28 +10,17 @@ const baselinePath = path.resolve(
 const reportPath = path.resolve(
   "docs/performance/aiden-pptx-renderer-1.2.4.md",
 );
-const baseline = JSON.parse(
-  readFileSync(baselinePath, "utf8"),
-) as CommittedPerformanceBaseline;
+const baselineSource = readFileSync(baselinePath, "utf8");
+const baselineValue: unknown = JSON.parse(baselineSource);
+
+function cloneBaseline(): unknown {
+  return JSON.parse(baselineSource) as unknown;
+}
 
 describe("committed installed PPTX performance baseline", () => {
-  it("preserves the fixed protocol and all raw attempts", () => {
-    expect(baseline.environment).toMatchObject({
-      renderer: "@aiden0z/pptx-renderer@1.2.4",
-      coldDefinition: expect.any(String),
-      warmDefinition: expect.any(String),
-      warmupRuns: 2,
-      measuredRuns: 10,
-      slideSwitchesPerRun: 4,
-    });
-    expect(baseline.protocol).toMatchObject({
-      coldRuns: 1,
-      warmupRuns: 2,
-      measuredRuns: 10,
-      slideSwitchesPerMeasuredRun: 4,
-      cancellationRuns: 5,
-      observationWindowMs: 2_000,
-    });
+  it("validates the full schema and recomputes every derived value from raw evidence", () => {
+    const baseline = validateInstalledPerformanceArtifact(baselineValue);
+
     expect(baseline.rawOpens).toHaveLength(13);
     expect(baseline.rawMemoryAttempts).toHaveLength(10);
     expect(baseline.rawCancellationAttempts).toHaveLength(5);
@@ -65,36 +29,39 @@ describe("committed installed PPTX performance baseline", () => {
     expect(baseline.resources.cleanup).toHaveLength(15);
   });
 
-  it("matches the fixed gate calculation and expanded sample counts", () => {
-    const recomputed = summarizePerformance({
-      environment: baseline.environment,
-      firstReadableMs: baseline.firstReadable.samples,
-      slideSwitchMs: baseline.slideSwitch.samples,
-      resources: baseline.resources,
-      failures: baseline.failures,
-    });
+  it("rejects a tampered raw measurement instead of trusting stored summaries", () => {
+    const tampered = cloneBaseline() as {
+      rawMemoryAttempts: Array<{
+        peak: { heapUsedBytes: number };
+      }>;
+    };
+    tampered.rawMemoryAttempts[0]!.peak.heapUsedBytes += 1;
 
-    expect(baseline.firstReadable).toEqual(recomputed.firstReadable);
-    expect(baseline.slideSwitch).toEqual(recomputed.slideSwitch);
-    expect(baseline.gates).toEqual(recomputed.gates);
-    expect(baseline.analysis).toMatchObject({
-      metadata: { sampleCount: 10 },
-      firstReadable: { sampleCount: 10 },
-      slideSwitch: { sampleCount: 40 },
-      cancellationElapsedMs: { sampleCount: 5 },
-      cleanupElapsedMs: { sampleCount: 10 },
-      failureSummary: expect.any(Array),
-      budgetMisses: expect.any(Array),
-    });
+    expect(() => validateInstalledPerformanceArtifact(tampered)).toThrow(
+      /recomputed from raw evidence/,
+    );
   });
 
-  it("keeps the human report tied to the same candidate and verdict", () => {
-    const report = readFileSync(reportPath, "utf8");
+  it("rejects a missing in-flight proof snapshot", () => {
+    const tampered = cloneBaseline() as {
+      rawCancellationAttempts: Array<{
+        snapshots: Array<{ lifecyclePhase: string }>;
+      }>;
+    };
+    tampered.rawCancellationAttempts[0]!.snapshots =
+      tampered.rawCancellationAttempts[0]!.snapshots.filter(
+        ({ lifecyclePhase }) => lifecyclePhase !== "adapter-opening",
+      );
 
-    expect(report).toContain("# Installed PPTX performance run");
-    expect(report).toContain(`| Renderer | ${baseline.environment.renderer} |`);
-    expect(report).toContain(
-      `Overall result: **${baseline.gates.overallPassed ? "PASS" : "FAIL"}**.`,
+    expect(() => validateInstalledPerformanceArtifact(tampered)).toThrow(
+      /prove strict in-flight resource return/,
+    );
+  });
+
+  it("keeps the committed Markdown byte-for-byte reproducible", () => {
+    const baseline = validateInstalledPerformanceArtifact(baselineValue);
+    expect(readFileSync(reportPath, "utf8")).toBe(
+      renderInstalledPerformanceMarkdown(baseline),
     );
   });
 });

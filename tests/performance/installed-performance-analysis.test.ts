@@ -1,4 +1,5 @@
 import {
+  resourceCompletionElapsedMs,
   evaluateResourceReturn,
   stringifyJsonEvidence,
   summarizeInstalledPerformance,
@@ -103,6 +104,16 @@ describe("installed performance analysis", () => {
 });
 
 describe("post-close resource return", () => {
+  it("uses the last completed cleanup signal when garbage collection finishes last", () => {
+    expect(
+      resourceCompletionElapsedMs({
+        cleanupElapsedMs: 12,
+        gcCompletedElapsedMs: 47,
+        postCloseElapsedMs: 31,
+      }),
+    ).toBe(47);
+  });
+
   it("passes only when adapter work stops, the deadline holds, and retained incremental heap is within policy", () => {
     expect(
       evaluateResourceReturn({
