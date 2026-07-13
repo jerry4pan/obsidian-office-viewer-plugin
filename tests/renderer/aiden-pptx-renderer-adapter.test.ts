@@ -3,9 +3,16 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PptxViewer } from "@aiden0z/pptx-renderer";
 import { AidenPptxRendererAdapter } from "../../src/renderer/aiden-pptx-renderer-adapter";
+import { PreflightPptxRendererAdapter } from "../../src/renderer/preflight-pptx-renderer-adapter";
+import {
+  expectedFailureFixtures,
+  fixturePath,
+} from "../failure/failure-fixtures";
 
-async function loadFixture(): Promise<ArrayBuffer> {
-  const bytes = await readFile(path.resolve("tests/fixtures/minimal.pptx"));
+async function loadFixture(
+  relativePath = "tests/fixtures/minimal.pptx",
+): Promise<ArrayBuffer> {
+  const bytes = await readFile(path.resolve(relativePath));
   return Uint8Array.from(bytes).buffer;
 }
 
@@ -56,7 +63,11 @@ describe("AidenPptxRendererAdapter", () => {
           document.createElement("div"),
           new AbortController().signal,
         ),
-      ).rejects.toBe(failure);
+      ).rejects.toMatchObject({
+        name: "PptxOpenError",
+        category: "incompatible",
+        cause: failure,
+      });
       expect(open).toHaveBeenCalledOnce();
       expect(destroy).toHaveBeenCalledOnce();
     } finally {
@@ -91,4 +102,24 @@ describe("AidenPptxRendererAdapter", () => {
       destroy.mockRestore();
     }
   });
+
+  for (const fixture of expectedFailureFixtures) {
+    it(`reports ${fixture.id} as ${fixture.category} without leaving renderer DOM`, async () => {
+      const container = document.createElement("div");
+      container.textContent = "stale renderer output";
+
+      await expect(
+        new PreflightPptxRendererAdapter(new AidenPptxRendererAdapter()).open(
+          await loadFixture(fixturePath(fixture)),
+          container,
+          new AbortController().signal,
+        ),
+      ).rejects.toMatchObject({
+        name: "PptxOpenError",
+        category: fixture.category,
+      });
+      expect(container.childElementCount).toBe(0);
+      expect(container.textContent).toBe("");
+    });
+  }
 });
