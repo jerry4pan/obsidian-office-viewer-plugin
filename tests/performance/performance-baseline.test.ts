@@ -3,12 +3,16 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { validateInstalledPerformanceArtifact } from "./installed-performance-artifact";
 import { renderInstalledPerformanceMarkdown } from "./installed-performance-markdown";
+import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 
+const renderer = activeRendererAcceptanceConfig();
 const baselinePath = path.resolve(
-  "tests/performance/baselines/aiden-pptx-renderer-1.2.4.json",
+  "tests/performance/baselines",
+  `${renderer.candidate.evidenceId}.json`,
 );
 const reportPath = path.resolve(
-  "docs/performance/aiden-pptx-renderer-1.2.4.md",
+  "docs/performance",
+  `${renderer.candidate.evidenceId}.md`,
 );
 const baselineSource = readFileSync(baselinePath, "utf8");
 const baselineValue: unknown = JSON.parse(baselineSource);

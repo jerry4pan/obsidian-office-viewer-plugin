@@ -3,9 +3,11 @@ import path from "node:path";
 import type { CorpusFixture } from "./corpus-manifest";
 import { fileSha256, sha256 } from "./hash";
 import { assertVisualMatch, comparePngBuffers } from "./visual-regression";
+import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 
-const artifactDir = path.resolve("artifacts/compatibility/current");
-const baselineDir = path.resolve("tests/compatibility/baselines");
+const { paths } = activeRendererAcceptanceConfig();
+const artifactDir = path.join(paths.compatibilityArtifactDir, "current");
+const baselineDir = paths.compatibilityBaselineDir;
 
 export async function captureApprovedBaseline(
   fixture: CorpusFixture,

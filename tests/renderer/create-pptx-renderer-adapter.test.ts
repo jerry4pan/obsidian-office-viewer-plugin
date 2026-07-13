@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   BUILD_TIME_PPTX_RENDERER_CANDIDATE,
-  createPptxRendererAdapter,
+  createPptxRendererAdapterForCandidate,
   getPptxRendererMetadata,
   resolvePptxRendererCandidate,
 } from "../../src/renderer/create-pptx-renderer-adapter";
@@ -31,11 +31,15 @@ describe("PPTX renderer composition root", () => {
       id: "aiden",
       packageName: "@aiden0z/pptx-renderer",
       version: "1.2.4",
+      label: "@aiden0z/pptx-renderer@1.2.4",
+      evidenceId: "aiden-pptx-renderer-1.2.4",
     });
     expect(getPptxRendererMetadata("pptx-preview")).toEqual({
       id: "pptx-preview",
       packageName: "pptx-preview",
       version: "1.0.7",
+      label: "pptx-preview@1.0.7",
+      evidenceId: "pptx-preview-1.0.7",
     });
     expect(BUILD_TIME_PPTX_RENDERER_CANDIDATE).toBe("aiden");
   });
@@ -46,7 +50,7 @@ describe("PPTX renderer composition root", () => {
       open: vi.fn(async () => session),
     };
     const createCandidate = vi.fn(() => candidate);
-    const adapter = createPptxRendererAdapter({
+    const adapter = createPptxRendererAdapterForCandidate({
       candidate: "pptx-preview",
       factories: { "pptx-preview": createCandidate },
     });
@@ -61,7 +65,7 @@ describe("PPTX renderer composition root", () => {
 
   it("applies the shared package preflight before the selected candidate", async () => {
     const candidate: PptxRendererAdapter = { open: vi.fn() };
-    const adapter = createPptxRendererAdapter({
+    const adapter = createPptxRendererAdapterForCandidate({
       candidate: "pptx-preview",
       factories: { "pptx-preview": () => candidate },
     });

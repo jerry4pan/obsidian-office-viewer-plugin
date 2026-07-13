@@ -1,8 +1,10 @@
 import esbuild from "esbuild";
 import process from "node:process";
+import path from "node:path";
 
 const production = process.argv[2] === "production";
 const rendererCandidate = process.env.PPTX_RENDERER_CANDIDATE ?? "aiden";
+const outfile = process.env.PPTX_BUNDLE_OUTFILE ?? "main.js";
 
 if (rendererCandidate !== "aiden" && rendererCandidate !== "pptx-preview") {
   throw new Error(
@@ -31,13 +33,24 @@ const context = await esbuild.context({
   format: "cjs",
   platform: "browser",
   target: "es2022",
-  outfile: "main.js",
+  outfile,
   sourcemap: production ? false : "inline",
   minify: production,
   define: {
-    "process.env.NODE_ENV": production ? '"production"' : '"development"',
-    "__PPTX_RENDERER_CANDIDATE__": JSON.stringify(rendererCandidate)
+    "process.env.NODE_ENV": production ? '"production"' : '"development"'
   },
+  plugins: [
+    {
+      name: "selected-pptx-renderer",
+      setup(build) {
+        build.onResolve({ filter: /^#selected-pptx-renderer$/ }, () => ({
+          path: path.resolve(
+            `src/renderer/selected-pptx-renderer-adapter.${rendererCandidate}.ts`,
+          ),
+        }));
+      },
+    },
+  ],
   logLevel: "info"
 });
 

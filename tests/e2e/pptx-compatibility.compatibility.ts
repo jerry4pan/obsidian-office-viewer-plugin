@@ -20,8 +20,10 @@ import {
 } from "../compatibility/corpus-manifest";
 import { inspectActiveFixture } from "../compatibility/fixture-inspection";
 import { fileSha256 } from "../compatibility/hash";
+import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 
-const artifactDir = path.resolve("artifacts/compatibility");
+const renderer = activeRendererAcceptanceConfig();
+const artifactDir = renderer.paths.compatibilityArtifactDir;
 const updateBaselines = process.env.UPDATE_COMPATIBILITY_BASELINES === "1";
 
 describe("installed PPTX compatibility corpus", () => {
@@ -112,7 +114,14 @@ describe("installed PPTX compatibility corpus", () => {
     );
     await writeFile(
       path.join(artifactDir, "results.json"),
-      `${JSON.stringify({ environment: CORPUS_ENVIRONMENT, ...summary }, null, 2)}\n`,
+      `${JSON.stringify({
+        candidate: renderer.candidate.id,
+        environment: {
+          ...CORPUS_ENVIRONMENT,
+          renderer: renderer.candidate.label,
+        },
+        ...summary,
+      }, null, 2)}\n`,
     );
     await writeFile(
       path.join(artifactDir, "summary.md"),
