@@ -57,8 +57,18 @@ export interface PerformanceInput {
 
 export interface PercentileSummary {
   readonly samples: readonly number[];
+  readonly invalidSamples: readonly InvalidPerformanceSample[];
+  readonly expectedSampleCount: number;
+  readonly missingSampleCount: number;
   readonly p50: number | null;
   readonly p95: number | null;
+}
+
+export type InvalidPerformanceSampleValue = "NaN" | "Infinity" | "-Infinity";
+
+export interface InvalidPerformanceSample {
+  readonly index: number;
+  readonly value: InvalidPerformanceSampleValue;
 }
 
 export interface PerformanceSummary {
@@ -88,12 +98,27 @@ function nearestRank(
   return sortedSamples[Math.ceil(percentile * sortedSamples.length) - 1] ?? null;
 }
 
-function summarizeSamples(samples: readonly number[]): PercentileSummary {
+function summarizeSamples(
+  samples: readonly number[],
+  expectedSampleCount: number,
+): PercentileSummary {
+  const invalidSamples = samples.flatMap((sample, index) => {
+    if (Number.isFinite(sample)) return [];
+    const value: InvalidPerformanceSampleValue = Number.isNaN(sample)
+      ? "NaN"
+      : sample > 0
+        ? "Infinity"
+        : "-Infinity";
+    return [{ index, value }];
+  });
   const finiteSamples = samples
     .filter((sample) => Number.isFinite(sample))
     .sort((left, right) => left - right);
   return {
     samples: [...samples],
+    invalidSamples,
+    expectedSampleCount,
+    missingSampleCount: Math.max(0, expectedSampleCount - samples.length),
     p50: nearestRank(finiteSamples, 0.5),
     p95: nearestRank(finiteSamples, 0.95),
   };
@@ -102,15 +127,42 @@ function summarizeSamples(samples: readonly number[]): PercentileSummary {
 export function summarizePerformance(
   input: PerformanceInput,
 ): PerformanceSummary {
-  const firstReadable = summarizeSamples(input.firstReadableMs);
-  const slideSwitch = summarizeSamples(input.slideSwitchMs);
+  const firstReadable = summarizeSamples(
+    input.firstReadableMs,
+    input.environment.measuredRuns,
+  );
+  const slideSwitch = summarizeSamples(
+    input.slideSwitchMs,
+    input.environment.measuredRuns,
+  );
   const firstReadablePassed =
     firstReadable.p95 !== null &&
+    firstReadable.invalidSamples.length === 0 &&
+    firstReadable.missingSampleCount === 0 &&
     firstReadable.p95 <= PERFORMANCE_BUDGETS.firstReadableMs;
   const slideSwitchPassed =
     slideSwitch.p95 !== null &&
+    slideSwitch.invalidSamples.length === 0 &&
+    slideSwitch.missingSampleCount === 0 &&
     slideSwitch.p95 <= PERFORMANCE_BUDGETS.slideSwitchMs;
   const failures = input.failures.map((failure) => ({ ...failure }));
+  for (const [phase, metric] of [
+    ["first-readable", firstReadable],
+    ["slide-switch", slideSwitch],
+  ] as const) {
+    for (const invalidSample of metric.invalidSamples) {
+      failures.push({
+        phase,
+        message: `Invalid performance sample at index ${invalidSample.index}: ${invalidSample.value}.`,
+      });
+    }
+    if (metric.missingSampleCount > 0) {
+      failures.push({
+        phase,
+        message: `Expected ${metric.expectedSampleCount} performance samples but received ${metric.samples.length}; ${metric.missingSampleCount} missing.`,
+      });
+    }
+  }
 
   return {
     environment: { ...input.environment },

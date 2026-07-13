@@ -52,15 +52,80 @@ describe("performance report", () => {
     expect(summary.gates.overallPassed).toBe(false);
   });
 
+  it("fails gates and preserves JSON-safe evidence for non-finite samples", () => {
+    const summary = summarizePerformance(
+      performanceInput({
+        environment: {
+          ...performanceInput().environment,
+          measuredRuns: 2,
+        },
+        firstReadableMs: [1_000, Number.POSITIVE_INFINITY],
+        slideSwitchMs: [40, Number.NaN],
+      }),
+    );
+
+    expect(summary.firstReadable.p95).toBe(1_000);
+    expect(summary.slideSwitch.p95).toBe(40);
+    expect(summary.firstReadable.invalidSamples).toEqual([
+      { index: 1, value: "Infinity" },
+    ]);
+    expect(summary.slideSwitch.invalidSamples).toEqual([
+      { index: 1, value: "NaN" },
+    ]);
+    expect(summary.gates.firstReadable.passed).toBe(false);
+    expect(summary.gates.slideSwitch.passed).toBe(false);
+    expect(summary.failures).toEqual([
+      {
+        phase: "first-readable",
+        message: "Invalid performance sample at index 1: Infinity.",
+      },
+      {
+        phase: "slide-switch",
+        message: "Invalid performance sample at index 1: NaN.",
+      },
+    ]);
+
+    const serialized = JSON.stringify(summary);
+    expect(serialized).toContain('"value":"Infinity"');
+    expect(serialized).toContain('"value":"NaN"');
+  });
+
+  it("fails gates and records missing expected observations", () => {
+    const summary = summarizePerformance(
+      performanceInput({
+        firstReadableMs: [1_000, 2_000],
+        slideSwitchMs: [40],
+      }),
+    );
+
+    expect(summary.firstReadable.samples).toEqual([1_000, 2_000]);
+    expect(summary.firstReadable.expectedSampleCount).toBe(3);
+    expect(summary.firstReadable.missingSampleCount).toBe(1);
+    expect(summary.slideSwitch.expectedSampleCount).toBe(3);
+    expect(summary.slideSwitch.missingSampleCount).toBe(2);
+    expect(summary.gates.firstReadable.passed).toBe(false);
+    expect(summary.gates.slideSwitch.passed).toBe(false);
+    expect(summary.failures).toEqual([
+      {
+        phase: "first-readable",
+        message: "Expected 3 performance samples but received 2; 1 missing.",
+      },
+      {
+        phase: "slide-switch",
+        message: "Expected 3 performance samples but received 1; 2 missing.",
+      },
+    ]);
+  });
+
   it("calculates p50 from finite samples and snapshots raw samples and failures", () => {
-    const firstReadableMs = [Number.POSITIVE_INFINITY, 30, 10, 20];
+    const firstReadableMs = [30, 10, 20];
     const failures: PerformanceFailure[] = [
       { phase: "warm-open", message: "renderer did not become ready", sampleIndex: 2 },
     ];
     const summary = summarizePerformance(
       performanceInput({
         firstReadableMs,
-        slideSwitchMs: [90],
+        slideSwitchMs: [90, 90, 90],
         failures,
       }),
     );
@@ -69,7 +134,10 @@ describe("performance report", () => {
     failures.push({ phase: "cleanup", message: "late mutation" });
 
     expect(summary.firstReadable).toEqual({
-      samples: [Number.POSITIVE_INFINITY, 30, 10, 20],
+      samples: [30, 10, 20],
+      invalidSamples: [],
+      expectedSampleCount: 3,
+      missingSampleCount: 0,
       p50: 20,
       p95: 30,
     });

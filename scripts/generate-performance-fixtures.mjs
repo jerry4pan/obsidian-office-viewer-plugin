@@ -187,7 +187,12 @@ async function ensureFixture(id, build) {
     () => true,
     () => false,
   );
-  if (force || !fixtureExists) {
+  if (!fixtureExists && !force) {
+    throw new Error(
+      `Missing committed performance fixture: ${fixturePath}. Run npm run fixtures:performance:regenerate to rebuild it explicitly.`,
+    );
+  }
+  if (force) {
     const pptx = await build();
     await pptx.writeFile({ fileName: fixturePath, compression: true });
   }

@@ -1,17 +1,18 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { performanceFixtureManifest } from "./performance-fixtures";
 
 const execFileAsync = promisify(execFile);
+const generatorPath = path.resolve("scripts/generate-performance-fixtures.mjs");
 
-async function runGenerator(): Promise<void> {
-  await execFileAsync(process.execPath, [
-    "scripts/generate-performance-fixtures.mjs",
-  ]);
+async function runGenerator(cwd = process.cwd()): Promise<void> {
+  await execFileAsync(process.execPath, [generatorPath], { cwd });
 }
 
 function sha256(bytes: Buffer): string {
@@ -101,6 +102,25 @@ describe("performance fixture manifest", () => {
       expect(sha256(await readFile(fixture.fixturePath))).toBe(
         hashes.get(fixture.id),
       );
+    }
+  }, 30_000);
+
+  it("refuses to rebuild a missing committed source in normal mode", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "performance-fixtures-"));
+    try {
+      await expect(runGenerator(cwd)).rejects.toThrow(
+        /Missing committed performance fixture.*fixtures:performance:regenerate/s,
+      );
+      await expect(
+        access(
+          path.join(
+            cwd,
+            "tests/fixtures/performance/representative-12-slides.pptx",
+          ),
+        ),
+      ).rejects.toThrow();
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
     }
   }, 30_000);
 });
