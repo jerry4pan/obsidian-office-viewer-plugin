@@ -9,8 +9,8 @@ const observations: CompatibilityObservation[] = [
   {
     fixtureId: "supported",
     title: "Supported slide",
-    expectedMarkers: ["A", "B"],
-    visibleMarkers: ["A", "B"],
+    expectedContent: ["A", "B"],
+    readableContent: ["A", "B"],
     reviewClassification: "supported",
     reviewReason: "All representative content is visually intact.",
     visualDiffRatio: 0,
@@ -18,8 +18,8 @@ const observations: CompatibilityObservation[] = [
   {
     fixtureId: "partial",
     title: "Partial slide",
-    expectedMarkers: ["C", "D", "E"],
-    visibleMarkers: ["C", "D"],
+    expectedContent: ["C", "D", "E"],
+    readableContent: ["C", "D"],
     reviewClassification: "supported",
     reviewReason: "One semantic marker is missing from the rendered slide.",
     visualDiffRatio: 0.002,
@@ -30,8 +30,8 @@ describe("compatibility report", () => {
   it("calculates readable content and downgrades partial output", () => {
     const summary = summarizeCompatibility(observations, 0.8);
 
-    expect(summary.readableMarkers).toBe(4);
-    expect(summary.totalMarkers).toBe(5);
+    expect(summary.readableContentCount).toBe(4);
+    expect(summary.totalContentCount).toBe(5);
     expect(summary.readableRatio).toBe(0.8);
     expect(summary.gatePassed).toBe(true);
     expect(summary.counts).toEqual({ supported: 1, degraded: 1, failed: 0 });
@@ -40,7 +40,7 @@ describe("compatibility report", () => {
 
   it("fails the gate below the exact 80 percent boundary", () => {
     const summary = summarizeCompatibility(
-      [{ ...observations[1]!, visibleMarkers: ["C"] }],
+      [{ ...observations[1]!, readableContent: ["C"] }],
       0.8,
     );
 

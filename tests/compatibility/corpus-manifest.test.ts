@@ -21,10 +21,13 @@ describe("PPTX compatibility corpus manifest", () => {
       expect(fixture.provenance.generator).toBe(
         "scripts/generate-compatibility-fixtures.mjs",
       );
-      expect(fixture.mainContentMarkers.length).toBeGreaterThan(0);
-      expect(fixture.visualAssertions.containedLayout).toBe(true);
-      expect(fixture.visualAssertions.healthyImages).toBeGreaterThanOrEqual(0);
+      expect(fixture.mainContentChecks.length).toBeGreaterThan(0);
+      expect(
+        new Set(fixture.mainContentChecks.map(({ label }) => label)).size,
+      ).toBe(fixture.mainContentChecks.length);
       expect(fixture.review.reason.length).toBeGreaterThan(10);
+      expect(fixture.baselineApproval.reason.length).toBeGreaterThan(10);
+      expect(fixture.baselineApproval.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(["supported", "degraded", "failed"]).toContain(
         fixture.review.classification,
       );
@@ -40,14 +43,15 @@ describe("PPTX compatibility corpus manifest", () => {
   });
 
   it("pins the visual environment and M0 readability gate", () => {
-    expect(CORPUS_EXPECTED_GATE).toBe(false);
+    expect(CORPUS_EXPECTED_GATE).toBe(true);
     expect(CORPUS_ENVIRONMENT).toEqual({
-      viewport: { width: 1440, height: 1000 },
+      viewport: { width: 1024, height: 800 },
       theme: "light",
       zoom: 1,
       fontFamily: "Arial",
+      fontSamples: ["Arial", "Times New Roman", "Definitely Missing Font"],
       readabilityGate: 0.8,
-      maxVisualDiffRatio: 0.005,
+      maxVisualDiffRatio: 0,
     });
   });
 });

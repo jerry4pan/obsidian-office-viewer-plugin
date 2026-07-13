@@ -3,8 +3,8 @@ export type CompatibilityClassification = "supported" | "degraded" | "failed";
 export interface CompatibilityObservation {
   readonly fixtureId: string;
   readonly title: string;
-  readonly expectedMarkers: readonly string[];
-  readonly visibleMarkers: readonly string[];
+  readonly expectedContent: readonly string[];
+  readonly readableContent: readonly string[];
   readonly reviewClassification: CompatibilityClassification;
   readonly reviewReason: string;
   readonly visualDiffRatio: number;
@@ -13,14 +13,14 @@ export interface CompatibilityObservation {
 
 export interface FixtureCompatibilityResult extends CompatibilityObservation {
   readonly classification: CompatibilityClassification;
-  readonly readableMarkers: number;
-  readonly totalMarkers: number;
+  readonly readableContentCount: number;
+  readonly totalContentCount: number;
 }
 
 export interface CompatibilitySummary {
   readonly threshold: number;
-  readonly readableMarkers: number;
-  readonly totalMarkers: number;
+  readonly readableContentCount: number;
+  readonly totalContentCount: number;
   readonly readableRatio: number;
   readonly gatePassed: boolean;
   readonly counts: Readonly<Record<CompatibilityClassification, number>>;
@@ -36,17 +36,20 @@ export function summarizeCompatibility(
   }
 
   const fixtures = observations.map((observation) => {
-    const expected = new Set(observation.expectedMarkers);
-    const readableMarkers = new Set(
-      observation.visibleMarkers.filter((marker) => expected.has(marker)),
+    const expected = new Set(observation.expectedContent);
+    const readableContentCount = new Set(
+      observation.readableContent.filter((item) => expected.has(item)),
     ).size;
-    const totalMarkers = expected.size;
+    const totalContentCount = expected.size;
     let classification = observation.reviewClassification;
-    if (observation.error || (totalMarkers > 0 && readableMarkers === 0)) {
+    if (
+      observation.error ||
+      (totalContentCount > 0 && readableContentCount === 0)
+    ) {
       classification = "failed";
     } else if (
       classification === "supported" &&
-      readableMarkers < totalMarkers
+      readableContentCount < totalContentCount
     ) {
       classification = "degraded";
     }
@@ -54,27 +57,28 @@ export function summarizeCompatibility(
     return {
       ...observation,
       classification,
-      readableMarkers,
-      totalMarkers,
+      readableContentCount,
+      totalContentCount,
     };
   });
 
-  const readableMarkers = fixtures.reduce(
-    (total, fixture) => total + fixture.readableMarkers,
+  const readableContentCount = fixtures.reduce(
+    (total, fixture) => total + fixture.readableContentCount,
     0,
   );
-  const totalMarkers = fixtures.reduce(
-    (total, fixture) => total + fixture.totalMarkers,
+  const totalContentCount = fixtures.reduce(
+    (total, fixture) => total + fixture.totalContentCount,
     0,
   );
-  const readableRatio = totalMarkers === 0 ? 0 : readableMarkers / totalMarkers;
+  const readableRatio =
+    totalContentCount === 0 ? 0 : readableContentCount / totalContentCount;
   const counts = { supported: 0, degraded: 0, failed: 0 };
   for (const fixture of fixtures) counts[fixture.classification] += 1;
 
   return {
     threshold,
-    readableMarkers,
-    totalMarkers,
+    readableContentCount,
+    totalContentCount,
     readableRatio,
     gatePassed: readableRatio >= threshold,
     counts,
@@ -90,16 +94,16 @@ export function renderCompatibilityMarkdown(
     "# PPTX compatibility run",
     "",
     `M0 gate: **${summary.gatePassed ? "PASS" : "FAIL"}** (required ${percent(summary.threshold)}).`,
-    `Readable main content: **${summary.readableMarkers} / ${summary.totalMarkers} (${percent(summary.readableRatio)})**.`,
+    `Readable main content: **${summary.readableContentCount} / ${summary.totalContentCount} (${percent(summary.readableRatio)})**.`,
     `Classifications: ${summary.counts.supported} supported, ${summary.counts.degraded} degraded, ${summary.counts.failed} failed.`,
     "",
-    "| Fixture | Classification | Readable markers | Visual diff |",
+    "| Fixture | Classification | Readable content | Visual diff |",
     "| --- | --- | ---: | ---: |",
   ];
 
   for (const fixture of summary.fixtures) {
     lines.push(
-      `| ${fixture.fixtureId} | ${fixture.classification} | ${fixture.readableMarkers} / ${fixture.totalMarkers} | ${(fixture.visualDiffRatio * 100).toFixed(3)}% |`,
+      `| ${fixture.fixtureId} | ${fixture.classification} | ${fixture.readableContentCount} / ${fixture.totalContentCount} | ${(fixture.visualDiffRatio * 100).toFixed(3)}% |`,
     );
   }
   lines.push("", "## Review notes", "");

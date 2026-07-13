@@ -1,16 +1,12 @@
-import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { corpusManifest } from "./corpus-manifest";
+import { sha256 } from "./hash";
 
 const execFileAsync = promisify(execFile);
-
-function hash(bytes: Buffer): string {
-  return createHash("sha256").update(bytes).digest("hex");
-}
 
 async function runGenerator(): Promise<void> {
   await execFileAsync(process.execPath, [
@@ -29,14 +25,14 @@ describe("compatibility fixture generator", () => {
       );
       const vaultBytes = await readFile(`tests/vault/${fixture.vaultPath}`);
       expect(vaultBytes).toEqual(fixtureBytes);
-      before.set(fixture.id, hash(fixtureBytes));
+      before.set(fixture.id, sha256(fixtureBytes));
     }
 
     await runGenerator();
 
     for (const fixture of corpusManifest) {
       expect(
-        hash(
+        sha256(
           await readFile(`tests/fixtures/compatibility/${fixture.id}.pptx`),
         ),
       ).toBe(before.get(fixture.id));

@@ -66,7 +66,8 @@ await writePresentation("text-theme-wide", async () => {
   const slide = pptx.addSlide({ masterName: "CORPUS_MASTER" });
   title(slide, "Quarterly Brief");
   slide.addText("Revenue grew 24%", { x: 0.8, y: 2.1, w: 6, h: 0.9, fontFace: "Arial", fontSize: 32, bold: true, color: "0F766E", margin: 0 });
-  slide.addText("Theme-aware headline · regular · italic", { x: 0.8, y: 3.2, w: 8, h: 0.5, fontFace: "Arial", fontSize: 18, italic: true, color: "334155", margin: 0 });
+  slide.addText("Times New Roman sample", { x: 0.8, y: 3.2, w: 8, h: 0.5, fontFace: "Times New Roman", fontSize: 18, italic: true, color: "334155", margin: 0 });
+  slide.addText("Missing font fallback sample", { x: 0.8, y: 3.85, w: 8, h: 0.5, fontFace: "Definitely Missing Font", fontSize: 18, color: "334155", margin: 0 });
   return pptx;
 });
 

@@ -13,7 +13,7 @@
 - All fixtures are repository-authored and MIT-distributable.
 - Compatibility tests use the installed Obsidian plugin path and never call the renderer directly.
 - Runs are local, read-only, and offline; source PPTX hashes must remain unchanged.
-- Viewport is 1440 × 1000, light theme, 100% zoom, bundled/system Arial fallback.
+- Viewport is 1024 × 800, light theme, 100% zoom, bundled/system Arial fallback.
 - The M0 gate passes only when at least 80% of declared main-content markers are readable.
 - Visual changes above the configured pixel threshold fail unless baselines are explicitly approved with a recorded reason.
 

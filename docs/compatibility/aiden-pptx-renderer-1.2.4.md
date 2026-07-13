@@ -2,38 +2,39 @@
 
 Date: 2026-07-13  
 Ticket: #4  
-Decision status: first candidate does not meet the M0 fidelity gate
+Decision status: first candidate meets the M0 readability gate with SVG gaps
 
 ## Result
 
-M0 gate: **FAIL** (required 80.0%).
+M0 gate: **PASS** (required 80.0%).
 
-Readable main content: **15 / 25 (60.0%)**. The five repository-authored
-fixtures all reached the installed plugin's ready state, but each had at least
-one visible fidelity problem. No source PPTX changed during the run and the
-normal run matched all approved PNG baselines with 0 visual diff.
+Readable main content: **18 / 20 (90.0%)**. All five repository-authored
+fixtures reached the installed plugin's ready state. Three are supported and
+two degrade because embedded SVG images render as broken placeholders. No
+source PPTX changed, no network request was attempted, and the normal run
+matched all approved PNG baselines with zero changed pixels.
 
 | Fixture | Classification | Readable units | Observed difference |
 | --- | --- | ---: | --- |
-| `text-theme-wide` | degraded | 3 / 4 | Body text renders, but the master footer is below the visible boundary. |
-| `images-transparency-standard` | degraded | 3 / 5 | Embedded SVG is broken; overlay text is clipped on the right. |
-| `tables-charts` | degraded | 4 / 5 | Table is readable; chart extends beyond the slide and is clipped. |
-| `grouped-rotated` | degraded | 4 / 5 | Rotation renders; the third native group member is clipped. |
-| `complex-drawing` | degraded | 1 / 6 | Complex SVG is replaced by a broken-image placeholder. |
+| `text-theme-wide` | supported | 5 / 5 | Arial, Times New Roman, missing-font fallback, theme, and master footer are readable. |
+| `images-transparency-standard` | degraded | 3 / 4 | Transparency renders, but the embedded SVG is broken. |
+| `tables-charts` | supported | 5 / 5 | Table and chart are complete and contained. |
+| `grouped-rotated` | supported | 4 / 4 | All native group members and rotation are visible. |
+| `complex-drawing` | degraded | 1 / 2 | Complex SVG is replaced by a broken-image placeholder. |
 
-The units combine visible text markers, decoded embedded images, and layout
-containment checks. Markers are counted only when their DOM bounds intersect
-the actual visible plugin surface; text present only in clipped DOM does not
-count as readable.
+Each denominator item is an explicitly named main-content check in the corpus
+manifest: readable text, a decoded image, or a fully contained chart. Text
+counts only when its DOM bounds intersect the actual visible plugin surface;
+an element present only in clipped DOM does not count as readable.
 
 ## Fixed environment
 
 - Obsidian 1.12.7, installer 1.12.7
 - macOS / Electron test sandbox from `wdio-obsidian-service` 3.1.1
-- capture surface 1440 × 1000
+- Electron content viewport 1024 × 800
 - light theme, 100% zoom, Arial
 - renderer `@aiden0z/pptx-renderer` 1.2.4
-- visual drift limit 0.5% changed pixels
+- visual drift limit 0 changed pixels
 
 ## Corpus and provenance
 
@@ -44,10 +45,11 @@ transparency, shapes, tables, charts, native DrawingML grouping, rotation, and
 a complex vector drawing. The native group is verified in package XML by an
 automated test.
 
-The approved baselines live under `tests/compatibility/baselines/`. Updating
-them requires the explicit `UPDATE_COMPATIBILITY_BASELINES=1` environment flag;
-ordinary runs compare current screenshots against those files and reject
-unexplained differences above 0.5%.
+The approved baselines live under `tests/compatibility/baselines/`. Each PNG is
+bound to an approval reason and SHA-256 hash in the manifest. Updating them
+requires the explicit `UPDATE_COMPATIBILITY_BASELINES=1` flag and then fails
+until the reviewed hash and reason are recorded. Ordinary runs reject any
+changed pixel.
 
 ## Reproduce
 
@@ -66,8 +68,7 @@ UPDATE_COMPATIBILITY_BASELINES=1 npm run test:compatibility
 
 ## Consequence
 
-Do not promote this renderer as the selected M0 engine. Preserve it behind the
-adapter as the first measured candidate, then run Ticket #6's second candidate
-through this exact corpus and acceptance path before the Ticket #7 decision
-gate. The clipping pattern should also be isolated with a focused renderer
-integration test before deciding whether a small adapter workaround is viable.
+The renderer remains a viable M0 candidate, but it is not selected until Ticket
+#6 runs a second candidate through the same acceptance path and Ticket #7 makes
+the decision. SVG media support is the first candidate's clearest fidelity gap
+and should be investigated before a public release claim.

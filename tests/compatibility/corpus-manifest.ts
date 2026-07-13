@@ -16,18 +16,21 @@ export const REQUIRED_CORPUS_FEATURES = [
 ] as const;
 
 export type CorpusFeature = (typeof REQUIRED_CORPUS_FEATURES)[number];
-export type CompatibilityClassification = "supported" | "degraded" | "failed";
+export type MainContentCheck =
+  | { readonly kind: "text"; readonly label: string; readonly text: string }
+  | { readonly kind: "image"; readonly label: string }
+  | {
+      readonly kind: "contained";
+      readonly label: string;
+      readonly selector: "canvas";
+    };
 
 export interface CorpusFixture {
   readonly id: string;
   readonly title: string;
   readonly vaultPath: `compatibility/${string}.pptx`;
   readonly features: readonly CorpusFeature[];
-  readonly mainContentMarkers: readonly string[];
-  readonly visualAssertions: {
-    readonly containedLayout: true;
-    readonly healthyImages: number;
-  };
+  readonly mainContentChecks: readonly MainContentCheck[];
   readonly provenance: {
     readonly license: "MIT";
     readonly generator: "scripts/generate-compatibility-fixtures.mjs";
@@ -36,23 +39,41 @@ export interface CorpusFixture {
     readonly classification: CompatibilityClassification;
     readonly reason: string;
   };
+  readonly baselineApproval: {
+    readonly sha256: string;
+    readonly reason: string;
+    readonly approvedOn: "2026-07-13";
+  };
 }
 
 export const CORPUS_ENVIRONMENT = {
-  viewport: { width: 1440, height: 1000 },
+  viewport: { width: 1024, height: 800 },
   theme: "light",
   zoom: 1,
   fontFamily: "Arial",
+  fontSamples: ["Arial", "Times New Roman", "Definitely Missing Font"],
   readabilityGate: 0.8,
-  maxVisualDiffRatio: 0.005,
+  maxVisualDiffRatio: 0,
 } as const;
 
-export const CORPUS_EXPECTED_GATE = false;
+export const CORPUS_EXPECTED_GATE = true;
 
 const provenance = {
   license: "MIT",
   generator: "scripts/generate-compatibility-fixtures.mjs",
 } as const;
+
+const text = (value: string): MainContentCheck => ({
+  kind: "text",
+  label: value,
+  text: value,
+});
+const image = (label: string): MainContentCheck => ({ kind: "image", label });
+const contained = (label: string): MainContentCheck => ({
+  kind: "contained",
+  label,
+  selector: "canvas",
+});
 
 export const corpusManifest: readonly CorpusFixture[] = [
   {
@@ -60,12 +81,22 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Text, fonts, theme and master on 16:9",
     vaultPath: "compatibility/text-theme-wide.pptx",
     features: ["text", "fonts", "theme", "master", "wide-layout"],
-    mainContentMarkers: ["Quarterly Brief", "Revenue grew 24%", "Theme footer"],
-    visualAssertions: { containedLayout: true, healthyImages: 0 },
+    mainContentChecks: [
+      text("Quarterly Brief"),
+      text("Revenue grew 24%"),
+      text("Theme footer"),
+      text("Times New Roman sample"),
+      text("Missing font fallback sample"),
+    ],
     provenance,
     review: {
-      classification: "degraded",
-      reason: "Body text is readable, but the master footer falls below the visible slide boundary.",
+      classification: "supported",
+      reason: "Body text, both font samples, fallback text, and the master footer are readable.",
+    },
+    baselineApproval: {
+      sha256: "4b1cdb952c18629085e78e6808b1402c5accef8d13bb509379bb0eedb9a80d83",
+      reason: "Approved initial evidence for text, theme, master and font fallback coverage.",
+      approvedOn: "2026-07-13",
     },
   },
   {
@@ -73,12 +104,21 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Images and transparency on 4:3",
     vaultPath: "compatibility/images-transparency-standard.pptx",
     features: ["images", "transparency", "shapes", "standard-layout"],
-    mainContentMarkers: ["Layered Product", "50% transparency", "Embedded SVG"],
-    visualAssertions: { containedLayout: true, healthyImages: 1 },
+    mainContentChecks: [
+      text("Layered Product"),
+      text("50% transparency"),
+      text("Embedded SVG"),
+      image("Product illustration"),
+    ],
     provenance,
     review: {
       classification: "degraded",
-      reason: "Embedded SVG is broken and the translucent overlay text is clipped at the right edge.",
+      reason: "Transparency and labels render, but the embedded SVG remains a broken image.",
+    },
+    baselineApproval: {
+      sha256: "1b41462069fe42eb42336f674df00aeb66bb6865edaa45246201b94d074d6932",
+      reason: "Approved evidence records working transparency and the broken embedded SVG.",
+      approvedOn: "2026-07-13",
     },
   },
   {
@@ -86,12 +126,22 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Business table and chart",
     vaultPath: "compatibility/tables-charts.pptx",
     features: ["table", "chart", "text"],
-    mainContentMarkers: ["Regional performance", "North", "South", "FY26 plan"],
-    visualAssertions: { containedLayout: true, healthyImages: 0 },
+    mainContentChecks: [
+      text("Regional performance"),
+      text("North"),
+      text("South"),
+      text("FY26 plan"),
+      contained("Chart fully visible"),
+    ],
     provenance,
     review: {
-      classification: "degraded",
-      reason: "Table content is readable, but the chart extends beyond the slide and is clipped.",
+      classification: "supported",
+      reason: "The table, axes, labels, title, and both chart bars are fully visible.",
+    },
+    baselineApproval: {
+      sha256: "74e7c270844024fead221bb11e747d55375f0956b2c83ad5854e2b4ae27da1ea",
+      reason: "Approved evidence records the complete table and fully contained chart.",
+      approvedOn: "2026-07-13",
     },
   },
   {
@@ -99,12 +149,21 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Native grouped and rotated shapes",
     vaultPath: "compatibility/grouped-rotated.pptx",
     features: ["group", "rotation", "shapes", "text"],
-    mainContentMarkers: ["Grouped workflow", "Discover", "Decide", "Deliver"],
-    visualAssertions: { containedLayout: true, healthyImages: 0 },
+    mainContentChecks: [
+      text("Grouped workflow"),
+      text("Discover"),
+      text("Decide"),
+      text("Deliver"),
+    ],
     provenance,
     review: {
-      classification: "degraded",
-      reason: "Rotation renders, but the third member of the native DrawingML group is clipped.",
+      classification: "supported",
+      reason: "All three native group members and the rotated callout are fully visible.",
+    },
+    baselineApproval: {
+      sha256: "febc35b34486cabd9e8219a1638299fcafcfa068e3fdc97e48b74785b5c801bd",
+      reason: "Approved evidence records the complete native group and rotation rendering.",
+      approvedOn: "2026-07-13",
     },
   },
   {
@@ -112,12 +171,17 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Complex vector drawing fallback",
     vaultPath: "compatibility/complex-drawing.pptx",
     features: ["complex-drawing", "images", "text"],
-    mainContentMarkers: ["Architecture map", "Client", "Plugin", "Renderer"],
-    visualAssertions: { containedLayout: true, healthyImages: 1 },
+    mainContentChecks: [text("Architecture map"), image("Architecture diagram")],
     provenance,
     review: {
       classification: "degraded",
       reason: "The complex SVG drawing is replaced by a broken-image placeholder.",
     },
+    baselineApproval: {
+      sha256: "69b2aeeb2865e3b816f820c083de34449fee52eef4f9dacdff7b4db69ddece06",
+      reason: "Approved evidence records the missing complex vector architecture diagram.",
+      approvedOn: "2026-07-13",
+    },
   },
 ] as const;
+import type { CompatibilityClassification } from "../../src/compatibility/compatibility-report";

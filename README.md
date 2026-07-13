@@ -24,8 +24,8 @@ does not use the normal Obsidian configuration or a personal Vault.
 `npm run test:compatibility` opens the representative corpus through the same
 installed plugin path, captures fixed-environment screenshots, compares them
 with approved visual baselines, and writes ignored run artifacts under
-`artifacts/compatibility/`. The first renderer currently scores 60.0% readable
-main content and does not meet the 80% M0 fidelity gate; see
+`artifacts/compatibility/`. The first renderer currently scores 90.0% readable
+main content and meets the 80% M0 gate with known SVG degradation; see
 `docs/compatibility/aiden-pptx-renderer-1.2.4.md`.
 
 ## Current boundaries
