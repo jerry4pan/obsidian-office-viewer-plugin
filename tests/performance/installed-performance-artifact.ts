@@ -56,6 +56,7 @@ export interface InstalledOpenAttempt {
   readonly sampleIndex: number;
   readonly token: string;
   readonly status: AttemptStatus;
+  readonly timedOut: boolean;
   readonly metadataMs: number | null;
   readonly firstReadableMs: number | null;
   readonly slideSwitches: readonly {
@@ -71,6 +72,7 @@ export interface InstalledMemoryAttempt {
   readonly sampleIndex: number;
   readonly token: string;
   readonly status: AttemptStatus;
+  readonly timedOut: boolean;
   readonly snapshots: readonly InstalledSnapshot[];
   readonly loadingSnapshotCount: number;
   readonly peakDefinition: string;
@@ -547,9 +549,10 @@ export function validateInstalledPerformanceArtifact(
     const attempt = record(value, path);
     assertExactKeys(attempt, path, [
       "kind", "sampleIndex", "token", "status", "metadataMs",
-      "firstReadableMs", "slideSwitches", "error",
+      "timedOut", "firstReadableMs", "slideSwitches", "error",
     ]);
     assertAttemptBase(attempt, path);
+    boolean(attempt.timedOut, `${path}.timedOut`);
     enumeration(attempt.kind, `${path}.kind`, ["cold", "warmup", "measured"]);
     nullable(attempt.metadataMs, `${path}.metadataMs`, nonNegative);
     nullable(attempt.firstReadableMs, `${path}.firstReadableMs`, nonNegative);
@@ -569,12 +572,13 @@ export function validateInstalledPerformanceArtifact(
     const attempt = record(value, path);
     assertExactKeys(attempt, path, [
       "sampleIndex", "token", "status", "snapshots", "loadingSnapshotCount",
-      "peakDefinition", "preOpen", "peak", "steady", "postClose",
+      "timedOut", "peakDefinition", "preOpen", "peak", "steady", "postClose",
       "closeStartedAtRendererMs", "adapterStopElapsedMs", "gcCompletedElapsedMs",
       "resourceCompletionElapsedMs", "garbageCollection", "diagnosticsAfterClose",
       "resourceReturn", "error",
     ]);
     assertCommonResourceAttempt(attempt, path);
+    boolean(attempt.timedOut, `${path}.timedOut`);
     integer(attempt.loadingSnapshotCount, `${path}.loadingSnapshotCount`);
     string(attempt.peakDefinition, `${path}.peakDefinition`);
     nullable(
@@ -637,14 +641,20 @@ export function validateInstalledPerformanceArtifact(
     })),
   ];
   const actualOpenSequence = artifact.rawOpens.map(
-    ({ kind, sampleIndex, status }) => ({ kind, sampleIndex, status }),
+    ({ kind, sampleIndex, status, timedOut }) => ({
+      kind,
+      sampleIndex,
+      status,
+      timedOut,
+    }),
   );
   if (
     actualOpenSequence.some(
-      ({ kind, sampleIndex, status }, index) =>
+      ({ kind, sampleIndex, status, timedOut }, index) =>
         kind !== expectedOpenSequence[index]?.kind ||
         sampleIndex !== expectedOpenSequence[index]?.sampleIndex ||
-        status !== "passed",
+        status !== "passed" ||
+        timedOut,
     )
   ) {
     throw new Error(
@@ -757,6 +767,7 @@ export function validateInstalledPerformanceArtifact(
     artifact.rawMemoryAttempts.some(
       (attempt, index) =>
         attempt.sampleIndex !== index + 1 ||
+        attempt.timedOut ||
         attempt.status !== "passed" ||
         attempt.loadingSnapshotCount < 1 ||
         !attempt.snapshots.some(({ state }) => state === "loading") ||

@@ -13,12 +13,12 @@
     "fixtures:regenerate": "node scripts/generate-minimal-fixture.mjs --force",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node esbuild.config.mjs production",
-    "test": "vitest run",
+    "test": "npm run build && vitest run",
     "test:compatibility": "npm run fixtures:compatibility && npm run build && wdio run wdio.compatibility.conf.mts",
     "test:e2e": "npm run build && wdio run wdio.conf.mts",
     "test:performance": "npm run fixtures:performance && npm run build && wdio run wdio.performance.conf.mts",
-    "test:performance:baseline": "vitest run tests/performance/performance-baseline.test.ts",
-    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:performance && npm run typecheck && npm test && npm run build"
+    "test:performance:baseline": "npm run build && vitest run tests/performance/performance-baseline.test.ts",
+    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:performance && npm test"
   },
   "keywords": [
     "obsidian",

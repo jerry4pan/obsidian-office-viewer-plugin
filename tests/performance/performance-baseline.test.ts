@@ -12,7 +12,10 @@ const reportPath = path.resolve(
 );
 const baselineSource = readFileSync(baselinePath, "utf8");
 const baselineValue: unknown = JSON.parse(baselineSource);
-const expectedBundleBytes = statSync(path.resolve("main.js")).size;
+
+function actualBundleBytes(): number {
+  return statSync(path.resolve("main.js")).size;
+}
 
 function cloneBaseline(): unknown {
   return JSON.parse(baselineSource) as unknown;
@@ -22,7 +25,7 @@ describe("committed installed PPTX performance baseline", () => {
   it("validates the full schema and recomputes every derived value from raw evidence", () => {
     const baseline = validateInstalledPerformanceArtifact(
       baselineValue,
-      expectedBundleBytes,
+      actualBundleBytes(),
     );
 
     expect(baseline.rawOpens).toHaveLength(13);
@@ -42,7 +45,7 @@ describe("committed installed PPTX performance baseline", () => {
     tampered.rawMemoryAttempts[0]!.peak.heapUsedBytes += 1;
 
     expect(() =>
-      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+      validateInstalledPerformanceArtifact(tampered, actualBundleBytes()),
     ).toThrow(
       /selected peak snapshot/,
     );
@@ -60,7 +63,7 @@ describe("committed installed PPTX performance baseline", () => {
       );
 
     expect(() =>
-      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+      validateInstalledPerformanceArtifact(tampered, actualBundleBytes()),
     ).toThrow(
       /selected in-flight snapshot/,
     );
@@ -73,7 +76,7 @@ describe("committed installed PPTX performance baseline", () => {
     tampered.rawMemoryAttempts[0]!.preOpen.heapUsedBytes += 1;
 
     expect(() =>
-      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+      validateInstalledPerformanceArtifact(tampered, actualBundleBytes()),
     ).toThrow(/selected pre-open snapshot/);
   });
 
@@ -86,20 +89,20 @@ describe("committed installed PPTX performance baseline", () => {
     tampered.rawOpens[0]!.status = "failed";
 
     expect(() =>
-      validateInstalledPerformanceArtifact(tampered, expectedBundleBytes),
+      validateInstalledPerformanceArtifact(tampered, actualBundleBytes()),
     ).toThrow(/exact cold, warmup, measured sequence/);
   });
 
   it("rejects a baseline recorded for a different production bundle", () => {
     expect(() =>
-      validateInstalledPerformanceArtifact(baselineValue, expectedBundleBytes + 1),
+      validateInstalledPerformanceArtifact(baselineValue, actualBundleBytes() + 1),
     ).toThrow(/bundleBytes must equal actual production main.js size/);
   });
 
   it("keeps the committed Markdown byte-for-byte reproducible", () => {
     const baseline = validateInstalledPerformanceArtifact(
       baselineValue,
-      expectedBundleBytes,
+      actualBundleBytes(),
     );
     expect(readFileSync(reportPath, "utf8")).toBe(
       renderInstalledPerformanceMarkdown(baseline),

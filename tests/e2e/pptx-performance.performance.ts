@@ -25,8 +25,11 @@ import {
   type MemoryRunInput,
 } from "../performance/installed-performance-analysis";
 import {
+  AttemptDeadlineExceededError,
   attemptRemainingMs,
   pollUntilAttemptDeadline,
+  withAttemptDeadline,
+  type AttemptDeadline,
 } from "../performance/attempt-timeout";
 import {
   selectActualPeakSnapshot,
@@ -131,6 +134,7 @@ interface RawOpenAttempt {
   sampleIndex: number;
   token: string;
   status: AttemptStatus;
+  timedOut: boolean;
   metadataMs: number | null;
   firstReadableMs: number | null;
   slideSwitches: RawSlideSwitch[];
@@ -152,6 +156,7 @@ interface RawMemoryAttempt {
   sampleIndex: number;
   token: string;
   status: AttemptStatus;
+  timedOut: boolean;
   snapshots: RendererMemorySnapshot[];
   loadingSnapshotCount: number;
   peakDefinition: "actual snapshot with maximum heapUsedBytes between open start and steady capture";
@@ -215,13 +220,27 @@ function parseTiming(value: string | null, label: string): number {
   return parsed;
 }
 
-function remainingAttemptMs(startedAtMs: number): number {
-  const remaining = attemptRemainingMs(
-    { startedAtMs, timeoutMs: ATTEMPT_TIMEOUT_MS },
-    performance.now(),
-  );
+function remainingAttemptMs(deadline: AttemptDeadline): number {
+  const remaining = attemptRemainingMs(deadline, deadline.now());
   if (remaining <= 0) throw new Error("attempt exceeded its 10000 ms deadline");
   return remaining;
+}
+
+function attemptDeadline(startedAtMs: number): AttemptDeadline {
+  return { startedAtMs, timeoutMs: ATTEMPT_TIMEOUT_MS, now: () => performance.now() };
+}
+
+function closeDeadline(
+  attempt: AttemptDeadline,
+  closeStartedAtMs: number,
+): AttemptDeadline {
+  return {
+    ...attempt,
+    timeoutMs: Math.min(
+      attempt.timeoutMs,
+      closeStartedAtMs - attempt.startedAtMs + OBSERVATION_WINDOW_MS,
+    ),
+  };
 }
 
 async function startInstalledRun(
@@ -548,12 +567,16 @@ describe("installed PPTX performance collector", () => {
 
     const collectOpen = async (kind: OpenKind, sampleIndex: number, measured: boolean) => {
       const attemptStartedAtMs = performance.now();
+      const deadline = attemptDeadline(attemptStartedAtMs);
+      const run = <T>(operation: () => Promise<T>) =>
+        withAttemptDeadline(deadline, operation);
       const token = `${kind}-${sampleIndex}-${Date.now()}`;
       const openAttempt: RawOpenAttempt = {
         kind,
         sampleIndex,
         token,
         status: "pending",
+        timedOut: false,
         metadataMs: null,
         firstReadableMs: null,
         slideSwitches: [],
@@ -564,6 +587,7 @@ describe("installed PPTX performance collector", () => {
             sampleIndex,
             token,
             status: "pending",
+            timedOut: false,
             snapshots: [],
             loadingSnapshotCount: 0,
             peakDefinition: "actual snapshot with maximum heapUsedBytes between open start and steady capture",
@@ -582,96 +606,132 @@ describe("installed PPTX performance collector", () => {
           }
         : null;
       try {
-        await startInstalledRun(representative.vaultPath, token, {
-          sampleMemory: measured,
-          cancelOnInFlight: false,
-          postCloseTargetMs: measured ? POST_CLOSE_SAMPLE_TARGET_MS : 0,
-        });
-        const root = await browser.$(ACTIVE_ROOT);
-        await root.waitForExist({ timeout: remainingAttemptMs(attemptStartedAtMs) });
-        await browser.waitUntil(async () => {
-          const state = await root.getAttribute("data-state");
-          return state === "ready" || state === "error";
-        }, {
-          timeout: remainingAttemptMs(attemptStartedAtMs),
-          timeoutMsg: `${token} exceeded its attempt deadline while opening`,
-        });
-        if ((await root.getAttribute("data-state")) !== "ready") {
+        await run(() =>
+          startInstalledRun(representative.vaultPath, token, {
+            sampleMemory: measured,
+            cancelOnInFlight: false,
+            postCloseTargetMs: measured ? POST_CLOSE_SAMPLE_TARGET_MS : 0,
+          }),
+        );
+        const root = await run(async () => await browser.$(ACTIVE_ROOT));
+        await run(() =>
+          root.waitForExist({ timeout: remainingAttemptMs(deadline) }),
+        );
+        await run(() =>
+          browser.waitUntil(async () => {
+            const state = await withAttemptDeadline(deadline, () =>
+              root.getAttribute("data-state"),
+            );
+            return state === "ready" || state === "error";
+          }, {
+            timeout: remainingAttemptMs(deadline),
+            timeoutMsg: `${token} exceeded its attempt deadline while opening`,
+          }),
+        );
+        if ((await run(() => root.getAttribute("data-state"))) !== "ready") {
           throw new Error("installed PPTX view reached error state");
         }
-        openAttempt.metadataMs = parseTiming(await root.getAttribute("data-metadata-ms"), "metadata");
-        openAttempt.firstReadableMs = parseTiming(await root.getAttribute("data-first-readable-ms"), "first readable");
+        openAttempt.metadataMs = parseTiming(
+          await run(() => root.getAttribute("data-metadata-ms")),
+          "metadata",
+        );
+        openAttempt.firstReadableMs = parseTiming(
+          await run(() => root.getAttribute("data-first-readable-ms")),
+          "first readable",
+        );
         expect(openAttempt.firstReadableMs).toBeGreaterThan(0);
         if (measured) {
           metadataMs.push(openAttempt.metadataMs);
           firstReadableMs.push(openAttempt.firstReadableMs);
-          const counter = await root.$(".pptx-viewer__page-counter");
+          const counter = await run(
+            async () => await root.$(".pptx-viewer__page-counter"),
+          );
           for (const action of SWITCH_SEQUENCE) {
-            const from = await counter.getText();
-            await root.$(`[data-action="${action}-slide"]`).click();
-            await browser.waitUntil(async () => (await counter.getText()) !== from, {
-              timeout: remainingAttemptMs(attemptStartedAtMs),
-              timeoutMsg: `${token} exceeded its attempt deadline during ${action}`,
-            });
-            const to = await counter.getText();
+            const from = await run(() => counter.getText());
+            const button = await run(
+              async () =>
+                await root.$(`[data-action="${action}-slide"]`),
+            );
+            await run(() => button.click());
+            await run(() =>
+              browser.waitUntil(
+                async () =>
+                  (await withAttemptDeadline(deadline, () => counter.getText())) !==
+                  from,
+                {
+                  timeout: remainingAttemptMs(deadline),
+                  timeoutMsg: `${token} exceeded its attempt deadline during ${action}`,
+                },
+              ),
+            );
+            const to = await run(() => counter.getText());
             const elapsedMs = parseTiming(
-              await root.getAttribute("data-last-slide-switch-ms"),
+              await run(() => root.getAttribute("data-last-slide-switch-ms")),
               "slide switch",
             );
             openAttempt.slideSwitches.push({ action, from, to, elapsedMs });
             slideSwitchMs.push(elapsedMs);
           }
-          if (remainingAttemptMs(attemptStartedAtMs) < 250) {
+          if (remainingAttemptMs(deadline) < 250) {
             throw new Error("attempt deadline left no budget for steady capture");
           }
-          await browser.pause(250);
-          memoryAttempt!.steady = await captureRunSnapshot(token, "steady");
+          await run(() => browser.pause(250));
+          memoryAttempt!.steady = await run(() =>
+            captureRunSnapshot(token, "steady"),
+          );
           if (!memoryAttempt!.steady) throw new Error("steady memory snapshot unavailable");
         }
         openAttempt.status = "passed";
       } catch (error) {
         openAttempt.status = "failed";
+        openAttempt.timedOut = error instanceof AttemptDeadlineExceededError;
         openAttempt.error = message(error);
-        if (memoryAttempt) memoryAttempt.error = openAttempt.error;
+        if (memoryAttempt) {
+          memoryAttempt.timedOut = openAttempt.timedOut;
+          memoryAttempt.error = openAttempt.error;
+        }
         recordFailure(`${kind}-open`, openAttempt.error, sampleIndex);
       } finally {
         try {
           const closeStartedAtMs = performance.now();
-          const closeDeadlineFromAttemptMs = Math.min(
-            ATTEMPT_TIMEOUT_MS,
-            closeStartedAtMs - attemptStartedAtMs + OBSERVATION_WINDOW_MS,
+          const closingDeadline = closeDeadline(deadline, closeStartedAtMs);
+          const closeRun = <T>(operation: () => Promise<T>) =>
+            withAttemptDeadline(closingDeadline, operation);
+          await closeRun(() =>
+            beginClose(token, measured ? POST_CLOSE_SAMPLE_TARGET_MS : 0),
           );
-          await beginClose(token, measured ? POST_CLOSE_SAMPLE_TARGET_MS : 0);
           if (measured) {
-            let waited = await waitForStatus(
-              token,
-              (candidate) => candidate.closeStarted,
-              attemptStartedAtMs,
-              closeDeadlineFromAttemptMs,
+            let waited = await closeRun(() =>
+              waitForStatus(
+                token,
+                (candidate) => candidate.closeStarted,
+                closingDeadline.startedAtMs,
+                closingDeadline.timeoutMs,
+              ),
             );
-            if (waited.timedOut) throw new Error("timed out waiting for close to start");
             let status = waited.value;
             if (
-              remainingAttemptMs(attemptStartedAtMs) <
+              remainingAttemptMs(closingDeadline) <
               POST_CLOSE_SAMPLE_TARGET_MS - 250
             ) {
               throw new Error("attempt deadline left no budget for post-close GC");
             }
-            await browser.pause(POST_CLOSE_SAMPLE_TARGET_MS - 250);
-            memoryAttempt!.garbageCollection = await requestElectronGarbageCollection(memoryBrowser);
-            status = await getRunStatus(token);
+            await closeRun(() => browser.pause(POST_CLOSE_SAMPLE_TARGET_MS - 250));
+            memoryAttempt!.garbageCollection = await closeRun(() =>
+              requestElectronGarbageCollection(memoryBrowser),
+            );
+            status = await closeRun(() => getRunStatus(token));
             memoryAttempt!.gcCompletedElapsedMs = status.closeElapsedMs;
             if (!status.postCloseSnapshot && (status.closeElapsedMs ?? 0) <= OBSERVATION_WINDOW_MS) {
-              waited = await waitForStatus(
-                token,
-                (candidate) => candidate.postCloseSnapshot !== null,
-                attemptStartedAtMs,
-                closeDeadlineFromAttemptMs,
+              waited = await closeRun(() =>
+                waitForStatus(
+                  token,
+                  (candidate) => candidate.postCloseSnapshot !== null,
+                  closingDeadline.startedAtMs,
+                  closingDeadline.timeoutMs,
+                ),
               );
               status = waited.value;
-              if (waited.timedOut) {
-                throw new Error("timed out waiting for the post-close memory snapshot");
-              }
             }
             memoryAttempt!.snapshots = status.snapshots;
             memoryAttempt!.loadingSnapshotCount = status.snapshots.filter(({ state }) => state === "loading").length;
@@ -762,24 +822,32 @@ describe("installed PPTX performance collector", () => {
               memoryAttempt!.error = "memory or cleanup invariant failed; see failure summary";
             }
           } else {
-            const waited = await waitForStatus(
-              token,
-              (status) => status.cleanupElapsedMs !== null,
-              attemptStartedAtMs,
-              ATTEMPT_TIMEOUT_MS,
+            await closeRun(() =>
+              waitForStatus(
+                token,
+                (status) => status.cleanupElapsedMs !== null,
+                closingDeadline.startedAtMs,
+                closingDeadline.timeoutMs,
+              ),
             );
-            if (waited.timedOut) throw new Error("timed out waiting for cleanup");
           }
         } catch (error) {
           const failureMessage = message(error);
+          if (error instanceof AttemptDeadlineExceededError) {
+            openAttempt.timedOut = true;
+            openAttempt.status = "failed";
+            openAttempt.error ??= failureMessage;
+          }
           recordFailure("cleanup", failureMessage, sampleIndex);
           if (memoryAttempt) {
+            memoryAttempt.timedOut ||=
+              error instanceof AttemptDeadlineExceededError;
             memoryAttempt.status = "failed";
-            memoryAttempt.error = failureMessage;
+            memoryAttempt.error ??= failureMessage;
           }
         } finally {
           try {
-            await releaseRunEvidence(token);
+            await run(() => releaseRunEvidence(token));
           } catch (error) {
             recordFailure("collector-cleanup", message(error), sampleIndex);
           }
@@ -797,6 +865,9 @@ describe("installed PPTX performance collector", () => {
 
     for (let index = 1; index <= CANCELLATION_RUNS; index += 1) {
       const attemptStartedAtMs = performance.now();
+      const deadline = attemptDeadline(attemptStartedAtMs);
+      const run = <T>(operation: () => Promise<T>) =>
+        withAttemptDeadline(deadline, operation);
       const token = `cancellation-${index}-${Date.now()}`;
       const attempt: RawCancellationAttempt = {
         sampleIndex: index,
@@ -826,63 +897,54 @@ describe("installed PPTX performance collector", () => {
         error: null,
       };
       try {
-        await startInstalledRun(stress.vaultPath, token, {
-          sampleMemory: true,
-          cancelOnInFlight: true,
-          postCloseTargetMs: POST_CLOSE_SAMPLE_TARGET_MS,
-        });
-        let waited = await waitForStatus(
-          token,
-          (candidate) => candidate.sawInFlight && candidate.closeStarted,
-          attemptStartedAtMs,
-          ATTEMPT_TIMEOUT_MS,
+        await run(() =>
+          startInstalledRun(stress.vaultPath, token, {
+            sampleMemory: true,
+            cancelOnInFlight: true,
+            postCloseTargetMs: POST_CLOSE_SAMPLE_TARGET_MS,
+          }),
+        );
+        let waited = await run(() =>
+          waitForStatus(
+            token,
+            (candidate) => candidate.sawInFlight && candidate.closeStarted,
+            deadline.startedAtMs,
+            deadline.timeoutMs,
+          ),
         );
         let status = waited.value;
-        if (waited.timedOut) {
-          attempt.timedOut = true;
-          attempt.error = "timed out before observing adapter-opening lifecycle phase";
-          recordFailure("cancellation-phase", attempt.error, index);
-          await beginClose(token, POST_CLOSE_SAMPLE_TARGET_MS);
-          status = await getRunStatus(token);
-          waited = await waitForStatus(
-            token,
-            (candidate) =>
-              candidate.cleanupElapsedMs !== null &&
-              candidate.postCloseSnapshot !== null,
-            attemptStartedAtMs,
-            ATTEMPT_TIMEOUT_MS,
-          );
-          status = waited.value;
-        }
         const closeObservationStartedAtMs =
           performance.now() - (status.closeElapsedMs ?? 0);
-        const closeDeadlineFromAttemptMs = Math.min(
-          ATTEMPT_TIMEOUT_MS,
-          closeObservationStartedAtMs - attemptStartedAtMs +
-            OBSERVATION_WINDOW_MS,
+        const closingDeadline = closeDeadline(
+          deadline,
+          closeObservationStartedAtMs,
         );
+        const closeRun = <T>(operation: () => Promise<T>) =>
+          withAttemptDeadline(closingDeadline, operation);
         const beforeGcDelayMs = Math.max(
           0,
           POST_CLOSE_SAMPLE_TARGET_MS - 250 - (status.closeElapsedMs ?? 0),
         );
-        if (remainingAttemptMs(attemptStartedAtMs) < beforeGcDelayMs) {
+        if (remainingAttemptMs(closingDeadline) < beforeGcDelayMs) {
           throw new Error("attempt deadline left no budget for cancellation GC");
         }
-        await browser.pause(beforeGcDelayMs);
-        attempt.garbageCollection =
-          await requestElectronGarbageCollection(memoryBrowser);
-        status = await getRunStatus(token);
+        await closeRun(() => browser.pause(beforeGcDelayMs));
+        attempt.garbageCollection = await closeRun(() =>
+          requestElectronGarbageCollection(memoryBrowser),
+        );
+        status = await closeRun(() => getRunStatus(token));
         attempt.gcCompletedElapsedMs = status.closeElapsedMs;
-        waited = await waitForStatus(
-          token,
-          (candidate) =>
-            candidate.cleanupElapsedMs !== null &&
-            candidate.postCloseSnapshot !== null,
-          attemptStartedAtMs,
-          closeDeadlineFromAttemptMs,
+        waited = await closeRun(() =>
+          waitForStatus(
+            token,
+            (candidate) =>
+              candidate.cleanupElapsedMs !== null &&
+              candidate.postCloseSnapshot !== null,
+            closingDeadline.startedAtMs,
+            closingDeadline.timeoutMs,
+          ),
         );
         status = waited.value;
-        if (waited.timedOut) attempt.timedOut = true;
         attempt.sawLoading = status.sawLoading;
         attempt.sawInFlight = status.sawInFlight;
         attempt.snapshots = status.snapshots;
@@ -978,16 +1040,17 @@ describe("installed PPTX performance collector", () => {
         }
       } catch (error) {
         attempt.status = "failed";
-        attempt.error = message(error);
+        attempt.timedOut = error instanceof AttemptDeadlineExceededError;
+        attempt.error ??= message(error);
         recordFailure("cancellation", attempt.error, index);
         try {
-          await beginClose(token, 0);
+          await run(() => beginClose(token, 0));
         } catch {
           // The attempt retains the original failure.
         }
       } finally {
         try {
-          await releaseRunEvidence(token);
+          await run(() => releaseRunEvidence(token));
         } catch (error) {
           attempt.status = "failed";
           attempt.error ??= message(error);
