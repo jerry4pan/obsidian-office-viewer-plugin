@@ -69,6 +69,17 @@ export async function withAttemptDeadline<T>(
   }
 }
 
+export function withFreshAttemptDeadline<T>(
+  timeoutMs: number,
+  now: () => number,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return withAttemptDeadline(
+    { startedAtMs: now(), timeoutMs, now },
+    operation,
+  );
+}
+
 export async function pollUntilAttemptDeadline<T>(
   options: AttemptPollOptions<T>,
 ): Promise<AttemptPollResult<T>> {

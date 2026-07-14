@@ -23,7 +23,7 @@ as a fallback.
 | PPTX file registration and dedicated workspace view | `src/main.ts` registers extension `pptx` with `PPTX_VIEW_TYPE`; `src/pptx-file-view.ts` implements the `FileView` | `tests/plugin-registration.test.ts`; installed `tests/e2e/open-pptx.e2e.ts` | Complete |
 | Local binary read and read-only rendering | `PptxFileView.onLoadFile` delegates to `Vault.readBinary`; the adapter receives an `ArrayBuffer`; no source write capability is present | Plugin boundary asserts no `writeBinary`; installed E2E hashes sources before, during, and after open/navigation/close | Complete |
 | Current page, total pages, Previous, Next, and page jump | `src/pptx-view-session.ts` routes all controls through one zero-based navigation function and exposes a one-based validated input | Session tests cover pages 1–3 and invalid `""`, `0`, `4`, `1.5`; plugin and installed tests jump through a real 12-slide fixture | Complete |
-| Loading, empty, basic error, and retry | The session starts in `empty`, keeps navigation disabled while loading, moves recoverable slide failures to `degraded` without committing the failed page number, and uses stable blocking error panels with retry | Session tests cover lifecycle, loading controls, degraded navigation, all stable categories, retry, stale work, and disposal; adapter tests prove Aiden `slideerror` events become contract failures; installed abnormal fixtures cover retry and cleanup | Complete |
+| Loading, empty, basic error, and retry | The session starts in `empty`, keeps navigation disabled while loading, preserves the last readable slide by rollback or snapshot restoration when later slides fail, moves recoverable failures to `degraded`, and uses stable blocking error panels with retry | Session tests cover lifecycle, loading controls, degraded navigation, all stable categories, retry, stale work, and disposal; both adapter suites prove failed navigation preserves visible content, including rollback failure; installed abnormal fixtures cover retry and cleanup | Complete |
 | Open in default application fallback | `src/pptx-file-view.ts` injects desktop `electron.shell.openPath`; the session exposes it in ready and error states and contains local failure copy | Session tests invoke the injected action; plugin and installed tests prove fallback availability without launching a host application during automation | Complete |
 | Main-path integration in real Obsidian | WebdriverIO config builds and installs the repository plugin into the sandboxed `tests/vault` through `wdio-obsidian-service` | `npm run test:e2e` passes all six installed-path cases on Obsidian 1.12.7 | Complete |
 
@@ -43,25 +43,29 @@ All results below were produced on the implementation branch on 2026-07-14.
 
 | Command | Result |
 | --- | --- |
-| `npm run verify` | PASS: 23 test files; 166 passed, 1 skipped |
+| `npm run verify` | PASS: 25 test files; 175 passed, 1 skipped |
 | `npm run test:e2e` | PASS: 6 installed Obsidian cases |
 | `npm run test:compatibility` | PASS: 5 fixtures captured and classified; existing zero-pixel baselines preserved |
-| `npm run test:performance` | PASS: first-readable p95 40.3 ms; slide-switch p95 2.4 ms; no recorded failures |
+| `npm run test:performance` | PASS: first-readable p95 33.5 ms; slide-switch p95 2.5 ms; no recorded failures |
 | `npm run test:performance:baseline` | PASS: 8 tests passed, 1 skipped |
 
-The M1 production bundle is 1,145,020 bytes. Because M1 changed that value,
+The M1 production bundle is 1,146,002 bytes. Because M1 changed that value,
 the full installed performance protocol was rerun rather than editing the M0
 artifact. The generated JSON and Markdown were copied byte-for-byte into
 `tests/performance/baselines/aiden-pptx-renderer-1.2.4.json` and
 `docs/performance/aiden-pptx-renderer-1.2.4.md`; the baseline validator then
 passed.
 
-One preceding performance invocation exceeded its cleanup deadline during the
-third memory attempt and exposed an existing collector failure path: a selected
-steady snapshot was retained after its raw snapshot array was not written. The
-validator rejected that internally inconsistent artifact, so it was not
-promoted. The next independent full protocol produced the complete passing
-artifact recorded above; no threshold or sample count was changed.
+Preceding performance invocations exposed two collector failure paths: selected
+snapshots could outlive their raw evidence after a timeout, and an expired
+attempt deadline could skip renderer cleanup before the next sample. The
+validator rejected every invalid or failed artifact, so none was promoted.
+Issue #14 records the original inconsistency. Regression tests now prove that
+selected snapshots are recomputed from available raw evidence and that
+collector cleanup receives a fresh bounded deadline; the installed collector
+also performs an idempotent close before releasing registry evidence and stops
+the run if that cleanup fails. A subsequent full protocol produced the passing
+artifact recorded above without changing thresholds or sample counts.
 
 ## Deferred work
 

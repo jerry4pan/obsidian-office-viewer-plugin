@@ -29,6 +29,7 @@ import {
   attemptRemainingMs,
   pollUntilAttemptDeadline,
   withAttemptDeadline,
+  withFreshAttemptDeadline,
   type AttemptDeadline,
 } from "../performance/attempt-timeout";
 import {
@@ -38,6 +39,7 @@ import {
 import { renderInstalledPerformanceMarkdown } from "../performance/installed-performance-markdown";
 import { writePerformanceProgressAtomic } from "../performance/performance-progress";
 import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
+import { synchronizeMemoryAttemptSelection } from "../performance/memory-attempt-evidence";
 
 const renderer = activeRendererAcceptanceConfig();
 const ARTIFACT_DIR = renderer.paths.performanceArtifactDir;
@@ -45,9 +47,11 @@ const PROGRESS_PATH = path.join(ARTIFACT_DIR, "progress.json");
 const ACTIVE_ROOT = ".workspace-leaf.mod-active .pptx-viewer";
 const OBSERVATION_WINDOW_MS = 2_000;
 const POST_CLOSE_SAMPLE_TARGET_MS = 1_850;
+const PRE_POST_CLOSE_GC_LEAD_MS = 250;
 const MAX_RETAINED_HEAP_FRACTION = 0.5;
 // One monotonic budget covers open, interaction, and cleanup for each attempt.
 const ATTEMPT_TIMEOUT_MS = 10_000;
+const COLLECTOR_CLEANUP_TIMEOUT_MS = 3_000;
 const WARMUP_RUNS = 2;
 const MEASURED_RUNS = 10;
 const CANCELLATION_RUNS = 5;
@@ -210,6 +214,21 @@ interface RuntimeVersions {
   node: string;
 }
 
+function synchronizeMemoryAttempt(
+  attempt: RawMemoryAttempt,
+  status?: RunStatus,
+): void {
+  if (status) {
+    attempt.diagnosticsAfterClose = status.diagnostics;
+    attempt.adapterStopElapsedMs = status.cleanupElapsedMs;
+  }
+  synchronizeMemoryAttemptSelection(
+    attempt,
+    status?.snapshots ?? attempt.snapshots,
+    selectActualPeakSnapshot,
+  );
+}
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -230,6 +249,16 @@ function remainingAttemptMs(deadline: AttemptDeadline): number {
 
 function attemptDeadline(startedAtMs: number): AttemptDeadline {
   return { startedAtMs, timeoutMs: ATTEMPT_TIMEOUT_MS, now: () => performance.now() };
+}
+
+function withCollectorCleanupDeadline<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  return withFreshAttemptDeadline(
+    COLLECTOR_CLEANUP_TIMEOUT_MS,
+    () => performance.now(),
+    operation,
+  );
 }
 
 function closeDeadline(
@@ -714,11 +743,15 @@ describe("installed PPTX performance collector", () => {
             let status = waited.value;
             if (
               remainingAttemptMs(closingDeadline) <
-              POST_CLOSE_SAMPLE_TARGET_MS - 250
+              POST_CLOSE_SAMPLE_TARGET_MS - PRE_POST_CLOSE_GC_LEAD_MS
             ) {
               throw new Error("attempt deadline left no budget for post-close GC");
             }
-            await closeRun(() => browser.pause(POST_CLOSE_SAMPLE_TARGET_MS - 250));
+            await closeRun(() =>
+              browser.pause(
+                POST_CLOSE_SAMPLE_TARGET_MS - PRE_POST_CLOSE_GC_LEAD_MS,
+              ),
+            );
             memoryAttempt!.garbageCollection = await closeRun(() =>
               requestElectronGarbageCollection(memoryBrowser),
             );
@@ -735,22 +768,7 @@ describe("installed PPTX performance collector", () => {
               );
               status = waited.value;
             }
-            memoryAttempt!.snapshots = status.snapshots;
-            memoryAttempt!.loadingSnapshotCount = status.snapshots.filter(({ state }) => state === "loading").length;
-            memoryAttempt!.preOpen = status.snapshots.find(({ label }) => label === "pre-open") ?? null;
-            memoryAttempt!.postClose = status.postCloseSnapshot;
-            memoryAttempt!.diagnosticsAfterClose = status.diagnostics;
-            memoryAttempt!.adapterStopElapsedMs = status.cleanupElapsedMs;
-            memoryAttempt!.closeStartedAtRendererMs =
-              status.postCloseSnapshot === null || status.postCloseSnapshot.elapsedSinceCloseMs === null
-                ? null
-                : status.postCloseSnapshot.rendererTimestampMs - status.postCloseSnapshot.elapsedSinceCloseMs;
-            if (memoryAttempt!.steady) {
-              memoryAttempt!.peak = selectActualPeakSnapshot(
-                status.snapshots,
-                memoryAttempt!.steady,
-              );
-            }
+            synchronizeMemoryAttempt(memoryAttempt!, status);
             const preOpen = memoryAttempt!.preOpen;
             const peak = memoryAttempt!.peak;
             const steady = memoryAttempt!.steady;
@@ -846,16 +864,51 @@ describe("installed PPTX performance collector", () => {
               error instanceof AttemptDeadlineExceededError;
             memoryAttempt.status = "failed";
             memoryAttempt.error ??= failureMessage;
+            // Do not queue another WebDriver read after a timeout: Promise.race
+            // cannot cancel the underlying command and it can delay later runs.
+            // Recompute only from raw evidence already captured by this attempt.
+            synchronizeMemoryAttempt(memoryAttempt);
           }
         } finally {
+          let collectorCleanupError: string | null = null;
           try {
-            await run(() => releaseRunEvidence(token));
+            await withCollectorCleanupDeadline(() => beginClose(token, 0));
           } catch (error) {
-            recordFailure("collector-cleanup", message(error), sampleIndex);
+            collectorCleanupError = message(error);
+            recordFailure(
+              "collector-cleanup",
+              collectorCleanupError,
+              sampleIndex,
+            );
+          }
+          try {
+            await withCollectorCleanupDeadline(() =>
+              releaseRunEvidence(token),
+            );
+          } catch (error) {
+            collectorCleanupError ??= message(error);
+            recordFailure(
+              "collector-cleanup",
+              message(error),
+              sampleIndex,
+            );
+          }
+          if (collectorCleanupError) {
+            openAttempt.status = "failed";
+            openAttempt.error ??= collectorCleanupError;
+            if (memoryAttempt) {
+              memoryAttempt.status = "failed";
+              memoryAttempt.error ??= collectorCleanupError;
+            }
           }
           rawOpens.push(openAttempt);
           if (memoryAttempt) rawMemoryAttempts.push(memoryAttempt);
           await checkpointProgress();
+          if (collectorCleanupError) {
+            throw new Error(
+              `collector cleanup failed; stopping later samples: ${collectorCleanupError}`,
+            );
+          }
         }
       }
     };
@@ -925,7 +978,9 @@ describe("installed PPTX performance collector", () => {
           withAttemptDeadline(closingDeadline, operation);
         const beforeGcDelayMs = Math.max(
           0,
-          POST_CLOSE_SAMPLE_TARGET_MS - 250 - (status.closeElapsedMs ?? 0),
+          POST_CLOSE_SAMPLE_TARGET_MS -
+            PRE_POST_CLOSE_GC_LEAD_MS -
+            (status.closeElapsedMs ?? 0),
         );
         if (remainingAttemptMs(closingDeadline) < beforeGcDelayMs) {
           throw new Error("attempt deadline left no budget for cancellation GC");
@@ -1051,15 +1106,30 @@ describe("installed PPTX performance collector", () => {
           // The attempt retains the original failure.
         }
       } finally {
+        let collectorCleanupError: string | null = null;
         try {
-          await run(() => releaseRunEvidence(token));
+          await withCollectorCleanupDeadline(() => beginClose(token, 0));
         } catch (error) {
+          collectorCleanupError = message(error);
+          attempt.status = "failed";
+          attempt.error ??= collectorCleanupError;
+          recordFailure("collector-cleanup", collectorCleanupError, index);
+        }
+        try {
+          await withCollectorCleanupDeadline(() => releaseRunEvidence(token));
+        } catch (error) {
+          collectorCleanupError ??= message(error);
           attempt.status = "failed";
           attempt.error ??= message(error);
           recordFailure("collector-cleanup", message(error), index);
         }
         rawCancellationAttempts.push(attempt);
         await checkpointProgress();
+        if (collectorCleanupError) {
+          throw new Error(
+            `collector cleanup failed; stopping later samples: ${collectorCleanupError}`,
+          );
+        }
       }
     }
 

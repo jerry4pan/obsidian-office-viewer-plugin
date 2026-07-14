@@ -3,6 +3,7 @@ import {
   attemptRemainingMs,
   pollUntilAttemptDeadline,
   withAttemptDeadline,
+  withFreshAttemptDeadline,
 } from "./attempt-timeout";
 
 describe("attempt-level monotonic timeout", () => {
@@ -81,6 +82,27 @@ describe("attempt-level monotonic timeout", () => {
         },
       ),
     ).rejects.toBeInstanceOf(AttemptDeadlineExceededError);
+  });
+
+  it("gives collector cleanup a fresh bounded deadline after the attempt expires", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(10_000);
+      const pending = withFreshAttemptDeadline(
+        3_000,
+        () => Date.now(),
+        () => new Promise<never>(() => {}),
+      );
+      const rejected = expect(pending).rejects.toBeInstanceOf(
+        AttemptDeadlineExceededError,
+      );
+
+      await vi.advanceTimersByTimeAsync(2_999);
+      await vi.advanceTimersByTimeAsync(1);
+      await rejected;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not accept a completed poll value after expiry", async () => {

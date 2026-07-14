@@ -4,13 +4,13 @@ Overall result: **PASS**.
 
 | M0 latency gate | p50 | p95 | Budget | Result |
 | --- | ---: | ---: | ---: | --- |
-| First readable slide | 35.400 ms | 40.300 ms | <= 3,000.000 ms | PASS |
-| Rendered page switch | 1.800 ms | 2.400 ms | <= 100.000 ms | PASS |
+| First readable slide | 30.600 ms | 33.500 ms | <= 3,000.000 ms | PASS |
+| Rendered page switch | 1.800 ms | 2.500 ms | <= 100.000 ms | PASS |
 
 ## Raw observations
 
-- First readable slide (ms): `25.2, 40.3, 39.5, 35.4, 33.7, 35.4, 39.3, 37, 33.6, 37.8`
-- Rendered page switch (ms): `2, 2, 1.5, 1.7, 2.5, 2, 1.6, 1.7, 2.4, 2.1, 1.5, 1.5, 2.4, 2.3, 1.6, 1.5, 2.3, 1.9, 1.6, 1.5, 2.4, 2.3, 1.6, 1.6, 2.4, 2.1, 1.7, 1.6, 2.2, 2.1, 1.5, 1.7, 2.4, 2.2, 1.8, 1.5, 2.3, 2.1, 1.7, 1.8`
+- First readable slide (ms): `25.2, 33.5, 32.9, 32.3, 31.3, 30.4, 29.9, 31.6, 30.6, 29.7`
+- Rendered page switch (ms): `2.4, 2.2, 1.6, 1.5, 2.2, 2.2, 1.6, 1.5, 2.2, 2.3, 1.7, 1.6, 2.3, 2.2, 1.8, 1.6, 2.1, 2.1, 1.7, 1.6, 2.6, 2.5, 1.8, 1.6, 2.3, 2.2, 1.8, 1.7, 2.2, 2.2, 1.6, 1.7, 2.3, 2.1, 1.7, 1.6, 2.6, 2.2, 1.8, 1.6`
 
 ## Environment
 
@@ -28,7 +28,7 @@ Overall result: **PASS**.
 
 ## Resources
 
-- Production bundle: 1,145,020 bytes
+- Production bundle: 1,146,002 bytes
 - Cleanup observation window: 2,000 ms
 - Memory observations: 30
 - Cancellation observations: 5
@@ -38,66 +38,66 @@ Overall result: **PASS**.
 
 | Label | Heap used (bytes) | RSS (bytes) |
 | --- | ---: | ---: |
-| measured-1-peak-actual-snapshot-9 | 27,051,636 | 276,774,912 |
-| measured-1-steady | 27,051,636 | 276,774,912 |
-| measured-1-post-close | 17,705,316 | 241,221,632 |
-| measured-2-peak-actual-snapshot-11 | 23,127,904 | 251,772,928 |
-| measured-2-steady | 23,127,904 | 251,772,928 |
-| measured-2-post-close | 17,957,696 | 243,154,944 |
-| measured-3-peak-actual-snapshot-11 | 23,135,780 | 252,772,352 |
-| measured-3-steady | 23,135,780 | 252,772,352 |
-| measured-3-post-close | 18,037,732 | 244,482,048 |
-| measured-4-peak-actual-snapshot-10 | 22,067,860 | 252,854,272 |
-| measured-4-steady | 22,067,860 | 252,854,272 |
-| measured-4-post-close | 18,136,360 | 244,776,960 |
-| measured-5-peak-actual-snapshot-10 | 21,649,816 | 253,100,032 |
-| measured-5-steady | 21,649,816 | 253,100,032 |
-| measured-5-post-close | 17,548,116 | 244,613,120 |
-| measured-6-peak-actual-snapshot-11 | 21,188,768 | 252,837,888 |
-| measured-6-steady | 21,188,768 | 252,837,888 |
-| measured-6-post-close | 17,150,200 | 245,645,312 |
-| measured-7-peak-actual-snapshot-11 | 21,157,816 | 253,771,776 |
-| measured-7-steady | 21,157,816 | 253,771,776 |
-| measured-7-post-close | 17,274,676 | 251,609,088 |
-| measured-8-peak-actual-snapshot-11 | 21,048,320 | 263,208,960 |
-| measured-8-steady | 21,048,320 | 263,208,960 |
-| measured-8-post-close | 17,370,008 | 256,000,000 |
-| measured-9-peak-actual-snapshot-10 | 21,345,120 | 263,749,632 |
-| measured-9-steady | 21,345,120 | 263,749,632 |
-| measured-9-post-close | 17,398,560 | 256,098,304 |
-| measured-10-peak-actual-snapshot-11 | 21,431,132 | 263,864,320 |
-| measured-10-steady | 21,431,132 | 263,864,320 |
-| measured-10-post-close | 17,508,228 | 256,131,072 |
+| measured-1-peak-actual-snapshot-9 | 27,174,172 | 279,265,280 |
+| measured-1-steady | 27,174,172 | 279,265,280 |
+| measured-1-post-close | 17,715,016 | 243,318,784 |
+| measured-2-peak-actual-snapshot-10 | 23,059,140 | 253,280,256 |
+| measured-2-steady | 23,059,140 | 253,280,256 |
+| measured-2-post-close | 17,852,876 | 244,383,744 |
+| measured-3-peak-actual-snapshot-10 | 22,102,300 | 252,952,576 |
+| measured-3-steady | 22,102,300 | 252,952,576 |
+| measured-3-post-close | 18,000,236 | 244,711,424 |
+| measured-4-peak-actual-snapshot-10 | 22,071,156 | 253,050,880 |
+| measured-4-steady | 22,071,156 | 253,050,880 |
+| measured-4-post-close | 18,148,396 | 245,448,704 |
+| measured-5-peak-actual-snapshot-10 | 21,572,356 | 253,640,704 |
+| measured-5-steady | 21,572,356 | 253,640,704 |
+| measured-5-post-close | 17,552,512 | 245,628,928 |
+| measured-6-peak-actual-snapshot-10 | 21,102,024 | 253,657,088 |
+| measured-6-steady | 21,102,024 | 253,657,088 |
+| measured-6-post-close | 17,098,708 | 245,743,616 |
+| measured-7-peak-actual-snapshot-10 | 21,160,128 | 254,099,456 |
+| measured-7-steady | 21,160,128 | 254,099,456 |
+| measured-7-post-close | 17,173,328 | 246,120,448 |
+| measured-8-peak-actual-snapshot-10 | 21,240,768 | 254,246,912 |
+| measured-8-steady | 21,240,768 | 254,246,912 |
+| measured-8-post-close | 17,265,404 | 246,153,216 |
+| measured-9-peak-actual-snapshot-10 | 21,432,508 | 254,296,064 |
+| measured-9-steady | 21,432,508 | 254,296,064 |
+| measured-9-post-close | 17,345,776 | 247,037,952 |
+| measured-10-peak-actual-snapshot-10 | 21,509,812 | 255,131,648 |
+| measured-10-steady | 21,509,812 | 255,131,648 |
+| measured-10-post-close | 17,424,008 | 247,332,864 |
 
 ### Cancellation observations
 
 | Sample | Elapsed | Detached | Viewer absent |
 | ---: | ---: | --- | --- |
-| 1 | 9.500 ms | yes | yes |
-| 2 | 8.800 ms | yes | yes |
-| 3 | 9.800 ms | yes | yes |
-| 4 | 7.800 ms | yes | yes |
-| 5 | 8.600 ms | yes | yes |
+| 1 | 7.100 ms | yes | yes |
+| 2 | 6.500 ms | yes | yes |
+| 3 | 7.900 ms | yes | yes |
+| 4 | 7.900 ms | yes | yes |
+| 5 | 7.300 ms | yes | yes |
 
 ### Cleanup observations
 
 | Sample | Elapsed | Work stopped | Resources released |
 | ---: | ---: | --- | --- |
-| 1 | 1,852.700 ms | yes | yes |
-| 2 | 1,851.800 ms | yes | yes |
-| 3 | 1,852.200 ms | yes | yes |
+| 1 | 1,851.000 ms | yes | yes |
+| 2 | 1,851.000 ms | yes | yes |
+| 3 | 1,852.500 ms | yes | yes |
 | 4 | 1,851.300 ms | yes | yes |
-| 5 | 1,851.200 ms | yes | yes |
-| 6 | 1,851.100 ms | yes | yes |
-| 7 | 1,852.300 ms | yes | yes |
-| 8 | 1,851.800 ms | yes | yes |
-| 9 | 1,851.200 ms | yes | yes |
-| 10 | 1,852.000 ms | yes | yes |
-| 11 | 1,851.700 ms | yes | yes |
-| 12 | 1,851.800 ms | yes | yes |
-| 13 | 1,851.200 ms | yes | yes |
-| 14 | 1,851.200 ms | yes | yes |
-| 15 | 1,851.700 ms | yes | yes |
+| 5 | 1,851.500 ms | yes | yes |
+| 6 | 1,850.700 ms | yes | yes |
+| 7 | 1,851.600 ms | yes | yes |
+| 8 | 1,852.000 ms | yes | yes |
+| 9 | 1,852.000 ms | yes | yes |
+| 10 | 1,851.600 ms | yes | yes |
+| 11 | 1,851.500 ms | yes | yes |
+| 12 | 1,851.700 ms | yes | yes |
+| 13 | 1,851.700 ms | yes | yes |
+| 14 | 1,850.800 ms | yes | yes |
+| 15 | 1,850.900 ms | yes | yes |
 
 ## Failures
 
@@ -107,17 +107,17 @@ None.
 
 | Metric | Samples | p50 | p95 |
 | --- | ---: | ---: | ---: |
-| Metadata/open | 10/10 | 32.5 | 37.1 |
-| First readable | 10/10 | 35.4 | 40.3 |
-| Slide switch | 40/40 | 1.8 | 2.4 |
-| Cancellation / adapter-stop elapsed | 5/5 | 8.799999952316284 | 9.799999952316284 |
-| Full resource completion elapsed | 15/15 | 1851.7000000476837 | 1852.7000000476837 |
+| Metadata/open | 10/10 | 28.1 | 30.9 |
+| First readable | 10/10 | 30.6 | 33.5 |
+| Slide switch | 40/40 | 1.8 | 2.5 |
+| Cancellation / adapter-stop elapsed | 5/5 | 7.299999952316284 | 7.899999976158142 |
+| Full resource completion elapsed | 15/15 | 1851.5 | 1852.5 |
 
 | Memory phase | Heap p50 | Heap p95 | RSS p50 | RSS p95 |
 | --- | ---: | ---: | ---: | ---: |
-| peak | 21431132 | 27051636 | 253100032 | 276774912 |
-| steady | 21431132 | 27051636 | 253100032 | 276774912 |
-| postClose | 17508228 | 18136360 | 244776960 | 256131072 |
+| peak | 21509812 | 27174172 | 253657088 | 279265280 |
+| steady | 21509812 | 27174172 | 253657088 | 279265280 |
+| postClose | 17424008 | 18148396 | 245628928 | 247332864 |
 
 ### Budget misses and bottlenecks
 
