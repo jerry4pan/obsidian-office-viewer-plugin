@@ -55,17 +55,21 @@ function addSlideHeading(slide, title, subtitle) {
   });
 }
 
-async function buildRepresentative() {
+async function buildRepresentative(
+  slideCount,
+  markerPrefix,
+  title = "Representative 12-slide benchmark deck",
+) {
   const pptx = presentation(
-    "Representative 12-slide benchmark deck",
+    title,
     "MIT performance benchmark fixture with text, shapes, tables and images",
   );
-  for (let slideNumber = 1; slideNumber <= 12; slideNumber += 1) {
+  for (let slideNumber = 1; slideNumber <= slideCount; slideNumber += 1) {
     const slide = pptx.addSlide();
     slide.background = { color: slideNumber % 2 === 0 ? "F8FAFC" : "FFFFFF" };
     addSlideHeading(
       slide,
-      `Representative benchmark slide ${slideNumber}`,
+      `${markerPrefix} slide ${slideNumber}`,
       `Repository-authored content sample ${String(slideNumber).padStart(2, "0")}`,
     );
     slide.addText(`Section ${slideNumber}`, {
@@ -87,7 +91,7 @@ async function buildRepresentative() {
       [
         ["Metric", "Current", "Target"],
         ["Readability", `${90 + (slideNumber % 10)}%`, "100%"],
-        ["Slide", String(slideNumber), "12"],
+        ["Slide", String(slideNumber), String(slideCount)],
       ],
       {
         x: 0.7,
@@ -130,6 +134,14 @@ async function buildRepresentative() {
     });
   }
   return pptx;
+}
+
+function buildM2Representative() {
+  return buildRepresentative(
+    50,
+    "M2 representative benchmark",
+    "M2 representative 50-slide benchmark deck",
+  );
 }
 
 async function buildStress() {
@@ -199,5 +211,8 @@ async function ensureFixture(id, build) {
   await copyFile(fixturePath, path.join(vaultDir, `${id}.pptx`));
 }
 
-await ensureFixture("representative-12-slides", buildRepresentative);
+await ensureFixture("representative-12-slides", () =>
+  buildRepresentative(12, "Representative benchmark"),
+);
+await ensureFixture("m2-representative-50-slides", buildM2Representative);
 await ensureFixture("stress-200-slides", buildStress);

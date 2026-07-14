@@ -52,6 +52,11 @@ interface Diagnostics {
   readonly rendererActive: boolean;
   readonly disposed: boolean;
   readonly lifecyclePhase: string;
+  readonly backgroundPending: number;
+  readonly backgroundRunning: number;
+  readonly mountedThumbnails: number;
+  readonly zoomMode: "fit" | "manual";
+  readonly zoomPercent: number;
 }
 
 export interface InstalledOpenAttempt {
@@ -121,6 +126,14 @@ export interface InstalledCancellationAttempt {
   readonly error: string | null;
 }
 
+export interface BackgroundStopObservation {
+  readonly reason: "close" | "file-switch";
+  readonly elapsedMs: number;
+  readonly pending: number;
+  readonly running: number;
+  readonly mounted: number;
+}
+
 export interface InstalledPerformanceArtifact
   extends PerformanceSummary, InstalledMarkdownArtifact {
   readonly protocol: InstalledMarkdownArtifact["protocol"] & {
@@ -136,6 +149,9 @@ export interface InstalledPerformanceArtifact
   readonly rawOpens: readonly InstalledOpenAttempt[];
   readonly rawMemoryAttempts: readonly InstalledMemoryAttempt[];
   readonly rawCancellationAttempts: readonly InstalledCancellationAttempt[];
+  readonly thumbnailReadinessMs: readonly number[];
+  readonly mountedThumbnailCounts: readonly number[];
+  readonly backgroundStopObservations: readonly BackgroundStopObservation[];
   readonly analysis: Analysis;
 }
 
@@ -275,12 +291,22 @@ function assertDiagnostics(value: unknown, path: string): void {
     "rendererActive",
     "disposed",
     "lifecyclePhase",
+    "backgroundPending",
+    "backgroundRunning",
+    "mountedThumbnails",
+    "zoomMode",
+    "zoomPercent",
   ]);
   integer(diagnostics.generation, `${path}.generation`);
   boolean(diagnostics.openPending, `${path}.openPending`);
   boolean(diagnostics.rendererActive, `${path}.rendererActive`);
   boolean(diagnostics.disposed, `${path}.disposed`);
   string(diagnostics.lifecyclePhase, `${path}.lifecyclePhase`);
+  integer(diagnostics.backgroundPending, `${path}.backgroundPending`);
+  integer(diagnostics.backgroundRunning, `${path}.backgroundRunning`);
+  integer(diagnostics.mountedThumbnails, `${path}.mountedThumbnails`);
+  enumeration(diagnostics.zoomMode, `${path}.zoomMode`, ["fit", "manual"]);
+  nonNegative(diagnostics.zoomPercent, `${path}.zoomPercent`);
 }
 
 function assertResourceReturn(value: unknown, path: string): void {
@@ -629,6 +655,8 @@ function validateExpectedOpenFailureArtifact(
     metadataMs: [],
     firstReadableMs: [],
     slideSwitchMs: [],
+    thumbnailReadinessMs: [],
+    mountedThumbnailCounts: [],
     memory: [],
     cancellationElapsedMs: artifact.rawCancellationAttempts.map(
       ({ cancellationElapsedMs }) => cancellationElapsedMs!,
@@ -657,6 +685,9 @@ export function validateInstalledPerformanceArtifact(
     "rawOpens",
     "rawMemoryAttempts",
     "rawCancellationAttempts",
+    "thumbnailReadinessMs",
+    "mountedThumbnailCounts",
+    "backgroundStopObservations",
     "analysis",
     "environment",
     "firstReadable",
@@ -825,6 +856,40 @@ export function validateInstalledPerformanceArtifact(
     top.rawCancellationAttempts,
     "artifact.rawCancellationAttempts",
   );
+  const thumbnailReadiness = array(
+    top.thumbnailReadinessMs,
+    "artifact.thumbnailReadinessMs",
+  );
+  thumbnailReadiness.forEach((value, index) =>
+    nonNegative(value, `artifact.thumbnailReadinessMs[${index}]`),
+  );
+  const mountedThumbnailCounts = array(
+    top.mountedThumbnailCounts,
+    "artifact.mountedThumbnailCounts",
+  );
+  mountedThumbnailCounts.forEach((value, index) =>
+    integer(value, `artifact.mountedThumbnailCounts[${index}]`),
+  );
+  const backgroundStops = array(
+    top.backgroundStopObservations,
+    "artifact.backgroundStopObservations",
+  );
+  backgroundStops.forEach((value, index) => {
+    const path = `artifact.backgroundStopObservations[${index}]`;
+    const observation = record(value, path);
+    assertExactKeys(observation, path, [
+      "reason",
+      "elapsedMs",
+      "pending",
+      "running",
+      "mounted",
+    ]);
+    enumeration(observation.reason, `${path}.reason`, ["close", "file-switch"]);
+    nonNegative(observation.elapsedMs, `${path}.elapsedMs`);
+    integer(observation.pending, `${path}.pending`);
+    integer(observation.running, `${path}.running`);
+    integer(observation.mounted, `${path}.mounted`);
+  });
   const expectedOpenCount =
     (protocol.coldRuns as number) +
     (protocol.warmupRuns as number) +
@@ -1095,6 +1160,36 @@ export function validateInstalledPerformanceArtifact(
   if (expectedOutcome === "expected-open-failure") {
     return validateExpectedOpenFailureArtifact(artifact);
   }
+  if (artifact.thumbnailReadinessMs.length < artifact.protocol.measuredRuns) {
+    throw new Error(
+      `artifact.thumbnailReadinessMs must contain at least ${artifact.protocol.measuredRuns} observations`,
+    );
+  }
+  if (
+    artifact.mountedThumbnailCounts.length < artifact.protocol.measuredRuns ||
+    artifact.mountedThumbnailCounts.some((count) => count <= 0 || count >= 50)
+  ) {
+    throw new Error(
+      `artifact.mountedThumbnailCounts must contain at least ${artifact.protocol.measuredRuns} positive observations strictly below 50`,
+    );
+  }
+  if (
+    artifact.backgroundStopObservations.length < 2 ||
+    !(["close", "file-switch"] as const).every((reason) =>
+      artifact.backgroundStopObservations.some(
+        (observation) =>
+          observation.reason === reason &&
+          observation.elapsedMs <= artifact.protocol.observationWindowMs &&
+          observation.pending === 0 &&
+          observation.running === 0 &&
+          observation.mounted === 0,
+      ),
+    )
+  ) {
+    throw new Error(
+      "artifact.backgroundStopObservations must prove close and file-switch cleanup at zero pending/running/mounted within the observation window",
+    );
+  }
   if (
     artifact.rawOpens.some(
       ({ status, timedOut }) => status !== "passed" || timedOut,
@@ -1347,6 +1442,8 @@ export function validateInstalledPerformanceArtifact(
     metadataMs,
     firstReadableMs,
     slideSwitchMs,
+    thumbnailReadinessMs: artifact.thumbnailReadinessMs,
+    mountedThumbnailCounts: artifact.mountedThumbnailCounts,
     memory: artifact.rawMemoryAttempts.map(({ peak, steady, postClose }) => ({
       peak: peak!,
       steady: steady!,

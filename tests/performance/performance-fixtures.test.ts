@@ -46,6 +46,14 @@ describe("performance fixture manifest", () => {
         maxBytes: 20 * 1024 * 1024,
       }),
       expect.objectContaining({
+        id: "m2-representative-50-slides",
+        role: "representative",
+        vaultPath: "performance/m2-representative-50-slides.pptx",
+        slideCount: 50,
+        maxSlideCount: 50,
+        maxBytes: 20 * 1024 * 1024,
+      }),
+      expect.objectContaining({
         id: "stress-200-slides",
         role: "stress",
         vaultPath: "performance/stress-200-slides.pptx",
@@ -88,8 +96,26 @@ describe("performance fixture manifest", () => {
       representativeInspection.zip.file(/^ppt\/media\/image/).length,
     ).toBeGreaterThan(0);
 
+    const m2Representative = performanceFixtureManifest[1]!;
+    expect(m2Representative.features).toEqual([
+      "text",
+      "shapes",
+      "table",
+      "image",
+    ]);
+    const m2Bytes = await readFile(m2Representative.fixturePath);
+    const m2Inspection = await inspectPresentation(m2Bytes);
+    const finalM2SlideXml = await m2Inspection.zip
+      .file("ppt/slides/slide50.xml")
+      ?.async("string");
+    expect(m2Bytes.byteLength).toBeLessThanOrEqual(m2Representative.maxBytes!);
+    expect(m2Inspection.slideCount).toBe(50);
+    expect(finalM2SlideXml).toContain("M2 representative benchmark slide 50");
+    expect(finalM2SlideXml).toContain("<a:tbl>");
+    expect(m2Inspection.zip.file(/^ppt\/media\/image/).length).toBeGreaterThan(0);
+
     const stressBytes = await readFile(
-      performanceFixtureManifest[1]!.fixturePath,
+      performanceFixtureManifest[2]!.fixturePath,
     );
     const stressInspection = await inspectPresentation(stressBytes);
     const finalStressSlideXml = await stressInspection.zip

@@ -24,6 +24,15 @@ export interface InstalledMarkdownArtifact extends PerformanceSummary {
     readonly sawInFlight: boolean;
     readonly inFlightSnapshotCount: number;
   }[];
+  readonly thumbnailReadinessMs: readonly number[];
+  readonly mountedThumbnailCounts: readonly number[];
+  readonly backgroundStopObservations: readonly {
+    readonly reason: "close" | "file-switch";
+    readonly elapsedMs: number;
+    readonly pending: number;
+    readonly running: number;
+    readonly mounted: number;
+  }[];
   readonly analysis: Analysis;
 }
 
@@ -49,6 +58,8 @@ function renderInstalledAnalysis(artifact: InstalledMarkdownArtifact): string {
     metricRow("Metadata/open", analysis.metadata),
     metricRow("First readable", analysis.firstReadable),
     metricRow("Slide switch", analysis.slideSwitch),
+    metricRow("First visible thumbnail ready", analysis.thumbnailReadiness),
+    metricRow("Mounted thumbnails", analysis.mountedThumbnails),
     metricRow("Cancellation / adapter-stop elapsed", analysis.cancellationElapsedMs),
     metricRow(
       "Full resource completion elapsed",
@@ -89,6 +100,8 @@ function renderInstalledAnalysis(artifact: InstalledMarkdownArtifact): string {
     `- Heap release passes only when post-close heap is at or below the workload peak and retained incremental heap is no greater than ${protocol.maxRetainedHeapFraction * 100}% of the observed positive pre-open-to-workload increment. The allowance is capped by that measured increment; no uncalibrated floor is used. RSS is reported but not gated because Electron/Chromium allocators retain and share resident pages noisily.`,
     `- Memory attempts: ${artifact.rawMemoryAttempts.length}; all have loading snapshot: ${artifact.rawMemoryAttempts.every(({ loadingSnapshotCount }) => loadingSnapshotCount > 0) ? "yes" : "no"}.`,
     `- In-flight cancellation attempts: ${artifact.rawCancellationAttempts.length}; all prove adapter-opening: ${artifact.rawCancellationAttempts.every(({ sawInFlight, inFlightSnapshotCount }) => sawInFlight && inFlightSnapshotCount > 0) ? "yes" : "no"}; all adapter stops met deadline: ${artifact.rawCancellationAttempts.every(({ cancellationElapsedMs }) => cancellationElapsedMs !== null && cancellationElapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}; all full resource completions met deadline: ${artifact.rawCancellationAttempts.every(({ resourceCompletionElapsedMs }) => resourceCompletionElapsedMs !== null && resourceCompletionElapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}.`,
+    `- M2 thumbnail observations: ${artifact.thumbnailReadinessMs.length}; mounted counts strictly below 50: ${artifact.mountedThumbnailCounts.every((count) => count > 0 && count < 50) ? "yes" : "no"}.`,
+    `- M2 background stops: ${artifact.backgroundStopObservations.map(({ reason, elapsedMs, pending, running, mounted }) => `${reason}=${elapsedMs} ms (pending=${pending}, running=${running}, mounted=${mounted})`).join("; ")}.`,
     `- Renderer memory source: ${memoryRuntime.selectedHeapSource ?? "none"}; RSS source: ${memoryRuntime.selectedRssSource ?? "none"}.`,
   ];
   return `${lines.join("\n")}\n`;

@@ -39,6 +39,27 @@ describe("committed installed PPTX performance baseline", () => {
     expect(baseline.rawOpens).toHaveLength(13);
     expect(baseline.rawMemoryAttempts).toHaveLength(10);
     expect(baseline.rawCancellationAttempts).toHaveLength(5);
+    expect(baseline.thumbnailReadinessMs.length).toBeGreaterThanOrEqual(10);
+    expect(baseline.mountedThumbnailCounts.length).toBeGreaterThanOrEqual(10);
+    expect(
+      baseline.mountedThumbnailCounts.every((count) => count > 0 && count < 50),
+    ).toBe(true);
+    expect(baseline.backgroundStopObservations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reason: "close",
+          pending: 0,
+          running: 0,
+          mounted: 0,
+        }),
+        expect.objectContaining({
+          reason: "file-switch",
+          pending: 0,
+          running: 0,
+          mounted: 0,
+        }),
+      ]),
+    );
     expect(baseline.resources.memory).toHaveLength(
       expectedOutcome === "pass" ? 30 : 0,
     );
@@ -169,6 +190,50 @@ describe("committed installed PPTX performance baseline", () => {
       ),
     ).toThrow(/bundleBytes must equal actual production main.js size/);
   });
+
+  it.runIf(expectedOutcome === "pass")(
+    "rejects unbounded M2 thumbnail mounting evidence",
+    () => {
+      const tampered = cloneBaseline() as {
+        mountedThumbnailCounts: number[];
+      };
+      tampered.mountedThumbnailCounts[0] = 50;
+
+      expect(() =>
+        validateInstalledPerformanceArtifact(
+          tampered,
+          actualBundleBytes(),
+          expectedOutcome,
+          renderer.candidate.label,
+        ),
+      ).toThrow(/strictly below 50/);
+    },
+  );
+
+  it.runIf(expectedOutcome === "pass")(
+    "rejects background-stop evidence that retains mounted resources",
+    () => {
+      const tampered = cloneBaseline() as {
+        backgroundStopObservations: Array<{
+          reason: string;
+          mounted: number;
+        }>;
+      };
+      const fileSwitch = tampered.backgroundStopObservations.find(
+        ({ reason }) => reason === "file-switch",
+      )!;
+      fileSwitch.mounted = 1;
+
+      expect(() =>
+        validateInstalledPerformanceArtifact(
+          tampered,
+          actualBundleBytes(),
+          expectedOutcome,
+          renderer.candidate.label,
+        ),
+      ).toThrow(/close and file-switch cleanup/);
+    },
+  );
 
   it("keeps the committed Markdown byte-for-byte reproducible", () => {
     const baseline = validateInstalledPerformanceArtifact(
