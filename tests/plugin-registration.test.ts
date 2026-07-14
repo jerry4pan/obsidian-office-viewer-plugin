@@ -16,6 +16,13 @@ async function protectedFixtureBuffer(): Promise<ArrayBuffer> {
   return Uint8Array.from(bytes).buffer;
 }
 
+async function representativeFixtureBuffer(): Promise<ArrayBuffer> {
+  const bytes = await readFile(
+    path.resolve("tests/fixtures/performance/representative-12-slides.pptx"),
+  );
+  return Uint8Array.from(bytes).buffer;
+}
+
 describe("OfficeViewerPlugin", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -102,6 +109,54 @@ describe("OfficeViewerPlugin", () => {
     ).not.toBeNull();
     expect(readBinary).toHaveBeenCalledWith(file);
     expect(writeBinary).not.toHaveBeenCalled();
+  });
+
+  it("jumps through a multi-slide deck without adding a Vault write path", async () => {
+    const source = await representativeFixtureBuffer();
+    const readBinary = vi.fn(async () => source);
+    const writeBinary = vi.fn();
+    const app = {
+      vault: {
+        adapter: { getFullPath: vi.fn(() => "/vault/representative.pptx") },
+        readBinary,
+        writeBinary,
+      },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    await plugin.onload();
+    const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+    const view = factory?.({ app } as never) as unknown as {
+      contentEl: HTMLElement;
+      onLoadFile(file: unknown): Promise<void>;
+      onClose(): Promise<void>;
+    };
+    const file = {
+      basename: "representative-12-slides",
+      extension: "pptx",
+      name: "representative-12-slides.pptx",
+      path: "performance/representative-12-slides.pptx",
+    };
+
+    await view.onLoadFile(file);
+    const root = view.contentEl.querySelector<HTMLElement>(".pptx-viewer")!;
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="page-number"]',
+    )!;
+    input.value = "12";
+    root
+      .querySelector<HTMLButtonElement>('[data-action="jump-to-slide"]')!
+      .click();
+
+    await vi.waitFor(() => expect(root.textContent).toContain("12 / 12"), {
+      timeout: 5_000,
+    });
+    expect(readBinary).toHaveBeenCalledOnce();
+    expect(readBinary).toHaveBeenCalledWith(file);
+    expect(writeBinary).not.toHaveBeenCalled();
+    expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
+
+    await view.onClose();
+    expect(view.contentEl.childElementCount).toBe(0);
   });
 
   it("disposes every tracked view when the plugin unloads", async () => {
