@@ -1,8 +1,8 @@
 # M0 PPTX rendering technical report
 
-Date: 2026-07-13  
+Date: 2026-07-14
 Milestone: `v0.1 M0 — 技术可行性与质量基线`  
-Decision: **technical GO for M1; repository integration pending**
+Decision: **GO for M1; M0 complete**
 
 ## Executive conclusion
 
@@ -13,12 +13,10 @@ input, cancellation, and resource-return checks, and has an Apache-2.0 license
 compatible with open distribution and future commercial Pro work under its
 distribution obligations.
 
-This is a conditional technical decision, not a milestone close or a
-public-release approval. Tickets
-#3, #5, and #6 are implementation-complete on reviewed PRs but are not yet
-merged into `main`; M1 should not branch from `main` until #9, #10, and #11
-land and close their linked issues. No evidence conflict is hidden by this
-integration condition.
+This is the M0 technical and architecture close, not a public-release approval.
+PRs #9, #10, and #11 are merged; issues #3, #5, and #6 are closed. This report
+and ADR are the final #7 deliverables and authorize M1 after the post-merge
+`main` verification confirms no integration-only regression.
 
 ## Gate result
 
@@ -173,15 +171,14 @@ performance, bundle, and evidence-reproducibility suites.
 
 ## Milestone integration audit
 
-| Ticket | Technical state | Repository state on 2026-07-13 |
+| Ticket | Technical state | Repository state at M0 close |
 | --- | --- | --- |
 | #2 first local PPTX | complete | issue closed |
-| #3 safe failures | complete and verified | PR #9 open |
+| #3 safe failures | complete and verified | issue closed; PR #9 merged |
 | #4 representative corpus | complete | issue closed; PR #8 merged |
-| #5 performance/resources | complete and verified | PR #10 open |
-| #6 second candidate comparison | complete and reviewed | PR #11 open |
-| #7 decision gate | this report and ADR complete on branch | merge pending |
+| #5 performance/resources | complete and verified | issue closed; PR #10 merged |
+| #6 second candidate comparison | complete and reviewed | issue closed; PR #11 merged |
+| #7 decision gate | report and accepted ADR complete | issue closed by PR #12 |
 
-Final milestone closure requires the open PRs to land, their linked issues to
-close, and one `main` verification run to confirm there is no integration-only
-regression. Until then the honest state is **technical GO, integration pending**.
+All predecessor tickets are merged and closed. M0 closure is complete when this
+change lands and the required post-merge `main` verification passes.

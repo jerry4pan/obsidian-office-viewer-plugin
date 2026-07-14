@@ -1,7 +1,7 @@
 # ADR-0001: Select Aiden PPTX Renderer for M0
 
-- Status: Proposed — technical decision complete; M0 integration pending
-- Date: 2026-07-13
+- Status: Accepted
+- Date: 2026-07-14
 - Decision owners: project maintainers
 - Scope: local, read-only PPTX preview in Obsidian M0/M1
 
@@ -36,10 +36,10 @@ Retain `pptx-preview@1.0.7` only as an exact-pinned development dependency so
 the rejected candidate's evidence remains reproducible. It must not ship in
 the default production bundle.
 
-This decision will authorize M1 engineering after the M0 integration PRs land,
-the linked issues close, and `main` passes the full verification suite. Until
-then its state is Proposed. It does not authorize a public release or a claim
-of pixel-perfect PowerPoint fidelity.
+The M0 prerequisite PRs have landed, their linked issues are closed, and the
+integrated branch passes the full verification suite. This decision authorizes
+M1 engineering. It does not authorize a public release or a claim of
+pixel-perfect PowerPoint fidelity.
 
 ## Decision evidence
 
