@@ -6,6 +6,12 @@ import {
   PptxOpenError,
   type PptxOpenErrorCategory,
 } from "./pptx-open-error";
+import {
+  PptxViewerController,
+  type PptxZoomMode,
+} from "./pptx-viewer-controller";
+import { RenderTaskQueue } from "./render-task-queue";
+import { ThumbnailRail } from "./thumbnail-rail";
 
 export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
@@ -17,6 +23,11 @@ export interface PptxViewSessionDiagnostics {
   readonly rendererActive: boolean;
   readonly disposed: boolean;
   readonly lifecyclePhase: PptxLifecyclePhase;
+  readonly backgroundPending: number;
+  readonly backgroundRunning: number;
+  readonly mountedThumbnails: number;
+  readonly zoomMode: PptxZoomMode;
+  readonly zoomPercent: number;
 }
 
 export type PptxLifecyclePhase =
@@ -31,6 +42,36 @@ export type PptxLifecyclePhase =
 
 export interface PptxViewActions<FileRef> {
   openExternally?: (file: FileRef) => Promise<void>;
+  positions?: {
+    initialSlideFor(file: FileRef, slideCount: number): number;
+    record(file: FileRef, slideIndex: number): void;
+  };
+  fullscreen?: PptxFullscreenActions;
+}
+
+export interface PptxFullscreenActions {
+  isActive(root: HTMLElement): boolean;
+  enter(root: HTMLElement): Promise<void>;
+  exit(): Promise<void>;
+  subscribe(listener: () => void): () => void;
+}
+
+function createDefaultFullscreenActions(): PptxFullscreenActions {
+  return {
+    isActive: (root) => document.fullscreenElement === root,
+    enter: async (root) => root.requestFullscreen(),
+    exit: async () => document.exitFullscreen(),
+    subscribe: (listener) => {
+      document.addEventListener("fullscreenchange", listener);
+      return () => document.removeEventListener("fullscreenchange", listener);
+    },
+  };
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      ["INPUT", "BUTTON", "SELECT", "TEXTAREA"].includes(target.tagName));
 }
 
 const errorMessages: Record<PptxOpenErrorCategory, string> = {
@@ -43,6 +84,10 @@ const errorMessages: Record<PptxOpenErrorCategory, string> = {
 export class PptxViewSession<FileRef> {
   private abortController: AbortController | null = null;
   private rendererSession: PptxRendererSession | null = null;
+  private viewerController: PptxViewerController | null = null;
+  private backgroundQueue: RenderTaskQueue | null = null;
+  private thumbnailRail: ThumbnailRail | null = null;
+  private readonly runCleanups = new Set<() => void>();
   private generation = 0;
   private openPending = false;
   private disposed = false;
@@ -77,6 +122,12 @@ export class PptxViewSession<FileRef> {
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     status.textContent = "Loading presentation…";
+    this.root.tabIndex = 0;
+    this.root.dataset.thumbnailsCollapsed = "false";
+    this.root.dataset.zoomMode = "fit";
+    this.root.dataset.zoomPercent = "100";
+    this.root.dataset.fullscreen = "false";
+    this.root.dataset.mountedThumbnailCount = "0";
     const pageCounter = document.createElement("div");
     pageCounter.className = "pptx-viewer__page-counter";
     const previousButton = document.createElement("button");
@@ -112,9 +163,52 @@ export class PptxViewSession<FileRef> {
     jumpForm.append(jumpLabel, pageInput, pageTotal, jumpButton);
     const controls = document.createElement("div");
     controls.className = "pptx-viewer__controls";
-    controls.append(previousButton, pageCounter, nextButton, jumpForm);
+    const toggleThumbnails = document.createElement("button");
+    toggleThumbnails.type = "button";
+    toggleThumbnails.dataset.action = "toggle-thumbnails";
+    toggleThumbnails.textContent = "Thumbnails";
+    toggleThumbnails.setAttribute("aria-label", "Toggle slide thumbnails");
+    toggleThumbnails.setAttribute("aria-expanded", "true");
+    const zoomOut = document.createElement("button");
+    zoomOut.type = "button";
+    zoomOut.dataset.action = "zoom-out";
+    zoomOut.textContent = "−";
+    zoomOut.setAttribute("aria-label", "Zoom out");
+    const zoomLabel = document.createElement("span");
+    zoomLabel.className = "pptx-viewer__zoom-label";
+    zoomLabel.setAttribute("aria-live", "polite");
+    zoomLabel.textContent = "100%";
+    const zoomIn = document.createElement("button");
+    zoomIn.type = "button";
+    zoomIn.dataset.action = "zoom-in";
+    zoomIn.textContent = "+";
+    zoomIn.setAttribute("aria-label", "Zoom in");
+    const fitSlide = document.createElement("button");
+    fitSlide.type = "button";
+    fitSlide.dataset.action = "fit-slide";
+    fitSlide.textContent = "Fit";
+    fitSlide.setAttribute("aria-label", "Fit slide");
+    const toggleFullscreen = document.createElement("button");
+    toggleFullscreen.type = "button";
+    toggleFullscreen.dataset.action = "toggle-fullscreen";
+    toggleFullscreen.textContent = "Full screen";
+    toggleFullscreen.setAttribute("aria-label", "Enter full screen");
+    controls.append(
+      previousButton,
+      pageCounter,
+      nextButton,
+      jumpForm,
+      zoomOut,
+      zoomLabel,
+      zoomIn,
+      fitSlide,
+      toggleFullscreen,
+      toggleThumbnails,
+    );
     const actionStatus = document.createElement("div");
     actionStatus.className = "pptx-viewer__action-status";
+    actionStatus.setAttribute("role", "status");
+    actionStatus.setAttribute("aria-live", "polite");
     const openExternally = this.createExternalOpenButton(
       file,
       generation,
@@ -123,7 +217,11 @@ export class PptxViewSession<FileRef> {
     if (openExternally) controls.append(openExternally);
     const slideContainer = document.createElement("div");
     slideContainer.className = "pptx-viewer__slide";
-    this.root.replaceChildren(status, controls, actionStatus, slideContainer);
+    const thumbnailRoot = document.createElement("div");
+    const readingBody = document.createElement("div");
+    readingBody.className = "pptx-viewer__reading-body";
+    readingBody.append(thumbnailRoot, slideContainer);
+    this.root.replaceChildren(status, controls, actionStatus, readingBody);
     this.root.dataset.state = "loading";
     this.setLifecyclePhase("reading");
     delete this.root.dataset.errorCategory;
@@ -147,75 +245,128 @@ export class PptxViewSession<FileRef> {
       this.rendererSession = rendererSession;
       this.root.dataset.metadataMs = (performance.now() - openedAt).toFixed(3);
       this.setLifecyclePhase("first-slide-rendering");
-      await rendererSession.renderSlide(0);
-      controller.signal.throwIfAborted();
-      if (generation !== this.generation) return;
-
-      this.root.dataset.firstReadableMs = (
-        performance.now() - openedAt
-      ).toFixed(3);
-
-      let currentSlideIndex = 0;
       const isCurrentRun = () =>
         generation === this.generation &&
         !controller.signal.aborted &&
         this.rendererSession === rendererSession;
+      const queue = new RenderTaskQueue();
+      this.backgroundQueue = queue;
+      let initialCommitPending = true;
+      let initialRenderFailed = false;
+      let navigationStartedAt: number | undefined;
+      let rail: ThumbnailRail | null = null;
+      let viewController!: PptxViewerController;
       const restoreControlState = () => {
+        const currentSlideIndex = viewController.state.currentSlideIndex;
         previousButton.disabled = currentSlideIndex === 0;
         nextButton.disabled =
           currentSlideIndex >= rendererSession.slideCount - 1;
         pageInput.disabled = false;
         jumpButton.disabled = false;
       };
-      const navigate = async (targetIndex: number) => {
+      const updateMountedCount = () => {
+        this.root.dataset.mountedThumbnailCount = String(rail?.mountedCount ?? 0);
+      };
+      const navigate = (targetIndex: number): void => {
+        if (!isCurrentRun()) return;
+        const current = viewController.state.currentSlideIndex;
         if (
+          !Number.isInteger(targetIndex) ||
           targetIndex < 0 ||
           targetIndex >= rendererSession.slideCount ||
-          !isCurrentRun()
-        ) {
-          return;
-        }
-
-        if (targetIndex === currentSlideIndex) {
-          pageInput.value = String(currentSlideIndex + 1);
-          status.textContent = "";
+          targetIndex === current
+        ) return;
+        navigationStartedAt = performance.now();
+        void viewController.navigate(targetIndex);
+      };
+      let initialSlideIndex = 0;
+      try {
+        initialSlideIndex = this.actions.positions?.initialSlideFor(
+          file,
+          rendererSession.slideCount,
+        ) ?? 0;
+      } catch {
+        // Persistence is optional; private storage failures must not block reading.
+      }
+      viewController = new PptxViewerController(rendererSession, queue, {
+        setNavigationPending: (pending) => {
+          if (!isCurrentRun()) return;
+          previousButton.disabled = pending;
+          nextButton.disabled = pending;
+          pageInput.disabled = pending;
+          jumpButton.disabled = pending;
+          if (!pending) restoreControlState();
+        },
+        commitSlide: (index) => {
+          if (!isCurrentRun()) return;
+          const isInitialCommit = initialCommitPending;
+          if (isInitialCommit) {
+            initialCommitPending = false;
+            this.root.dataset.firstReadableMs = (
+              performance.now() - openedAt
+            ).toFixed(3);
+          } else {
+            const startedAt = navigationStartedAt ?? performance.now();
+            this.root.dataset.lastSlideSwitchMs = (
+              performance.now() - startedAt
+            ).toFixed(3);
+          }
+          navigationStartedAt = undefined;
+          pageInput.value = String(index + 1);
+          pageCounter.textContent = `${index + 1} / ${rendererSession.slideCount}`;
+          rail?.setCurrentSlide(index);
+          updateMountedCount();
           this.root.dataset.state = "ready";
           this.setLifecyclePhase("ready");
-          return;
-        }
-
-        previousButton.disabled = true;
-        nextButton.disabled = true;
-        pageInput.disabled = true;
-        jumpButton.disabled = true;
-        const switchedAt = performance.now();
-        try {
-          await rendererSession.renderSlide(targetIndex);
-          const slideSwitchMs = (performance.now() - switchedAt).toFixed(3);
-          if (!isCurrentRun()) return;
-          currentSlideIndex = targetIndex;
-          pageInput.value = String(currentSlideIndex + 1);
-          pageCounter.textContent = `${currentSlideIndex + 1} / ${rendererSession.slideCount}`;
-          this.root.dataset.lastSlideSwitchMs = slideSwitchMs;
-          this.root.dataset.state = "ready";
-          this.setLifecyclePhase("ready");
           status.textContent = "";
-        } catch {
+          if (!isInitialCommit) {
+            try {
+              this.actions.positions?.record(file, index);
+            } catch {
+              // The readable page remains authoritative if persistence fails.
+            }
+          }
+        },
+        reportNavigationFailure: (index) => {
           if (!isCurrentRun()) return;
-          pageInput.value = String(currentSlideIndex + 1);
+          if (initialCommitPending) initialRenderFailed = true;
+          navigationStartedAt = undefined;
+          pageInput.value = String(viewController.state.currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
           this.setLifecyclePhase("degraded");
-          status.textContent = `Slide ${targetIndex + 1} could not be rendered. The previous slide is still shown. Try another slide or open it in the default application.`;
-        } finally {
-          if (isCurrentRun()) restoreControlState();
-        }
-      };
+          status.textContent = `Slide ${index + 1} could not be rendered. The previous slide is still shown. Try another slide or open it in the default application.`;
+        },
+        commitZoom: (mode, percent) => {
+          if (!isCurrentRun()) return;
+          this.root.dataset.zoomMode = mode;
+          this.root.dataset.zoomPercent = String(percent);
+          zoomLabel.textContent = `${percent}%`;
+          actionStatus.textContent = "";
+        },
+        reportActionFailure: (message) => {
+          if (isCurrentRun()) actionStatus.textContent = message;
+        },
+      }, { initialSlideIndex });
+      this.viewerController = viewController;
+      await viewController.start();
+      controller.signal.throwIfAborted();
+      if (!isCurrentRun()) return;
+      if (initialRenderFailed) {
+        throw new PptxOpenError("incompatible", "Initial slide render failed");
+      }
+
+      rail = new ThumbnailRail(thumbnailRoot, rendererSession, queue, {
+        onNavigate: navigate,
+      });
+      this.thumbnailRail = rail;
+      rail.start(viewController.state.currentSlideIndex);
+      updateMountedCount();
 
       previousButton.addEventListener("click", () => {
-        void navigate(currentSlideIndex - 1);
+        navigate(viewController.state.currentSlideIndex - 1);
       });
       nextButton.addEventListener("click", () => {
-        void navigate(currentSlideIndex + 1);
+        navigate(viewController.state.currentSlideIndex + 1);
       });
       const jumpToRequestedPage = () => {
         const requestedPage = Number(pageInput.value);
@@ -228,7 +379,7 @@ export class PptxViewSession<FileRef> {
           pageInput.focus();
           return;
         }
-        void navigate(requestedPage - 1);
+        navigate(requestedPage - 1);
       };
       jumpButton.addEventListener("click", jumpToRequestedPage);
       jumpForm.addEventListener("submit", (event) => {
@@ -236,19 +387,73 @@ export class PptxViewSession<FileRef> {
         jumpToRequestedPage();
       });
 
-      pageCounter.textContent = `1 / ${rendererSession.slideCount}`;
+      const currentSlideIndex = viewController.state.currentSlideIndex;
+      pageCounter.textContent = `${currentSlideIndex + 1} / ${rendererSession.slideCount}`;
+      pageInput.value = String(currentSlideIndex + 1);
       pageInput.max = String(rendererSession.slideCount);
       pageTotal.textContent = `of ${rendererSession.slideCount}`;
       restoreControlState();
       status.textContent = "";
       this.root.dataset.state = "ready";
       this.setLifecyclePhase("ready");
+      toggleThumbnails.addEventListener("click", () => {
+        const collapsed = this.root.dataset.thumbnailsCollapsed !== "true";
+        this.root.dataset.thumbnailsCollapsed = String(collapsed);
+        toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
+        if (!collapsed) rail?.refresh();
+        updateMountedCount();
+      });
+      zoomOut.addEventListener("click", () => void viewController.zoomOut());
+      zoomIn.addEventListener("click", () => void viewController.zoomIn());
+      fitSlide.addEventListener("click", () => void viewController.resetToFit());
+
+      const fullscreen = this.actions.fullscreen ?? createDefaultFullscreenActions();
+      const updateFullscreenState = () => {
+        if (!isCurrentRun()) return;
+        const active = fullscreen.isActive(this.root);
+        this.root.dataset.fullscreen = String(active);
+        toggleFullscreen.textContent = active ? "Exit full screen" : "Full screen";
+        toggleFullscreen.setAttribute(
+          "aria-label",
+          active ? "Exit full screen" : "Enter full screen",
+        );
+      };
+      const unsubscribeFullscreen = fullscreen.subscribe(updateFullscreenState);
+      this.runCleanups.add(unsubscribeFullscreen);
+      updateFullscreenState();
+      toggleFullscreen.addEventListener("click", () => {
+        actionStatus.textContent = "";
+        const operation = fullscreen.isActive(this.root)
+          ? fullscreen.exit()
+          : fullscreen.enter(this.root);
+        void operation.then(updateFullscreenState).catch(() => {
+          if (isCurrentRun()) {
+            actionStatus.textContent = "Unable to change full-screen mode.";
+            updateFullscreenState();
+          }
+        });
+      });
+
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (isEditableTarget(event.target) || !isCurrentRun()) return;
+        const delta = event.key === "ArrowLeft" || event.key === "PageUp"
+          ? -1
+          : event.key === "ArrowRight" || event.key === "PageDown"
+            ? 1
+            : 0;
+        if (delta === 0) return;
+        const target = viewController.state.currentSlideIndex + delta;
+        if (target < 0 || target >= rendererSession.slideCount) return;
+        event.preventDefault();
+        navigate(target);
+      };
+      this.root.addEventListener("keydown", onKeyDown);
+      this.runCleanups.add(() => this.root.removeEventListener("keydown", onKeyDown));
+      this.root.focus();
       if (this.abortController === controller) this.abortController = null;
     } catch (error) {
       if (controller.signal.aborted || generation !== this.generation) return;
-      this.rendererSession?.dispose();
-      this.rendererSession = null;
-      if (this.abortController === controller) this.abortController = null;
+      this.stopCurrentRun();
       this.setLifecyclePhase("error");
       const openError =
         error instanceof PptxOpenError
@@ -265,12 +470,19 @@ export class PptxViewSession<FileRef> {
   }
 
   getPerformanceDiagnostics(): PptxViewSessionDiagnostics {
+    const queue = this.backgroundQueue?.diagnostics;
+    const controller = this.viewerController?.state;
     return {
       generation: this.generation,
       openPending: this.openPending,
       rendererActive: this.rendererSession !== null,
       disposed: this.disposed,
       lifecyclePhase: this.lifecyclePhase,
+      backgroundPending: queue?.pending ?? 0,
+      backgroundRunning: queue?.running ?? 0,
+      mountedThumbnails: this.thumbnailRail?.mountedCount ?? 0,
+      zoomMode: controller?.zoomMode ?? "fit",
+      zoomPercent: controller?.zoomPercent ?? 100,
     };
   }
 
@@ -285,6 +497,11 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.lifecyclePhase;
     this.clearTimings();
     delete this.root.dataset.errorCategory;
+    delete this.root.dataset.thumbnailsCollapsed;
+    delete this.root.dataset.zoomMode;
+    delete this.root.dataset.zoomPercent;
+    delete this.root.dataset.fullscreen;
+    delete this.root.dataset.mountedThumbnailCount;
   }
 
   private showError(
@@ -348,6 +565,20 @@ export class PptxViewSession<FileRef> {
   private stopCurrentRun(): void {
     this.abortController?.abort();
     this.abortController = null;
+    for (const cleanup of this.runCleanups) {
+      try {
+        cleanup();
+      } catch {
+        // One detached platform listener must not block remaining cleanup.
+      }
+    }
+    this.runCleanups.clear();
+    this.thumbnailRail?.dispose();
+    this.thumbnailRail = null;
+    this.viewerController?.dispose();
+    this.viewerController = null;
+    this.backgroundQueue?.dispose();
+    this.backgroundQueue = null;
     this.rendererSession?.dispose();
     this.rendererSession = null;
   }
