@@ -252,6 +252,96 @@ describe("ThumbnailRail", () => {
     await queue.whenIdle();
   });
 
+  it("starts a fresh render when an item remounts before its canceled attempt settles", async () => {
+    const root = createRoot();
+    const firstReady = deferred<void>();
+    let slideZeroAttempts = 0;
+    const renderer = createRenderer((index, container, signal) => {
+      if (index === 0 && slideZeroAttempts++ === 0) {
+        signal.addEventListener(
+          "abort",
+          () => firstReady.reject(new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+        return { ready: firstReady.promise, dispose: vi.fn() };
+      }
+      container.textContent = `Fresh preview ${index + 1}`;
+      return { ready: Promise.resolve(), dispose: vi.fn() };
+    });
+    const queue = new RenderTaskQueue();
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+    });
+    rail.start(0);
+    await Promise.resolve();
+
+    root.scrollTop = 20_000;
+    rail.refresh();
+    root.scrollTop = 0;
+    rail.refresh();
+    await queue.whenIdle();
+
+    expect(renderer.renderThumbnail.mock.calls.filter(([index]) => index === 0))
+      .toHaveLength(2);
+    expect(root.querySelector('[data-slide-index="0"]')?.textContent)
+      .toContain("Fresh preview 1");
+
+    rail.dispose();
+    queue.dispose();
+  });
+
+  it("requeues retained pending work when it moves from overscan into view", async () => {
+    const root = createRoot(100);
+    const blocker = deferred<void>();
+    let blockerSignal: AbortSignal | undefined;
+    const renderer = createRenderer((index, container, signal) => {
+      if (index === 0) {
+        blockerSignal = signal;
+        signal.addEventListener(
+          "abort",
+          () => blocker.reject(new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+        return { ready: blocker.promise, dispose: vi.fn() };
+      }
+      container.textContent = `Preview ${index + 1}`;
+      return { ready: Promise.resolve(), dispose: vi.fn() };
+    });
+    const queue = new RenderTaskQueue();
+    const enqueue = vi.spyOn(queue, "enqueue");
+    const cancel = vi.spyOn(queue, "cancel");
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+      overscanViewports: 1,
+    });
+    rail.start(0);
+    await Promise.resolve();
+
+    const firstSlideOneTask = enqueue.mock.calls
+      .map(([task]) => task)
+      .find((task) => task.key.startsWith("thumbnail:1"));
+    expect(firstSlideOneTask?.priority).toBe(2);
+    if (firstSlideOneTask === undefined) {
+      throw new Error("Expected the first overscan task for slide 2");
+    }
+
+    root.scrollTop = 120;
+    rail.refresh();
+
+    const slideOneTasks = enqueue.mock.calls
+      .map(([task]) => task)
+      .filter((task) => task.key.startsWith("thumbnail:1"));
+    expect(slideOneTasks).toHaveLength(2);
+    expect(slideOneTasks[1]?.priority).toBe(1);
+    expect(slideOneTasks[1]?.key).not.toBe(slideOneTasks[0]?.key);
+    expect(cancel).toHaveBeenCalledWith(firstSlideOneTask.key);
+    expect(blockerSignal?.aborted).toBe(false);
+
+    rail.dispose();
+    queue.dispose();
+    await queue.whenIdle();
+  });
+
   it("disconnects observation, cancels work, and disposes mounted resources exactly once", async () => {
     const root = createRoot();
     const disconnect = vi.fn();

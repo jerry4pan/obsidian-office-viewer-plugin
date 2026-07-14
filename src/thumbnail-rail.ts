@@ -18,7 +18,10 @@ interface MountedThumbnail {
   readonly button: HTMLButtonElement;
   readonly index: number;
   readonly preview: HTMLElement;
+  priority?: 1 | 2;
+  queueKey?: string;
   resource?: PptxRendererResource;
+  state: "idle" | "pending" | "running" | "ready" | "failed";
 }
 
 const DEFAULT_THUMBNAIL_WIDTH = 144;
@@ -49,6 +52,7 @@ export class ThumbnailRail {
   private readonly thumbnailWidth: number;
   private currentSlideIndex = 0;
   private disposed = false;
+  private nextAttempt = 0;
   private started = false;
 
   constructor(
@@ -142,12 +146,10 @@ export class ThumbnailRail {
       }
     }
 
-    const created: MountedThumbnail[] = [];
     for (let index = window.start; index < window.endExclusive; index += 1) {
       let item = this.mounted.get(index);
       if (item === undefined) {
         item = this.mount(index, window.start);
-        created.push(item);
       } else {
         item.button.style.top = `${(index - window.start) * this.itemHeight}px`;
       }
@@ -171,15 +173,22 @@ export class ThumbnailRail {
         Math.ceil((this.root.scrollTop + viewportHeight) / this.itemHeight),
       ),
     );
-    for (const item of created.filter(
-      ({ index }) => index >= visibleStart && index < visibleEnd,
-    )) {
-      this.render(item, 1);
-    }
-    for (const item of created.filter(
-      ({ index }) => index < visibleStart || index >= visibleEnd,
-    )) {
-      this.render(item, 2);
+    const candidates = [...this.mounted.values()]
+      .map((item) => ({
+        item,
+        priority: item.index >= visibleStart && item.index < visibleEnd
+          ? 1 as const
+          : 2 as const,
+      }))
+      .sort(
+        (left, right) =>
+          left.priority - right.priority || left.item.index - right.item.index,
+      );
+    for (const { item, priority } of candidates) {
+      if (item.state === "pending" && item.priority !== priority) {
+        this.cancelAttempt(item);
+      }
+      if (item.state === "idle") this.render(item, priority);
     }
   }
 
@@ -231,7 +240,7 @@ export class ThumbnailRail {
     button.append(preview, number);
     button.addEventListener("click", () => this.options.onNavigate(index));
 
-    const item = { button, index, preview };
+    const item: MountedThumbnail = { button, index, preview, state: "idle" };
     this.mounted.set(index, item);
     return item;
   }
@@ -246,19 +255,39 @@ export class ThumbnailRail {
 
   private render(item: MountedThumbnail, priority: 1 | 2): void {
     if (!this.renderer.capabilities.thumbnails || !this.renderer.renderThumbnail) {
+      item.state = "failed";
       this.showUnavailable(item);
       return;
     }
     const renderThumbnail = this.renderer.renderThumbnail.bind(this.renderer);
+    const queueKey = `thumbnail:${item.index}:${this.nextAttempt++}`;
+    item.priority = priority;
+    item.queueKey = queueKey;
+    item.state = "pending";
     void this.queue
       .enqueue({
-        key: `thumbnail:${item.index}`,
+        key: queueKey,
         priority,
         run: async (signal) => {
           let resource: PptxRendererResource | undefined;
           try {
+            if (
+              this.mounted.get(item.index) === item &&
+              item.queueKey === queueKey
+            ) {
+              item.state = "running";
+            }
             resource = renderThumbnail(item.index, item.preview, signal);
-            item.resource = resource;
+            if (
+              this.mounted.get(item.index) === item &&
+              item.queueKey === queueKey
+            ) {
+              item.resource = resource;
+            } else {
+              this.disposeResource(resource);
+              signal.throwIfAborted();
+              throw new DOMException("The operation was aborted.", "AbortError");
+            }
             await resource.ready;
             signal.throwIfAborted();
             return resource;
@@ -270,17 +299,33 @@ export class ThumbnailRail {
         disposeResult: (resource) => this.disposeResource(resource),
       })
       .then((resource) => {
-        if (this.disposed || this.mounted.get(item.index) !== item) {
+        if (
+          this.disposed ||
+          this.mounted.get(item.index) !== item ||
+          item.queueKey !== queueKey
+        ) {
           this.disposeResource(resource);
+        } else {
+          item.state = "ready";
         }
       })
       .catch((error: unknown) => {
         if (
           !this.disposed &&
           this.mounted.get(item.index) === item &&
+          item.queueKey === queueKey &&
           !isAbort(error)
         ) {
+          delete item.resource;
+          item.state = "failed";
           this.showUnavailable(item);
+        } else if (
+          !this.disposed &&
+          this.mounted.get(item.index) === item &&
+          item.queueKey === queueKey
+        ) {
+          delete item.resource;
+          item.state = "idle";
         }
       });
   }
@@ -292,9 +337,17 @@ export class ThumbnailRail {
 
   private unmount(item: MountedThumbnail): void {
     if (!this.mounted.delete(item.index)) return;
-    this.queue.cancel(`thumbnail:${item.index}`);
-    if (item.resource !== undefined) this.disposeResource(item.resource);
+    this.cancelAttempt(item);
     item.button.remove();
+  }
+
+  private cancelAttempt(item: MountedThumbnail): void {
+    if (item.queueKey !== undefined) this.queue.cancel(item.queueKey);
+    if (item.resource !== undefined) this.disposeResource(item.resource);
+    delete item.priority;
+    delete item.queueKey;
+    delete item.resource;
+    item.state = "idle";
   }
 
   private disposeResource(resource: PptxRendererResource): void {
