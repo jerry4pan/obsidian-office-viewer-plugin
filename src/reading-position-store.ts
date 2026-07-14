@@ -38,12 +38,25 @@ function isVaultRelativePath(path: unknown): path is string {
     path.length > 0 &&
     !path.startsWith("/") &&
     !path.startsWith("\\") &&
-    !/^[A-Za-z]:[\\/]/.test(path)
+    !/^[A-Za-z]:[\\/]/.test(path) &&
+    !path.replaceAll("\\", "/").split("/").includes("..")
   );
 }
 
 function isNonNegativeFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isValidFingerprint(file: FileFingerprint): boolean {
+  return (
+    isVaultRelativePath(file.path) &&
+    isNonNegativeFiniteNumber(file.size) &&
+    isNonNegativeFiniteNumber(file.mtime)
+  );
+}
+
+function isValidSlideIndex(slideIndex: number): boolean {
+  return Number.isInteger(slideIndex) && slideIndex >= 0;
 }
 
 function normalizeEntry(
@@ -116,7 +129,16 @@ function snapshot(data: OfficeViewerData): OfficeViewerData {
       rememberReadingPosition: data.settings.rememberReadingPosition,
     },
     positions: Object.fromEntries(
-      Object.entries(data.positions).map(([path, entry]) => [path, { ...entry }]),
+      Object.entries(data.positions).map(([path, entry]) => [
+        path,
+        {
+          path: entry.path,
+          size: entry.size,
+          mtime: entry.mtime,
+          slideIndex: entry.slideIndex,
+          updatedAt: entry.updatedAt,
+        },
+      ]),
     ),
   };
 }
@@ -127,8 +149,9 @@ export class ReadingPositionStore {
     settings: DEFAULT_SETTINGS,
     positions: {},
   };
-  private dirty = false;
   private disposed = false;
+  private revision = 0;
+  private persistedRevision = 0;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private saveTail: Promise<void> = Promise.resolve();
 
@@ -145,7 +168,11 @@ export class ReadingPositionStore {
     if (this.disposed) {
       return;
     }
-    this.data = normalizeData(await this.adapter.loadData());
+    const loaded = await this.adapter.loadData();
+    if (this.disposed) {
+      return;
+    }
+    this.data = normalizeData(loaded);
   }
 
   resolve(file: FileFingerprint, slideCount: number): number {
@@ -180,24 +207,27 @@ export class ReadingPositionStore {
     if (
       this.disposed ||
       !this.data.settings.rememberReadingPosition ||
-      !isVaultRelativePath(file.path)
+      !isValidFingerprint(file) ||
+      !isValidSlideIndex(slideIndex)
     ) {
       return;
     }
 
-    this.data.positions[file.path] = {
-      ...file,
+    this.setPosition(file.path, {
+      path: file.path,
+      size: file.size,
+      mtime: file.mtime,
       slideIndex,
       updatedAt: Date.now(),
-    };
-    this.scheduleSave();
+    });
+    this.markChanged();
   }
 
   rename(oldPath: string, file: FileFingerprint): void {
     if (
       this.disposed ||
       !this.data.settings.rememberReadingPosition ||
-      !isVaultRelativePath(file.path)
+      !isValidFingerprint(file)
     ) {
       return;
     }
@@ -210,12 +240,14 @@ export class ReadingPositionStore {
     }
 
     delete this.data.positions[oldPath];
-    this.data.positions[file.path] = {
-      ...file,
+    this.setPosition(file.path, {
+      path: file.path,
+      size: file.size,
+      mtime: file.mtime,
       slideIndex: entry.slideIndex,
       updatedAt: entry.updatedAt,
-    };
-    this.scheduleSave();
+    });
+    this.markChanged();
   }
 
   delete(path: string): void {
@@ -231,20 +263,21 @@ export class ReadingPositionStore {
     }
 
     this.clearTimer();
-    this.dirty = false;
     this.data = {
       schemaVersion: 1,
       settings: { rememberReadingPosition: enabled },
       positions: {},
     };
-    await this.enqueueSave(snapshot(this.data));
+    this.revision += 1;
+    await this.flush();
   }
 
   async flush(): Promise<void> {
     this.clearTimer();
-    if (this.dirty && this.data.settings.rememberReadingPosition) {
-      this.dirty = false;
+    if (this.revision > this.persistedRevision) {
+      const revision = this.revision;
       await this.enqueueSave(snapshot(this.data));
+      this.persistedRevision = Math.max(this.persistedRevision, revision);
       return;
     }
     await this.saveTail;
@@ -263,11 +296,24 @@ export class ReadingPositionStore {
       return;
     }
     delete this.data.positions[path];
+    this.markChanged();
+  }
+
+  private setPosition(path: string, entry: ReadingPositionEntry): void {
+    Object.defineProperty(this.data.positions, path, {
+      configurable: true,
+      enumerable: true,
+      value: entry,
+      writable: true,
+    });
+  }
+
+  private markChanged(): void {
+    this.revision += 1;
     this.scheduleSave();
   }
 
   private scheduleSave(): void {
-    this.dirty = true;
     if (this.saveTimer !== undefined) {
       return;
     }

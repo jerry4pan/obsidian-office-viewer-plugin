@@ -44,6 +44,36 @@ describe("ReadingPositionStore", () => {
     );
   });
 
+  it("copies only approved fields from record and rename inputs", async () => {
+    const adapter = makeDataAdapter();
+    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+    const decoratedDeck = {
+      ...deck,
+      text: "private slide text",
+      author: "private author",
+      imagePreview: "data:image/png;base64,private",
+    };
+    store.record(decoratedDeck, 3);
+    const decoratedRename = {
+      ...decoratedDeck,
+      path: "renamed.pptx",
+      hiddenText: "also private",
+    };
+    store.rename(deck.path, decoratedRename);
+
+    await store.flush();
+
+    expect(adapter.saved.at(-1)?.positions["renamed.pptx"]).toEqual({
+      path: "renamed.pptx",
+      size: 42,
+      mtime: 10,
+      slideIndex: 3,
+      updatedAt: expect.any(Number),
+    });
+    expect(JSON.stringify(adapter.saved.at(-1))).not.toMatch(/text|author|image/i);
+  });
+
   it("normalizes untrusted data and removes invalid entries", async () => {
     const adapter = makeDataAdapter({
       schemaVersion: 1,
@@ -153,6 +183,36 @@ describe("ReadingPositionStore", () => {
     expect(adapter.saved).toEqual([]);
   });
 
+  it("rejects invalid runtime fingerprints, indices, and path traversal", async () => {
+    const adapter = makeDataAdapter();
+    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+
+    store.record({ ...deck, size: Number.NaN }, 1);
+    store.record({ ...deck, mtime: -1 }, 1);
+    store.record(deck, -1);
+    store.record(deck, 1.5);
+    store.record({ ...deck, path: "../outside.pptx" }, 1);
+    store.record({ ...deck, path: "folder/../outside.pptx" }, 1);
+    await store.flush();
+
+    expect(adapter.saved).toEqual([]);
+  });
+
+  it("does not replace a valid entry when rename receives invalid runtime data", async () => {
+    const adapter = makeDataAdapter();
+    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    await store.initialize();
+    store.record(deck, 4);
+
+    store.rename(deck.path, { ...deck, path: "../outside.pptx" });
+    store.rename(deck.path, { ...deck, path: "renamed.pptx", size: -1 });
+
+    expect(store.resolve(deck, 10)).toBe(4);
+    expect(store.resolve({ ...deck, path: "renamed.pptx" }, 10)).toBe(0);
+    await store.dispose();
+  });
+
   it("immediately saves an empty position set when disabled and starts clean when re-enabled", async () => {
     const adapter = makeDataAdapter();
     const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
@@ -209,6 +269,68 @@ describe("ReadingPositionStore", () => {
     await secondFlush;
   });
 
+  it("retries the latest state on flush after a debounced save fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const saved: OfficeViewerData[] = [];
+      let attempts = 0;
+      const adapter: OfficeViewerDataAdapter = {
+        async loadData() {
+          return undefined;
+        },
+        async saveData(data) {
+          attempts += 1;
+          if (attempts === 1) {
+            throw new Error("disk temporarily unavailable");
+          }
+          saved.push(clone(data));
+        },
+      };
+      const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+      await store.initialize();
+      store.record(deck, 3);
+      await vi.runAllTimersAsync();
+
+      await store.flush();
+
+      expect(attempts).toBe(2);
+      expect(saved[0]?.positions[deck.path]?.slideIndex).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries the latest state on dispose after a debounced save fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const saved: OfficeViewerData[] = [];
+      let attempts = 0;
+      const adapter: OfficeViewerDataAdapter = {
+        async loadData() {
+          return undefined;
+        },
+        async saveData(data) {
+          attempts += 1;
+          if (attempts === 1) {
+            throw new Error("disk temporarily unavailable");
+          }
+          saved.push(clone(data));
+        },
+      };
+      const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+      await store.initialize();
+      store.record(deck, 9);
+      await vi.runAllTimersAsync();
+
+      await store.dispose();
+
+      expect(attempts).toBe(2);
+      expect(saved[0]?.positions[deck.path]?.slideIndex).toBe(9);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("flushes the latest entry when disposed", async () => {
     const adapter = makeDataAdapter();
     const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
@@ -220,5 +342,29 @@ describe("ReadingPositionStore", () => {
 
     expect(adapter.saved).toHaveLength(1);
     expect(adapter.saved[0]?.positions[deck.path]?.slideIndex).toBe(6);
+  });
+
+  it("does not mutate state when a delayed initialize resolves after disposal", async () => {
+    let releaseLoad: ((value: unknown) => void) | undefined;
+    const adapter: OfficeViewerDataAdapter = {
+      loadData() {
+        return new Promise<unknown>((resolve) => {
+          releaseLoad = resolve;
+        });
+      },
+      async saveData() {},
+    };
+    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const initializing = store.initialize();
+
+    await store.dispose();
+    releaseLoad?.({
+      schemaVersion: 1,
+      settings: { rememberReadingPosition: false },
+      positions: {},
+    });
+    await initializing;
+
+    expect(store.settings).toEqual({ rememberReadingPosition: true });
   });
 });
