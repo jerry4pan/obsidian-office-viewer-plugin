@@ -1,6 +1,8 @@
 import {
   appendPerformanceRunAttempt,
+  assertPerformanceRunProvenanceMatchesLock,
   emptyPerformanceRunProvenance,
+  type PerformanceBaselineProvenanceLock,
   type PerformanceRunAttempt,
 } from "./performance-run-provenance";
 
@@ -49,5 +51,31 @@ describe("performance run provenance", () => {
     expect(provenance.eligibleForPromotion).toBe(false);
     expect(provenance.acceptedRunIds).toEqual([]);
     expect(provenance.attempts).toHaveLength(3);
+  });
+
+  it("rejects uniformly replaced bundle bytes against a baseline lock", () => {
+    let provenance = emptyPerformanceRunProvenance();
+    provenance = appendPerformanceRunAttempt(provenance, attempt("1", "failed"));
+    provenance = appendPerformanceRunAttempt(provenance, attempt("2", "passed"));
+    provenance = appendPerformanceRunAttempt(provenance, attempt("3", "passed"));
+    const lock: PerformanceBaselineProvenanceLock = {
+      attemptRunIds: ["1", "2", "3"],
+      outcomes: ["failed", "passed", "passed"],
+      acceptedRunIds: ["2", "3"],
+      bundleBytes: provenance.attempts[0]!.bundleBytes,
+      representativeFixtureSha256:
+        provenance.attempts[0]!.representativeFixtureSha256,
+    };
+    const uniformlyReplaced = {
+      ...provenance,
+      attempts: provenance.attempts.map((item) => ({
+        ...item,
+        bundleBytes: item.bundleBytes + 1,
+      })),
+    };
+
+    expect(() =>
+      assertPerformanceRunProvenanceMatchesLock(uniformlyReplaced, lock),
+    ).toThrow(/provenance lock/);
   });
 });

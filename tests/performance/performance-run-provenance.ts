@@ -23,6 +23,14 @@ export interface PerformanceRunProvenance {
   readonly acceptedRunIds: readonly string[];
 }
 
+export interface PerformanceBaselineProvenanceLock {
+  readonly attemptRunIds: readonly string[];
+  readonly outcomes: readonly PerformanceRunAttempt["outcome"][];
+  readonly acceptedRunIds: readonly string[];
+  readonly bundleBytes: number;
+  readonly representativeFixtureSha256: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -159,6 +167,73 @@ export function assertPerformanceRunProvenance(
     JSON.stringify(value.acceptedRunIds) !== JSON.stringify(expected.acceptedRunIds)
   ) {
     throw new Error("run provenance selection does not match retained attempts");
+  }
+}
+
+function assertPerformanceBaselineProvenanceLock(
+  value: unknown,
+): asserts value is PerformanceBaselineProvenanceLock {
+  if (!isRecord(value)) throw new Error("performance provenance lock must be an object");
+  exactKeys(value, [
+    "attemptRunIds",
+    "outcomes",
+    "acceptedRunIds",
+    "bundleBytes",
+    "representativeFixtureSha256",
+  ], "performance provenance lock");
+  if (
+    !Array.isArray(value.attemptRunIds) ||
+    value.attemptRunIds.some((runId) => typeof runId !== "string" || runId.length === 0)
+  ) {
+    throw new Error("performance provenance lock attemptRunIds must be non-empty strings");
+  }
+  if (
+    !Array.isArray(value.outcomes) ||
+    value.outcomes.some((outcome) => outcome !== "passed" && outcome !== "failed") ||
+    value.outcomes.length !== value.attemptRunIds.length
+  ) {
+    throw new Error("performance provenance lock outcomes must align with attemptRunIds");
+  }
+  if (
+    !Array.isArray(value.acceptedRunIds) ||
+    value.acceptedRunIds.some((runId) => typeof runId !== "string" || runId.length === 0)
+  ) {
+    throw new Error("performance provenance lock acceptedRunIds must be non-empty strings");
+  }
+  if (!Number.isInteger(value.bundleBytes) || (value.bundleBytes as number) < 0) {
+    throw new Error("performance provenance lock bundleBytes must be a non-negative integer");
+  }
+  if (
+    typeof value.representativeFixtureSha256 !== "string" ||
+    !/^[0-9a-f]{64}$/.test(value.representativeFixtureSha256)
+  ) {
+    throw new Error("performance provenance lock fixture hash must be SHA-256");
+  }
+}
+
+export function assertPerformanceRunProvenanceMatchesLock(
+  provenance: PerformanceRunProvenance,
+  lockValue: unknown,
+): asserts lockValue is PerformanceBaselineProvenanceLock {
+  assertPerformanceRunProvenance(provenance);
+  assertPerformanceBaselineProvenanceLock(lockValue);
+  const actualRunIds = provenance.attempts.map(({ runId }) => runId);
+  const actualOutcomes = provenance.attempts.map(({ outcome }) => outcome);
+  if (
+    JSON.stringify(actualRunIds) !== JSON.stringify(lockValue.attemptRunIds) ||
+    JSON.stringify(actualOutcomes) !== JSON.stringify(lockValue.outcomes) ||
+    JSON.stringify(provenance.acceptedRunIds) !==
+      JSON.stringify(lockValue.acceptedRunIds) ||
+    provenance.attempts.some(
+      (attempt) =>
+        attempt.bundleBytes !== lockValue.bundleBytes ||
+        attempt.representativeFixtureSha256 !==
+          lockValue.representativeFixtureSha256,
+    )
+  ) {
+    throw new Error(
+      "performance provenance lock does not match the committed retained attempt history",
+    );
   }
 }
 

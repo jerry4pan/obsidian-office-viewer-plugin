@@ -16,6 +16,7 @@ import {
 import type { InstalledMarkdownArtifact } from "./installed-performance-markdown";
 import {
   assertPerformanceRunProvenance,
+  assertPerformanceRunProvenanceMatchesLock,
   PERFORMANCE_RUN_SELECTION_POLICY,
   type PerformanceRunProvenance,
 } from "./performance-run-provenance";
@@ -449,14 +450,40 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
-function pageCounterIndex(value: string): number | null {
+interface PageCounter {
+  readonly index: number;
+  readonly total: number;
+}
+
+function parsePageCounter(value: string, path: string): PageCounter {
   const match = /^(\d+) \/ (\d+)$/.exec(value);
-  if (match === null) return null;
+  if (match === null) {
+    throw new Error(`${path} must be a valid page counter`);
+  }
   const page = Number(match[1]);
   const total = Number(match[2]);
-  return Number.isInteger(page) && Number.isInteger(total) && page >= 1 && page <= total
-    ? page - 1
-    : null;
+  if (!Number.isInteger(total) || total !== 50) {
+    throw new Error(`${path} must use the M2 total 50`);
+  }
+  if (!Number.isInteger(page) || page < 1 || page > total) {
+    throw new Error(`${path} page must be within 1..50`);
+  }
+  return { index: page - 1, total };
+}
+
+function assertOneSlideTransition(
+  fromValue: string,
+  toValue: string,
+  action: "next" | "previous",
+  path: string,
+): PageCounter {
+  const from = parsePageCounter(fromValue, `${path}.from`);
+  const to = parsePageCounter(toValue, `${path}.to`);
+  const expectedDelta = action === "next" ? 1 : -1;
+  if (to.index - from.index !== expectedDelta) {
+    throw new Error(`${path} must have the action's one-slide delta`);
+  }
+  return to;
 }
 
 function assertEqual(actual: unknown, expected: unknown, path: string): void {
@@ -714,6 +741,7 @@ export function validateInstalledPerformanceArtifact(
   expectedBundleBytes: number,
   expectedOutcome: InstalledPerformanceExpectedOutcome,
   expectedRendererLabel: string,
+  provenanceLockValue?: unknown,
 ): InstalledPerformanceArtifact {
   assertJsonSafe(value);
   nonNegative(expectedBundleBytes, "expectedBundleBytes");
@@ -738,6 +766,12 @@ export function validateInstalledPerformanceArtifact(
     "gates",
   ]);
   assertPerformanceRunProvenance(top.runProvenance);
+  if (provenanceLockValue !== undefined) {
+    assertPerformanceRunProvenanceMatchesLock(
+      top.runProvenance,
+      provenanceLockValue,
+    );
+  }
   const protocol = record(top.protocol, "artifact.protocol");
   assertExactKeys(protocol, "artifact.protocol", [
     "coldRuns",
@@ -1358,9 +1392,19 @@ export function validateInstalledPerformanceArtifact(
       );
     }
     attempt.switchWarmup.forEach((visit, index) => {
+      if (visit.action !== expectedActions[index]) {
+        throw new Error(
+          `artifact measured open ${attempt.sampleIndex} switch warmup is not a deterministic rendered path`,
+        );
+      }
+      const to = assertOneSlideTransition(
+        visit.from,
+        visit.to,
+        visit.action,
+        `artifact measured open ${attempt.sampleIndex} switch warmup[${index}]`,
+      );
       if (
-        visit.action !== expectedActions[index] ||
-        pageCounterIndex(visit.to) !== visit.targetSlideIndex ||
+        to.index !== visit.targetSlideIndex ||
         (index > 0 && visit.from !== attempt.switchWarmup[index - 1]!.to)
       ) {
         throw new Error(
@@ -1369,10 +1413,32 @@ export function validateInstalledPerformanceArtifact(
       }
     });
     attempt.slideSwitches.forEach((slideSwitch, index) => {
+      parsePageCounter(
+        slideSwitch.from,
+        `artifact measured open ${attempt.sampleIndex} slideSwitches[${index}].from`,
+      );
+      parsePageCounter(
+        slideSwitch.to,
+        `artifact measured open ${attempt.sampleIndex} slideSwitches[${index}].to`,
+      );
+      if (
+        index === 0 &&
+        slideSwitch.from !== attempt.switchWarmup.at(-1)!.to
+      ) {
+        throw new Error(
+          `artifact measured open ${attempt.sampleIndex} first timed switch must link to the final warmup state`,
+        );
+      }
+      const to = assertOneSlideTransition(
+        slideSwitch.from,
+        slideSwitch.to,
+        slideSwitch.action,
+        `artifact measured open ${attempt.sampleIndex} slideSwitches[${index}]`,
+      );
       const warmupVisit = attempt.switchWarmup[slideSwitch.warmupVisitOrdinal - 1];
       if (
         slideSwitch.action !== expectedActions[index] ||
-        pageCounterIndex(slideSwitch.to) !== slideSwitch.targetSlideIndex ||
+        to.index !== slideSwitch.targetSlideIndex ||
         warmupVisit?.targetSlideIndex !== slideSwitch.targetSlideIndex ||
         (index > 0 && slideSwitch.from !== attempt.slideSwitches[index - 1]!.to)
       ) {
