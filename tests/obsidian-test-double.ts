@@ -45,6 +45,15 @@ export class ToggleComponent {
     this.value = value;
     await this.change?.(value);
   }
+
+  triggerWithoutAwait(value: boolean): void {
+    this.value = value;
+    this.change?.(value);
+  }
+
+  getValue(): boolean {
+    return this.value;
+  }
 }
 
 export class Setting {

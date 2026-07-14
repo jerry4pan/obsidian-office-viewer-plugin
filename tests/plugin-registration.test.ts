@@ -209,6 +209,60 @@ describe("OfficeViewerPlugin", () => {
     });
   });
 
+  it("contains a settings save rejection and keeps later toggles usable", async () => {
+    const app = {
+      vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    await plugin.onload();
+    const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+      containerEl: HTMLElement;
+      display(): void;
+    };
+    const error = new Error("settings disk full");
+    vi.mocked(plugin.saveData).mockRejectedValueOnce(error);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    settingTab.display();
+    const failedToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
+      testToggle: ToggleComponent & {
+        getValue(): boolean;
+        triggerWithoutAwait(value: boolean): void;
+      };
+    }).testToggle;
+    failedToggle.triggerWithoutAwait(false);
+
+    await vi.waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to save PPTX reading-position setting",
+        error,
+      ),
+    );
+    settingTab.display();
+    const retryToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
+      testToggle: ToggleComponent & {
+        getValue(): boolean;
+        triggerWithoutAwait(value: boolean): void;
+      };
+    }).testToggle;
+    expect(retryToggle.getValue()).toBe(false);
+
+    retryToggle.triggerWithoutAwait(true);
+    await vi.waitFor(() =>
+      expect(plugin.saveData).toHaveBeenLastCalledWith({
+        schemaVersion: 1,
+        settings: { rememberReadingPosition: true },
+        positions: {},
+      }),
+    );
+    settingTab.display();
+    const restoredToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
+      testToggle: ToggleComponent & { getValue(): boolean };
+    }).testToggle;
+    expect(restoredToggle.getValue()).toBe(true);
+    consoleError.mockRestore();
+  });
+
   it("does not register product hooks when position initialization fails", async () => {
     const app = {
       vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },

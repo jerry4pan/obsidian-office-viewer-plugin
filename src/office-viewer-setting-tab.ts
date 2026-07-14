@@ -20,7 +20,14 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle
           .setValue(this.store.settings.rememberReadingPosition)
-          .onChange((value) => this.store.setRememberReadingPosition(value)),
+          .onChange((value) => {
+            void this.store.setRememberReadingPosition(value).catch((error: unknown) => {
+              console.error(
+                "Failed to save PPTX reading-position setting",
+                error,
+              );
+            });
+          }),
       );
   }
 }
