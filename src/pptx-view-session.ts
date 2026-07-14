@@ -109,7 +109,7 @@ export class PptxViewSession<FileRef> {
   }
 
   async open(file: FileRef): Promise<void> {
-    this.stopCurrentRun();
+    this.teardownOpenResources();
     this.clearTimings();
     const generation = ++this.generation;
     this.openPending = true;
@@ -356,6 +356,11 @@ export class PptxViewSession<FileRef> {
       }
 
       rail = new ThumbnailRail(thumbnailRoot, rendererSession, queue, {
+        onMountedCountChange: (count) => {
+          if (isCurrentRun() && this.thumbnailRail === rail) {
+            this.root.dataset.mountedThumbnailCount = String(count);
+          }
+        },
         onNavigate: navigate,
       });
       this.thumbnailRail = rail;
@@ -453,7 +458,7 @@ export class PptxViewSession<FileRef> {
       if (this.abortController === controller) this.abortController = null;
     } catch (error) {
       if (controller.signal.aborted || generation !== this.generation) return;
-      this.stopCurrentRun();
+      this.teardownOpenResources();
       this.setLifecyclePhase("error");
       const openError =
         error instanceof PptxOpenError
@@ -491,7 +496,7 @@ export class PptxViewSession<FileRef> {
     this.openPending = false;
     this.disposed = true;
     this.lifecyclePhase = "disposed";
-    this.stopCurrentRun();
+    this.teardownOpenResources();
     this.root.replaceChildren();
     delete this.root.dataset.state;
     delete this.root.dataset.lifecyclePhase;
@@ -562,9 +567,14 @@ export class PptxViewSession<FileRef> {
     return button;
   }
 
-  private stopCurrentRun(): void {
-    this.abortController?.abort();
+  private teardownOpenResources(): void {
+    const abortController = this.abortController;
     this.abortController = null;
+    try {
+      abortController?.abort();
+    } catch {
+      // Continue releasing owned resources if cancellation hooks misbehave.
+    }
     for (const cleanup of this.runCleanups) {
       try {
         cleanup();
@@ -573,14 +583,26 @@ export class PptxViewSession<FileRef> {
       }
     }
     this.runCleanups.clear();
-    this.thumbnailRail?.dispose();
+    const thumbnailRail = this.thumbnailRail;
     this.thumbnailRail = null;
-    this.viewerController?.dispose();
+    const viewerController = this.viewerController;
     this.viewerController = null;
-    this.backgroundQueue?.dispose();
+    const backgroundQueue = this.backgroundQueue;
     this.backgroundQueue = null;
-    this.rendererSession?.dispose();
+    const rendererSession = this.rendererSession;
     this.rendererSession = null;
+    for (const dispose of [
+      () => thumbnailRail?.dispose(),
+      () => viewerController?.dispose(),
+      () => backgroundQueue?.dispose(),
+      () => rendererSession?.dispose(),
+    ]) {
+      try {
+        dispose();
+      } catch {
+        // A candidate or component cleanup failure must not strand later owners.
+      }
+    }
   }
 
   private clearTimings(): void {

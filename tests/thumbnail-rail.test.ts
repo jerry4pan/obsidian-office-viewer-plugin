@@ -508,6 +508,45 @@ describe("ThumbnailRail", () => {
     queue.dispose();
   });
 
+  it("reports live mounted counts for start, resize, scroll, selection, and disposal", () => {
+    const root = createRoot(100);
+    const queue = new RenderTaskQueue();
+    const onMountedCountChange = vi.fn();
+    let resize!: ResizeObserverCallback;
+    const rail = new ThumbnailRail(root, createRenderer(), queue, {
+      createResizeObserver: (callback) => {
+        resize = callback;
+        return { disconnect: vi.fn(), observe: vi.fn() };
+      },
+      onMountedCountChange,
+      onNavigate: vi.fn(),
+    });
+
+    rail.start(0);
+    expect(onMountedCountChange).toHaveBeenLastCalledWith(rail.mountedCount);
+    const startedCount = rail.mountedCount;
+
+    Object.defineProperty(root, "clientHeight", { configurable: true, value: 600 });
+    resize([], {} as ResizeObserver);
+    expect(rail.mountedCount).toBeGreaterThan(startedCount);
+    expect(onMountedCountChange).toHaveBeenLastCalledWith(rail.mountedCount);
+
+    root.scrollTop = 20_000;
+    root.dispatchEvent(new Event("scroll"));
+    expect(onMountedCountChange).toHaveBeenLastCalledWith(rail.mountedCount);
+
+    rail.setCurrentSlide(0);
+    expect(onMountedCountChange).toHaveBeenLastCalledWith(rail.mountedCount);
+
+    rail.dispose();
+    expect(onMountedCountChange).toHaveBeenLastCalledWith(0);
+    const callCount = onMountedCountChange.mock.calls.length;
+    root.dispatchEvent(new Event("scroll"));
+    resize([], {} as ResizeObserver);
+    expect(onMountedCountChange).toHaveBeenCalledTimes(callCount);
+    queue.dispose();
+  });
+
   it("finishes full cleanup when one renderer resource disposer throws", async () => {
     const root = createRoot();
     const disconnect = vi.fn();

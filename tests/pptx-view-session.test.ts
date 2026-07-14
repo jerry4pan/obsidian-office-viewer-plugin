@@ -523,6 +523,118 @@ describe("PptxViewSession", () => {
     expect(root.dataset.lastSlideSwitchMs).toBeUndefined();
   });
 
+  it("continues ordered teardown and clears the root when component disposers throw", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeM2Renderer(20);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+    const internals = session as unknown as {
+      thumbnailRail: { dispose(): void };
+      viewerController: { dispose(): void };
+      backgroundQueue: { dispose(): void };
+    };
+    const railDispose = vi.spyOn(internals.thumbnailRail, "dispose").mockImplementation(() => {
+      throw new Error("rail cleanup failed");
+    });
+    const controllerDispose = vi.spyOn(internals.viewerController, "dispose");
+    const queueDispose = vi.spyOn(internals.backgroundQueue, "dispose");
+    vi.mocked(rendererSession.dispose).mockImplementation(() => {
+      throw new Error("renderer cleanup failed");
+    });
+
+    expect(() => session.dispose()).not.toThrow();
+
+    expect(railDispose).toHaveBeenCalledOnce();
+    expect(controllerDispose).toHaveBeenCalledOnce();
+    expect(queueDispose).toHaveBeenCalledOnce();
+    expect(rendererSession.dispose).toHaveBeenCalledOnce();
+    expect(root.childElementCount).toBe(0);
+    expect(root.dataset.state).toBeUndefined();
+    expect(session.getPerformanceDiagnostics()).toMatchObject({
+      backgroundPending: 0,
+      backgroundRunning: 0,
+      mountedThumbnails: 0,
+      rendererActive: false,
+    });
+  });
+
+  it("survives a throwing previous renderer disposer while reopening", async () => {
+    const root = document.createElement("div");
+    const first = makeRenderer(2);
+    const second = makeRenderer(2);
+    vi.mocked(first.rendererSession.dispose).mockImplementation(() => {
+      throw new Error("old renderer cleanup failed");
+    });
+    const adapter: PptxRendererAdapter = {
+      open: vi.fn().mockImplementationOnce(first.adapter.open).mockImplementationOnce(second.adapter.open),
+    };
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("first.pptx");
+
+    await expect(session.open("second.pptx")).resolves.toBeUndefined();
+
+    expect(first.rendererSession.dispose).toHaveBeenCalledOnce();
+    expect(second.rendererSession.dispose).not.toHaveBeenCalled();
+    expect(root.dataset.state).toBe("ready");
+    expect(root.textContent).toContain("1 / 2");
+    session.dispose();
+  });
+
+  it("finishes the open-error surface when renderer cleanup throws", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeRenderer(1);
+    vi.mocked(rendererSession.renderSlide).mockRejectedValueOnce(new Error("render failed"));
+    vi.mocked(rendererSession.dispose).mockImplementation(() => {
+      throw new Error("renderer cleanup failed");
+    });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+
+    await expect(session.open("broken.pptx")).resolves.toBeUndefined();
+
+    expect(rendererSession.dispose).toHaveBeenCalledOnce();
+    expect(root.dataset.state).toBe("error");
+    expect(root.dataset.errorCategory).toBe("incompatible");
+    expect(session.getPerformanceDiagnostics().rendererActive).toBe(false);
+  });
+
+  it("keeps the mounted-thumbnail data attribute live and stale-safe", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(200);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("large.pptx");
+    const rail = root.querySelector<HTMLElement>('[aria-label="Slide thumbnails"]')!;
+    const initial = Number(root.dataset.mountedThumbnailCount);
+
+    Object.defineProperty(rail, "clientHeight", { configurable: true, value: 100 });
+    rail.dispatchEvent(new Event("scroll"));
+
+    expect(Number(root.dataset.mountedThumbnailCount)).toBe(
+      rail.querySelectorAll('[data-action="thumbnail-slide"]').length,
+    );
+    expect(Number(root.dataset.mountedThumbnailCount)).not.toBe(initial);
+
+    session.dispose();
+    expect(root.dataset.mountedThumbnailCount).toBeUndefined();
+    rail.dispatchEvent(new Event("scroll"));
+    expect(root.dataset.mountedThumbnailCount).toBeUndefined();
+  });
+
   it("disposes the previous renderer before reopening", async () => {
     const root = document.createElement("div");
     const bytes = new ArrayBuffer(1);
@@ -830,7 +942,9 @@ describe("PptxViewSession", () => {
       slideHeight: 540,
       capabilities: { thumbnails: false, prefetch: false, zoom: false },
       renderSlide: vi.fn(async () => {}),
-      dispose: vi.fn(),
+      dispose: vi.fn(() => {
+        throw new Error("late candidate cleanup failed");
+      }),
     };
     let resolveOpen!: (value: PptxRendererSession) => void;
     const adapter: PptxRendererAdapter = {
@@ -847,7 +961,7 @@ describe("PptxViewSession", () => {
 
     session.dispose();
     resolveOpen(rendererSession);
-    await opening;
+    await expect(opening).resolves.toBeUndefined();
 
     expect(rendererSession.dispose).toHaveBeenCalledOnce();
     expect(root.childElementCount).toBe(0);

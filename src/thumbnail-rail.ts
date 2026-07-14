@@ -7,6 +7,7 @@ import { computeThumbnailWindow } from "./thumbnail-virtual-window";
 
 export interface ThumbnailRailOptions {
   readonly onNavigate: (index: number) => void;
+  readonly onMountedCountChange?: (count: number) => void;
   readonly thumbnailWidth?: number;
   readonly overscanViewports?: number;
   readonly createResizeObserver?: (
@@ -78,6 +79,7 @@ export class ThumbnailRail {
   private disposed = false;
   private nextAttempt = 0;
   private started = false;
+  private lastReportedMountedCount: number | undefined;
 
   constructor(
     private readonly root: HTMLElement,
@@ -135,6 +137,7 @@ export class ThumbnailRail {
     this.root.addEventListener("scroll", this.onScroll);
     this.resizeObserver?.observe(this.root);
     this.refresh();
+    this.reportMountedCount();
   }
 
   setCurrentSlide(index: number): void {
@@ -214,6 +217,7 @@ export class ThumbnailRail {
       }
       if (item.state === "idle") this.render(item, priority);
     }
+    this.reportMountedCount();
   }
 
   dispose(): void {
@@ -224,6 +228,7 @@ export class ThumbnailRail {
     this.queue.cancelMatching((key) => key.startsWith(this.queueKeyPrefix));
     for (const item of [...this.mounted.values()]) this.unmount(item);
     this.root.replaceChildren();
+    this.reportMountedCount();
   }
 
   private readonly onScroll = (): void => {
@@ -368,6 +373,17 @@ export class ThumbnailRail {
     if (!this.mounted.delete(item.index)) return;
     this.cancelAttempt(item);
     item.button.remove();
+  }
+
+  private reportMountedCount(): void {
+    const count = this.mounted.size;
+    if (count === this.lastReportedMountedCount) return;
+    this.lastReportedMountedCount = count;
+    try {
+      this.options.onMountedCountChange?.(count);
+    } catch {
+      // Product diagnostics must not corrupt thumbnail virtualization.
+    }
   }
 
   private cancelAttempt(item: MountedThumbnail): void {
