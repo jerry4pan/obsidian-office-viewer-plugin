@@ -226,6 +226,51 @@ describe("ThumbnailRail", () => {
     queue.dispose();
   });
 
+  it("treats a renderer AbortError with an active signal as an item failure", async () => {
+    const root = createRoot();
+    let firstAttempt = true;
+    const observedSignals: AbortSignal[] = [];
+    const renderer = createRenderer((index, container, signal) => {
+      if (index === 0 && firstAttempt) {
+        firstAttempt = false;
+        observedSignals.push(signal);
+        return {
+          ready: Promise.reject(new DOMException("renderer failed", "AbortError")),
+          dispose: vi.fn(),
+        };
+      }
+      container.textContent = `Recovered preview ${index + 1}`;
+      return { ready: Promise.resolve(), dispose: vi.fn() };
+    });
+    const queue = new RenderTaskQueue();
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+    });
+    rail.start(0);
+    await queue.whenIdle();
+
+    expect(observedSignals[0]?.aborted).toBe(false);
+    expect(root.querySelector('[data-slide-index="0"]')?.textContent)
+      .toContain("Slide 1 preview unavailable");
+    rail.refresh();
+    await queue.whenIdle();
+    expect(renderer.renderThumbnail.mock.calls.filter(([index]) => index === 0))
+      .toHaveLength(1);
+
+    root.scrollTop = 20_000;
+    rail.refresh();
+    root.scrollTop = 0;
+    rail.refresh();
+    await queue.whenIdle();
+    expect(renderer.renderThumbnail.mock.calls.filter(([index]) => index === 0))
+      .toHaveLength(2);
+    expect(root.querySelector('[data-slide-index="0"]')?.textContent)
+      .toContain("Recovered preview 1");
+
+    rail.dispose();
+    queue.dispose();
+  });
+
   it("aborts pending work and disposes its acquired resource when an item unmounts", async () => {
     const root = createRoot();
     const pending = deferred<void>();

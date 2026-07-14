@@ -36,10 +36,6 @@ function finitePositive(value: number | undefined, fallback: number): number {
     : fallback;
 }
 
-function isAbort(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
-}
-
 async function waitForReady(
   ready: Promise<void>,
   signal: AbortSignal,
@@ -285,6 +281,7 @@ export class ThumbnailRail {
     }
     const renderThumbnail = this.renderer.renderThumbnail.bind(this.renderer);
     const queueKey = `${this.queueKeyPrefix}${item.index}:${this.nextAttempt++}`;
+    let attemptSignal: AbortSignal | undefined;
     item.priority = priority;
     item.queueKey = queueKey;
     item.state = "pending";
@@ -293,6 +290,7 @@ export class ThumbnailRail {
         key: queueKey,
         priority,
         run: async (signal) => {
+          attemptSignal = signal;
           let resource: PptxRendererResource | undefined;
           try {
             if (
@@ -333,12 +331,13 @@ export class ThumbnailRail {
           item.state = "ready";
         }
       })
-      .catch((error: unknown) => {
+      .catch(() => {
+        const canceled = attemptSignal?.aborted === true;
         if (
           !this.disposed &&
           this.mounted.get(item.index) === item &&
           item.queueKey === queueKey &&
-          !isAbort(error)
+          !canceled
         ) {
           delete item.resource;
           item.state = "failed";
