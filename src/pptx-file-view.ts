@@ -5,6 +5,11 @@ import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapt
 
 export const PPTX_VIEW_TYPE = "pptx-viewer";
 
+export interface PptxFileViewPositions {
+  initialSlideFor(file: TFile, slideCount: number): number;
+  record(file: TFile, slideIndex: number): void;
+}
+
 type DesktopVaultAdapter = {
   getFullPath(path: string): string;
 };
@@ -30,6 +35,7 @@ export class PptxFileView extends FileView {
   constructor(
     leaf: WorkspaceLeaf,
     private readonly onDisposed: () => void = () => {},
+    positions?: PptxFileViewPositions,
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
@@ -39,7 +45,7 @@ export class PptxFileView extends FileView {
       root,
       { readBinary: (file) => this.app.vault.readBinary(file) },
       createPptxRendererAdapter(),
-      { openExternally: createExternalOpenAction(this.app) },
+      { openExternally: createExternalOpenAction(this.app), positions },
     );
   }
 
