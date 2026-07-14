@@ -1,0 +1,305 @@
+import type {
+  PptxRendererResource,
+  PptxRendererSession,
+} from "./renderer/pptx-renderer-adapter";
+import { RenderTaskQueue } from "./render-task-queue";
+import { computeThumbnailWindow } from "./thumbnail-virtual-window";
+
+export interface ThumbnailRailOptions {
+  readonly onNavigate: (index: number) => void;
+  readonly thumbnailWidth?: number;
+  readonly overscanViewports?: number;
+  readonly createResizeObserver?: (
+    callback: ResizeObserverCallback,
+  ) => Pick<ResizeObserver, "observe" | "disconnect">;
+}
+
+interface MountedThumbnail {
+  readonly button: HTMLButtonElement;
+  readonly index: number;
+  readonly preview: HTMLElement;
+  resource?: PptxRendererResource;
+}
+
+const DEFAULT_THUMBNAIL_WIDTH = 144;
+const DEFAULT_OVERSCAN_VIEWPORTS = 1;
+const FALLBACK_VIEWPORT_HEIGHT = 480;
+const ITEM_CHROME_HEIGHT = 32;
+
+function finitePositive(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isFinite(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+export class ThumbnailRail {
+  private readonly disposedResources = new WeakSet<PptxRendererResource>();
+  private readonly mounted = new Map<number, MountedThumbnail>();
+  private readonly mountedLayer = document.createElement("div");
+  private readonly spacer = document.createElement("div");
+  private readonly itemHeight: number;
+  private readonly overscanViewports: number;
+  private readonly resizeObserver:
+    | Pick<ResizeObserver, "observe" | "disconnect">
+    | undefined;
+  private readonly thumbnailWidth: number;
+  private currentSlideIndex = 0;
+  private disposed = false;
+  private started = false;
+
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly renderer: PptxRendererSession,
+    private readonly queue: RenderTaskQueue,
+    private readonly options: ThumbnailRailOptions,
+  ) {
+    this.thumbnailWidth = finitePositive(
+      options.thumbnailWidth,
+      DEFAULT_THUMBNAIL_WIDTH,
+    );
+    const slideWidth = finitePositive(renderer.slideWidth, this.thumbnailWidth);
+    const slideHeight = finitePositive(renderer.slideHeight, this.thumbnailWidth);
+    this.itemHeight = Math.max(
+      1,
+      (this.thumbnailWidth * slideHeight) / slideWidth + ITEM_CHROME_HEIGHT,
+    );
+    this.overscanViewports = Math.max(
+      0,
+      Number.isFinite(options.overscanViewports)
+        ? options.overscanViewports ?? DEFAULT_OVERSCAN_VIEWPORTS
+        : DEFAULT_OVERSCAN_VIEWPORTS,
+    );
+
+    const createResizeObserver =
+      options.createResizeObserver ??
+      (typeof ResizeObserver === "undefined"
+        ? undefined
+        : (callback: ResizeObserverCallback) => new ResizeObserver(callback));
+    this.resizeObserver = createResizeObserver?.(() => this.refresh());
+  }
+
+  get mountedCount(): number {
+    return this.mounted.size;
+  }
+
+  start(currentSlideIndex: number): void {
+    if (this.disposed) return;
+    this.currentSlideIndex = this.clampIndex(currentSlideIndex);
+    if (this.started) {
+      this.setCurrentSlide(this.currentSlideIndex);
+      return;
+    }
+    this.started = true;
+
+    this.root.replaceChildren();
+    this.root.setAttribute("role", "navigation");
+    this.root.setAttribute("aria-label", "Slide thumbnails");
+    this.root.classList.add("pptx-viewer__thumbnail-rail");
+    this.spacer.dataset.thumbnailSpacer = "true";
+    this.spacer.className = "pptx-viewer__thumbnail-spacer";
+    this.mountedLayer.dataset.thumbnailMountedLayer = "true";
+    this.mountedLayer.className = "pptx-viewer__thumbnail-mounted-layer";
+    this.root.append(this.spacer, this.mountedLayer);
+    this.root.addEventListener("scroll", this.onScroll);
+    this.resizeObserver?.observe(this.root);
+    this.refresh();
+  }
+
+  setCurrentSlide(index: number): void {
+    if (this.disposed || !this.started) return;
+    this.currentSlideIndex = this.clampIndex(index);
+    const viewportHeight = this.viewportHeight();
+    const itemTop = this.currentSlideIndex * this.itemHeight;
+    const itemBottom = itemTop + this.itemHeight;
+    if (itemTop < this.root.scrollTop) {
+      this.root.scrollTop = itemTop;
+    } else if (itemBottom > this.root.scrollTop + viewportHeight) {
+      this.root.scrollTop = itemBottom - viewportHeight;
+    }
+    this.refresh();
+  }
+
+  refresh(): void {
+    if (this.disposed || !this.started) return;
+    const viewportHeight = this.viewportHeight();
+    const window = computeThumbnailWindow({
+      itemCount: this.renderer.slideCount,
+      itemHeight: this.itemHeight,
+      overscanViewports: this.overscanViewports,
+      scrollTop: this.root.scrollTop,
+      viewportHeight,
+    });
+    this.spacer.style.height = `${window.totalHeight}px`;
+    this.mountedLayer.style.transform = `translateY(${window.offsetTop}px)`;
+
+    for (const [index, item] of [...this.mounted]) {
+      if (index < window.start || index >= window.endExclusive) {
+        this.unmount(item);
+      }
+    }
+
+    const created: MountedThumbnail[] = [];
+    for (let index = window.start; index < window.endExclusive; index += 1) {
+      let item = this.mounted.get(index);
+      if (item === undefined) {
+        item = this.mount(index, window.start);
+        created.push(item);
+      } else {
+        item.button.style.top = `${(index - window.start) * this.itemHeight}px`;
+      }
+      this.updateSelection(item);
+    }
+
+    for (const item of [...this.mounted.values()].sort(
+      (left, right) => left.index - right.index,
+    )) {
+      this.mountedLayer.append(item.button);
+    }
+
+    const visibleStart = Math.max(
+      window.start,
+      Math.floor(this.root.scrollTop / this.itemHeight),
+    );
+    const visibleEnd = Math.min(
+      window.endExclusive,
+      Math.max(
+        visibleStart + 1,
+        Math.ceil((this.root.scrollTop + viewportHeight) / this.itemHeight),
+      ),
+    );
+    for (const item of created.filter(
+      ({ index }) => index >= visibleStart && index < visibleEnd,
+    )) {
+      this.render(item, 1);
+    }
+    for (const item of created.filter(
+      ({ index }) => index < visibleStart || index >= visibleEnd,
+    )) {
+      this.render(item, 2);
+    }
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.root.removeEventListener("scroll", this.onScroll);
+    this.resizeObserver?.disconnect();
+    this.queue.cancelMatching((key) => key.startsWith("thumbnail:"));
+    for (const item of [...this.mounted.values()]) this.unmount(item);
+    this.root.replaceChildren();
+  }
+
+  private readonly onScroll = (): void => {
+    this.refresh();
+  };
+
+  private clampIndex(index: number): number {
+    if (this.renderer.slideCount <= 0) return 0;
+    const integer = Number.isFinite(index) ? Math.floor(index) : 0;
+    return Math.min(Math.max(0, integer), this.renderer.slideCount - 1);
+  }
+
+  private viewportHeight(): number {
+    return finitePositive(this.root.clientHeight, FALLBACK_VIEWPORT_HEIGHT);
+  }
+
+  private mount(index: number, windowStart: number): MountedThumbnail {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pptx-viewer__thumbnail";
+    button.dataset.action = "thumbnail-slide";
+    button.dataset.slideIndex = String(index);
+    button.setAttribute("aria-label", `Slide ${index + 1}`);
+    button.style.height = `${this.itemHeight}px`;
+    button.style.top = `${(index - windowStart) * this.itemHeight}px`;
+
+    const preview = document.createElement("span");
+    preview.className = "pptx-viewer__thumbnail-preview";
+    preview.style.width = `${this.thumbnailWidth}px`;
+    preview.style.setProperty(
+      "--pptx-slide-aspect-ratio",
+      `${this.renderer.slideWidth} / ${this.renderer.slideHeight}`,
+    );
+    const number = document.createElement("span");
+    number.className = "pptx-viewer__thumbnail-number";
+    number.setAttribute("aria-hidden", "true");
+    number.textContent = String(index + 1);
+    button.append(preview, number);
+    button.addEventListener("click", () => this.options.onNavigate(index));
+
+    const item = { button, index, preview };
+    this.mounted.set(index, item);
+    return item;
+  }
+
+  private updateSelection(item: MountedThumbnail): void {
+    if (item.index === this.currentSlideIndex) {
+      item.button.setAttribute("aria-current", "page");
+    } else {
+      item.button.removeAttribute("aria-current");
+    }
+  }
+
+  private render(item: MountedThumbnail, priority: 1 | 2): void {
+    if (!this.renderer.capabilities.thumbnails || !this.renderer.renderThumbnail) {
+      this.showUnavailable(item);
+      return;
+    }
+    const renderThumbnail = this.renderer.renderThumbnail.bind(this.renderer);
+    void this.queue
+      .enqueue({
+        key: `thumbnail:${item.index}`,
+        priority,
+        run: async (signal) => {
+          let resource: PptxRendererResource | undefined;
+          try {
+            resource = renderThumbnail(item.index, item.preview, signal);
+            item.resource = resource;
+            await resource.ready;
+            signal.throwIfAborted();
+            return resource;
+          } catch (error) {
+            if (resource !== undefined) this.disposeResource(resource);
+            throw error;
+          }
+        },
+        disposeResult: (resource) => this.disposeResource(resource),
+      })
+      .then((resource) => {
+        if (this.disposed || this.mounted.get(item.index) !== item) {
+          this.disposeResource(resource);
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          !this.disposed &&
+          this.mounted.get(item.index) === item &&
+          !isAbort(error)
+        ) {
+          this.showUnavailable(item);
+        }
+      });
+  }
+
+  private showUnavailable(item: MountedThumbnail): void {
+    item.preview.replaceChildren();
+    item.preview.textContent = `Slide ${item.index + 1} preview unavailable`;
+  }
+
+  private unmount(item: MountedThumbnail): void {
+    if (!this.mounted.delete(item.index)) return;
+    this.queue.cancel(`thumbnail:${item.index}`);
+    if (item.resource !== undefined) this.disposeResource(item.resource);
+    item.button.remove();
+  }
+
+  private disposeResource(resource: PptxRendererResource): void {
+    if (this.disposedResources.has(resource)) return;
+    this.disposedResources.add(resource);
+    resource.dispose();
+  }
+}
