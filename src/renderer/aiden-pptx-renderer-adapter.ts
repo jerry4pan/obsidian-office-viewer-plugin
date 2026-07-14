@@ -45,14 +45,18 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
     container.replaceChildren();
     let viewer: PptxViewer | undefined;
     try {
-      viewer = await PptxViewer.open(buffer, container, {
+      viewer = new PptxViewer(container, {
         fitMode: "contain",
         lazyMedia: true,
         lazySlides: true,
         pdfjs: false,
+        zipLimits: PPTX_ZIP_LIMITS,
+      });
+      await viewer.open(buffer, {
         renderMode: "slide",
         signal,
-        zipLimits: PPTX_ZIP_LIMITS,
+        lazyMedia: true,
+        lazySlides: true,
       });
       signal.throwIfAborted();
       if (viewer.slideCount < 1) {
@@ -66,7 +70,10 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
       viewer?.destroy();
       container.replaceChildren();
       if (error instanceof PptxOpenError) throw error;
-      if (error instanceof DOMException && error.name === "AbortError") throw error;
+      if (
+        error instanceof Error &&
+        error.name === "AbortError"
+      ) throw error;
       throw new PptxOpenError(
         "incompatible",
         "The renderer could not safely display this PPTX package",

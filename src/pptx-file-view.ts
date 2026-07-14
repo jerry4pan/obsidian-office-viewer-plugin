@@ -1,5 +1,6 @@
 import { FileView, type App, type TFile, type WorkspaceLeaf } from "obsidian";
 import { PptxViewSession } from "./pptx-view-session";
+import type { PptxViewSessionDiagnostics } from "./pptx-view-session";
 import { AidenPptxRendererAdapter } from "./renderer/aiden-pptx-renderer-adapter";
 import { PreflightPptxRendererAdapter } from "./renderer/preflight-pptx-renderer-adapter";
 
@@ -49,6 +50,10 @@ export class PptxFileView extends FileView {
 
   override getDisplayText(): string {
     return this.file?.basename ?? "PPTX viewer";
+  }
+
+  getPerformanceDiagnostics(): PptxViewSessionDiagnostics {
+    return this.session.getPerformanceDiagnostics();
   }
 
   override async onLoadFile(file: TFile): Promise<void> {

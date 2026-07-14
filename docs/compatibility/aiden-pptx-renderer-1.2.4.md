@@ -51,6 +51,13 @@ requires the explicit `UPDATE_COMPATIBILITY_BASELINES=1` flag and then fails
 until the reviewed hash and reason are recorded. Ordinary runs reject any
 changed pixel.
 
+Ticket #5 verification found that the Task 1 navigation-controls row had
+intentionally reduced the captured slide container from 632 × 599 to
+632 × 589. The controller reviewed the refreshed evidence and approved all
+five PNGs as a capture-height normalization with unchanged rendered content
+and layout. Their manifest reasons and SHA-256 hashes record that approval;
+the visual drift limit remains 0 changed pixels.
+
 ## Reproduce
 
 ```bash
