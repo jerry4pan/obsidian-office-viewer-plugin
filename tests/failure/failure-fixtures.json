@@ -1,0 +1,79 @@
+[
+  {
+    "id": "malformed-zip",
+    "category": "malformed",
+    "provenance": "truncated repository-authored PPTX ZIP",
+    "fixturePath": "tests/fixtures/failure/malformed-zip.pptx",
+    "vaultPath": "tests/vault/failure/malformed-zip.pptx"
+  },
+  {
+    "id": "malformed-xml",
+    "category": "malformed",
+    "provenance": "repository-authored PPTX with malformed presentation XML",
+    "fixturePath": "tests/fixtures/failure/malformed-xml.pptx",
+    "vaultPath": "tests/vault/failure/malformed-xml.pptx"
+  },
+  {
+    "id": "missing-media",
+    "category": "malformed",
+    "provenance": "repository-authored PPTX with a missing related image",
+    "fixturePath": "tests/fixtures/failure/missing-media.pptx",
+    "vaultPath": "tests/vault/failure/missing-media.pptx"
+  },
+  {
+    "id": "protected-encrypted",
+    "category": "protected",
+    "provenance": "repository-authored encrypted OOXML compound-file fixture",
+    "fixturePath": "tests/fixtures/failure/protected-encrypted.pptx",
+    "vaultPath": "tests/vault/failure/protected-encrypted.pptx"
+  },
+  {
+    "id": "active-content",
+    "category": "incompatible",
+    "provenance": "repository-authored usable-slide PPTX with inert active content",
+    "fixturePath": "tests/fixtures/failure/active-content.pptx",
+    "vaultPath": "tests/vault/failure/active-content.pptx"
+  },
+  {
+    "id": "renderer-resource-limit",
+    "category": "incompatible",
+    "provenance": "repository-authored PPTX exceeding the candidate entry limit",
+    "fixturePath": "tests/fixtures/failure/renderer-resource-limit.pptx",
+    "vaultPath": "tests/vault/failure/renderer-resource-limit.pptx"
+  },
+  {
+    "id": "preflight-xml-limit",
+    "category": "incompatible",
+    "provenance": "repository-authored PPTX exceeding the preflight XML entry limit",
+    "fixturePath": "tests/fixtures/failure/preflight-xml-limit.pptx",
+    "vaultPath": "tests/vault/failure/preflight-xml-limit.pptx"
+  },
+  {
+    "id": "preflight-entry-limit",
+    "category": "incompatible",
+    "provenance": "repository-authored PPTX exceeding the preflight ZIP entry-count limit",
+    "fixturePath": "tests/fixtures/failure/preflight-entry-limit.pptx",
+    "vaultPath": "tests/vault/failure/preflight-entry-limit.pptx"
+  },
+  {
+    "id": "external-relationship-safe",
+    "category": null,
+    "provenance": "repository-authored usable-slide PPTX with an external relationship",
+    "fixturePath": "tests/fixtures/failure/external-relationship-safe.pptx",
+    "vaultPath": "tests/vault/failure/external-relationship-safe.pptx"
+  },
+  {
+    "id": "external-image-blocked",
+    "category": "incompatible",
+    "provenance": "repository-authored usable-slide PPTX with a standard external image relationship",
+    "fixturePath": "tests/fixtures/failure/external-image-blocked.pptx",
+    "vaultPath": "tests/vault/failure/external-image-blocked.pptx"
+  },
+  {
+    "id": "external-image-type-spoof-blocked",
+    "category": "incompatible",
+    "provenance": "repository-authored usable-slide PPTX with an external image reference disguised as a hyperlink relationship",
+    "fixturePath": "tests/fixtures/failure/external-image-type-spoof-blocked.pptx",
+    "vaultPath": "tests/vault/failure/external-image-type-spoof-blocked.pptx"
+  }
+]

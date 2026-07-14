@@ -36,3 +36,35 @@
 .pptx-viewer[data-state="error"] .pptx-viewer__status {
   color: var(--text-error);
 }
+
+.pptx-viewer__error {
+  align-items: center;
+  align-self: center;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+  margin: auto;
+  max-width: 34rem;
+  padding: var(--size-4-6);
+  text-align: center;
+}
+
+.pptx-viewer__safety-note,
+.pptx-viewer__action-status {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.pptx-viewer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  justify-content: center;
+}
+
+.pptx-viewer__action-status {
+  min-height: 1.5em;
+}

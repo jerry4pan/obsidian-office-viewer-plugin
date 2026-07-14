@@ -1,11 +1,12 @@
 import {
   PptxViewer,
-  RECOMMENDED_ZIP_LIMITS,
 } from "@aiden0z/pptx-renderer";
 import type {
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./pptx-renderer-adapter";
+import { PptxOpenError } from "../pptx-open-error";
+import { PPTX_ZIP_LIMITS } from "./pptx-package-preflight";
 
 class AidenPptxRendererSession implements PptxRendererSession {
   private disposed = false;
@@ -41,16 +42,36 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
     signal: AbortSignal,
   ): Promise<PptxRendererSession> {
     signal.throwIfAborted();
-    const viewer = await PptxViewer.open(buffer, container, {
-      fitMode: "contain",
-      lazyMedia: true,
-      lazySlides: true,
-      pdfjs: false,
-      renderMode: "slide",
-      signal,
-      zipLimits: RECOMMENDED_ZIP_LIMITS,
-    });
-    signal.throwIfAborted();
-    return new AidenPptxRendererSession(viewer, container);
+    container.replaceChildren();
+    let viewer: PptxViewer | undefined;
+    try {
+      viewer = await PptxViewer.open(buffer, container, {
+        fitMode: "contain",
+        lazyMedia: true,
+        lazySlides: true,
+        pdfjs: false,
+        renderMode: "slide",
+        signal,
+        zipLimits: PPTX_ZIP_LIMITS,
+      });
+      signal.throwIfAborted();
+      if (viewer.slideCount < 1) {
+        throw new PptxOpenError(
+          "incompatible",
+          "The renderer did not find a usable slide",
+        );
+      }
+      return new AidenPptxRendererSession(viewer, container);
+    } catch (error) {
+      viewer?.destroy();
+      container.replaceChildren();
+      if (error instanceof PptxOpenError) throw error;
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
+      throw new PptxOpenError(
+        "incompatible",
+        "The renderer could not safely display this PPTX package",
+        { cause: error },
+      );
+    }
   }
 }
