@@ -408,4 +408,155 @@ describe("PptxViewerController", () => {
     expect(controller.state.disposed).toBe(true);
     await queue.whenIdle();
   });
+
+  it("isolates throwing pending notifications during start, navigation begin, and end", async () => {
+    const renderer = createRenderer();
+    const queue = new RenderTaskQueue();
+    const sink = createSink();
+    sink.setNavigationPending.mockImplementation(() => {
+      throw new Error("detached pending UI");
+    });
+    const controller = new PptxViewerController(renderer, queue, sink, {
+      initialSlideIndex: 1,
+    });
+
+    await expect(controller.start()).resolves.toBeUndefined();
+    expect(controller.state).toMatchObject({
+      currentSlideIndex: 1,
+      navigationPending: false,
+    });
+    expect(sink.commitSlide).toHaveBeenCalledWith(1);
+
+    await expect(controller.navigate(2)).resolves.toBeUndefined();
+    expect(controller.state).toMatchObject({
+      currentSlideIndex: 2,
+      navigationPending: false,
+    });
+    expect(sink.commitSlide).toHaveBeenCalledWith(2);
+    await queue.whenIdle();
+  });
+
+  it("isolates throwing slide commit and navigation failure notifications", async () => {
+    const renderer = createRenderer();
+    vi.mocked(renderer.renderSlide)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("renderer failed"))
+      .mockResolvedValueOnce(undefined);
+    const queue = new RenderTaskQueue();
+    const sink = createSink();
+    sink.commitSlide.mockImplementation(() => {
+      throw new Error("detached slide UI");
+    });
+    sink.reportNavigationFailure.mockImplementation(() => {
+      throw new Error("detached error UI");
+    });
+    const controller = new PptxViewerController(renderer, queue, sink, {
+      initialSlideIndex: 1,
+    });
+
+    await expect(controller.start()).resolves.toBeUndefined();
+    expect(sink.reportNavigationFailure).not.toHaveBeenCalled();
+    expect(controller.state.currentSlideIndex).toBe(1);
+
+    await expect(controller.navigate(2)).resolves.toBeUndefined();
+    expect(sink.reportNavigationFailure).toHaveBeenCalledWith(2);
+    expect(controller.state.currentSlideIndex).toBe(1);
+
+    await expect(controller.navigate(3)).resolves.toBeUndefined();
+    expect(controller.state.currentSlideIndex).toBe(3);
+    expect(renderer.renderSlide).toHaveBeenCalledTimes(3);
+    await queue.whenIdle();
+  });
+
+  it("isolates throwing zoom commit and action failure notifications", async () => {
+    const renderer = createRenderer();
+    vi.mocked(renderer.setZoomPercent!)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("renderer zoom failed"))
+      .mockResolvedValueOnce(undefined);
+    const queue = new RenderTaskQueue();
+    const sink = createSink();
+    sink.commitZoom.mockImplementation(() => {
+      throw new Error("detached zoom UI");
+    });
+    sink.reportActionFailure.mockImplementation(() => {
+      throw new Error("detached action UI");
+    });
+    const controller = new PptxViewerController(renderer, queue, sink, {
+      initialSlideIndex: 0,
+    });
+
+    await expect(controller.zoomIn()).resolves.toBeUndefined();
+    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 125 });
+    expect(sink.reportActionFailure).not.toHaveBeenCalled();
+
+    await expect(controller.zoomIn()).resolves.toBeUndefined();
+    expect(sink.reportActionFailure).toHaveBeenCalledWith("Unable to change zoom.");
+    expect(controller.state.zoomPercent).toBe(125);
+
+    await expect(controller.zoomOut()).resolves.toBeUndefined();
+    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 100 });
+    expect(renderer.setZoomPercent).toHaveBeenCalledTimes(3);
+    await queue.whenIdle();
+  });
+
+  it("finishes disposal and prefetch cancellation when the pending sink throws", async () => {
+    const navigation = deferred<void>();
+    const renderer = createRenderer();
+    vi.mocked(renderer.renderSlide)
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => navigation.promise);
+    const queue = new RenderTaskQueue();
+    const cancelMatching = vi.spyOn(queue, "cancelMatching");
+    const sink = createSink();
+    sink.setNavigationPending.mockImplementation((pending) => {
+      if (!pending) throw new Error("detached pending UI");
+    });
+    const controller = new PptxViewerController(renderer, queue, sink, {
+      initialSlideIndex: 0,
+    });
+    await controller.start();
+    cancelMatching.mockClear();
+
+    const moving = controller.navigate(1);
+    await Promise.resolve();
+    expect(controller.state.navigationPending).toBe(true);
+
+    expect(() => controller.dispose()).not.toThrow();
+    expect(controller.state).toMatchObject({
+      currentSlideIndex: 0,
+      disposed: true,
+      navigationPending: false,
+    });
+    expect(cancelMatching).toHaveBeenCalled();
+    for (const [predicate] of cancelMatching.mock.calls) {
+      expect(predicate("prefetch:0")).toBe(true);
+      expect(predicate("thumbnail:0")).toBe(false);
+    }
+
+    navigation.resolve();
+    await expect(moving).resolves.toBeUndefined();
+    expect(controller.state.disposed).toBe(true);
+    await queue.whenIdle();
+  });
+
+  it("does not ask the renderer for a slide when the session is empty", async () => {
+    const renderer = createRenderer({ slideCount: 0 });
+    const queue = new RenderTaskQueue();
+    const sink = createSink();
+    const controller = new PptxViewerController(renderer, queue, sink, {
+      initialSlideIndex: 0,
+    });
+
+    await expect(controller.start()).resolves.toBeUndefined();
+
+    expect(renderer.renderSlide).not.toHaveBeenCalled();
+    expect(sink.setNavigationPending).not.toHaveBeenCalled();
+    expect(sink.commitSlide).not.toHaveBeenCalled();
+    expect(controller.state).toMatchObject({
+      currentSlideIndex: 0,
+      navigationPending: false,
+    });
+    await queue.whenIdle();
+  });
 });

@@ -104,29 +104,32 @@ export class PptxViewerController {
     if (this.currentState.disposed) return;
     this.generation += 1;
     this.pendingNavigations = 0;
-    if (this.currentState.navigationPending) {
-      this.sink.setNavigationPending(false);
-    }
+    const notifyPendingEnded = this.currentState.navigationPending;
     this.currentState = {
       ...this.currentState,
       disposed: true,
       navigationPending: false,
     };
+    if (notifyPendingEnded) {
+      this.notify(() => this.sink.setNavigationPending(false));
+    }
     this.cancelObsoletePrefetch();
   }
 
   private async renderInitialSlide(): Promise<void> {
-    if (this.currentState.disposed) return;
+    if (this.currentState.disposed || this.renderer.slideCount <= 0) return;
     const generation = this.generation;
     this.beginNavigation();
     try {
       await this.renderer.renderSlide(this.currentState.currentSlideIndex);
       if (!this.isCurrent(generation)) return;
-      this.sink.commitSlide(this.currentState.currentSlideIndex);
+      this.notify(() => this.sink.commitSlide(this.currentState.currentSlideIndex));
       this.scheduleAdjacentPrefetch(this.currentState.currentSlideIndex);
     } catch {
       if (this.isCurrent(generation)) {
-        this.sink.reportNavigationFailure(this.currentState.currentSlideIndex);
+        this.notify(() =>
+          this.sink.reportNavigationFailure(this.currentState.currentSlideIndex),
+        );
       }
     } finally {
       this.endNavigation();
@@ -143,10 +146,12 @@ export class PptxViewerController {
       await this.renderer.renderSlide(index);
       if (!this.isCurrent(generation)) return;
       this.currentState = { ...this.currentState, currentSlideIndex: index };
-      this.sink.commitSlide(index);
+      this.notify(() => this.sink.commitSlide(index));
       this.scheduleAdjacentPrefetch(index);
     } catch {
-      if (this.isCurrent(generation)) this.sink.reportNavigationFailure(index);
+      if (this.isCurrent(generation)) {
+        this.notify(() => this.sink.reportNavigationFailure(index));
+      }
     }
   }
 
@@ -154,7 +159,7 @@ export class PptxViewerController {
     this.pendingNavigations += 1;
     if (this.pendingNavigations !== 1 || this.currentState.disposed) return;
     this.currentState = { ...this.currentState, navigationPending: true };
-    this.sink.setNavigationPending(true);
+    this.notify(() => this.sink.setNavigationPending(true));
   }
 
   private endNavigation(): void {
@@ -166,7 +171,7 @@ export class PptxViewerController {
       return;
     }
     this.currentState = { ...this.currentState, navigationPending: false };
-    this.sink.setNavigationPending(false);
+    this.notify(() => this.sink.setNavigationPending(false));
   }
 
   private enqueueZoom(
@@ -185,7 +190,7 @@ export class PptxViewerController {
   ): Promise<void> {
     if (this.currentState.disposed) return;
     if (!this.renderer.capabilities.zoom || this.renderer.setZoomPercent === undefined) {
-      this.sink.reportActionFailure(ZOOM_UNAVAILABLE_MESSAGE);
+      this.notify(() => this.sink.reportActionFailure(ZOOM_UNAVAILABLE_MESSAGE));
       return;
     }
 
@@ -205,10 +210,10 @@ export class PptxViewerController {
         zoomMode: mode,
         zoomPercent: percent,
       };
-      this.sink.commitZoom(mode, percent);
+      this.notify(() => this.sink.commitZoom(mode, percent));
     } catch {
       if (this.isCurrent(generation)) {
-        this.sink.reportActionFailure(ZOOM_FAILURE_MESSAGE);
+        this.notify(() => this.sink.reportActionFailure(ZOOM_FAILURE_MESSAGE));
       }
     }
   }
@@ -245,5 +250,13 @@ export class PptxViewerController {
 
   private isCurrent(generation: number): boolean {
     return !this.currentState.disposed && generation === this.generation;
+  }
+
+  private notify(notification: () => void): void {
+    try {
+      notification();
+    } catch {
+      // A detached or failing UI sink must not corrupt controller state.
+    }
   }
 }
