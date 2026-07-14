@@ -1,5 +1,6 @@
 import { PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
 import type { ReadingPositionStore } from "./reading-position-store";
+import { reportNonFatalError } from "./report-error";
 
 export class OfficeViewerSettingTab extends PluginSettingTab {
   constructor(
@@ -22,7 +23,7 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
           .setValue(this.store.settings.rememberReadingPosition)
           .onChange((value) => {
             void this.store.setRememberReadingPosition(value).catch((error: unknown) => {
-              console.error(
+              reportNonFatalError(
                 "Failed to save PPTX reading-position setting",
                 error,
               );

@@ -5,6 +5,7 @@ import {
   ReadingPositionStore,
   type FileFingerprint,
 } from "./reading-position-store";
+import { reportNonFatalError } from "./report-error";
 
 function fingerprint(file: TFile): FileFingerprint {
   return {
@@ -77,7 +78,10 @@ export default class OfficeViewerPlugin extends Plugin {
     this.store = undefined;
     if (store !== undefined) {
       void store.dispose().catch((error: unknown) => {
-        console.error("Failed to save PPTX reading positions during unload", error);
+        reportNonFatalError(
+          "Failed to save PPTX reading positions during unload",
+          error,
+        );
       });
     }
   }

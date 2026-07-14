@@ -221,46 +221,59 @@ describe("OfficeViewerPlugin", () => {
     };
     const error = new Error("settings disk full");
     vi.mocked(plugin.saveData).mockRejectedValueOnce(error);
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const reportingError = new Error("patched console failed");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { throw reportingError; });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
 
-    settingTab.display();
-    const failedToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
-      testToggle: ToggleComponent & {
-        getValue(): boolean;
-        triggerWithoutAwait(value: boolean): void;
-      };
-    }).testToggle;
-    failedToggle.triggerWithoutAwait(false);
+    try {
+      settingTab.display();
+      const failedToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
+        testToggle: ToggleComponent & {
+          getValue(): boolean;
+          triggerWithoutAwait(value: boolean): void;
+        };
+      }).testToggle;
+      failedToggle.triggerWithoutAwait(false);
 
-    await vi.waitFor(() =>
-      expect(consoleError).toHaveBeenCalledWith(
-        "Failed to save PPTX reading-position setting",
-        error,
-      ),
-    );
-    settingTab.display();
-    const retryToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
-      testToggle: ToggleComponent & {
-        getValue(): boolean;
-        triggerWithoutAwait(value: boolean): void;
-      };
-    }).testToggle;
-    expect(retryToggle.getValue()).toBe(false);
+      await vi.waitFor(() =>
+        expect(consoleError).toHaveBeenCalledWith(
+          "Failed to save PPTX reading-position setting",
+          error,
+        ),
+      );
+      await Promise.resolve();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).toEqual([]);
+      settingTab.display();
+      const retryToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
+        testToggle: ToggleComponent & {
+          getValue(): boolean;
+          triggerWithoutAwait(value: boolean): void;
+        };
+      }).testToggle;
+      expect(retryToggle.getValue()).toBe(false);
 
-    retryToggle.triggerWithoutAwait(true);
-    await vi.waitFor(() =>
-      expect(plugin.saveData).toHaveBeenLastCalledWith({
-        schemaVersion: 1,
-        settings: { rememberReadingPosition: true },
-        positions: {},
-      }),
-    );
-    settingTab.display();
-    const restoredToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
-      testToggle: ToggleComponent & { getValue(): boolean };
-    }).testToggle;
-    expect(restoredToggle.getValue()).toBe(true);
-    consoleError.mockRestore();
+      retryToggle.triggerWithoutAwait(true);
+      await vi.waitFor(() =>
+        expect(plugin.saveData).toHaveBeenLastCalledWith({
+          schemaVersion: 1,
+          settings: { rememberReadingPosition: true },
+          positions: {},
+        }),
+      );
+      settingTab.display();
+      const restoredToggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
+        testToggle: ToggleComponent & { getValue(): boolean };
+      }).testToggle;
+      expect(restoredToggle.getValue()).toBe(true);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      consoleError.mockRestore();
+    }
   });
 
   it("does not register product hooks when position initialization fails", async () => {
@@ -339,17 +352,30 @@ describe("OfficeViewerPlugin", () => {
       expect(view.contentEl.childElementCount).toBe(0);
       throw error;
     });
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { throw new Error("patched console failed"); });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
 
-    plugin.onunload();
+    try {
+      plugin.onunload();
 
-    await vi.waitFor(() =>
-      expect(consoleError).toHaveBeenCalledWith(
-        "Failed to save PPTX reading positions during unload",
-        error,
-      ),
-    );
-    consoleError.mockRestore();
+      await vi.waitFor(() =>
+        expect(consoleError).toHaveBeenCalledWith(
+          "Failed to save PPTX reading positions during unload",
+          error,
+        ),
+      );
+      await Promise.resolve();
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect(view.contentEl.childElementCount).toBe(0);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      consoleError.mockRestore();
+    }
   });
 
   it("reads through the Vault and reaches ready after opening a file", async () => {
