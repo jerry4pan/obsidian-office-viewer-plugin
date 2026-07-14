@@ -9,6 +9,9 @@ import type {
 function makeRenderer(slideCount = 1) {
   const rendererSession: PptxRendererSession = {
     slideCount,
+    slideWidth: 960,
+    slideHeight: 540,
+    capabilities: { thumbnails: false, prefetch: false, zoom: false },
     renderSlide: vi.fn(async () => {}),
     dispose: vi.fn(),
   };
@@ -564,6 +567,9 @@ describe("PptxViewSession", () => {
     const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
     const rendererSession: PptxRendererSession = {
       slideCount: 1,
+      slideWidth: 960,
+      slideHeight: 540,
+      capabilities: { thumbnails: false, prefetch: false, zoom: false },
       renderSlide: vi.fn(async () => {
         throw new Error("renderer exploded");
       }),
@@ -585,6 +591,9 @@ describe("PptxViewSession", () => {
     const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
     const rendererSession: PptxRendererSession = {
       slideCount: 1,
+      slideWidth: 960,
+      slideHeight: 540,
+      capabilities: { thumbnails: false, prefetch: false, zoom: false },
       renderSlide: vi.fn(async () => {}),
       dispose: vi.fn(),
     };

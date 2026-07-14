@@ -46,7 +46,15 @@ class PptxPreviewRendererSession implements PptxRendererSession {
   constructor(
     private readonly previewer: PptxPreviewer,
     private readonly container: HTMLElement,
+    readonly slideWidth: number,
+    readonly slideHeight: number,
   ) {}
+
+  readonly capabilities = {
+    thumbnails: false,
+    prefetch: false,
+    zoom: false,
+  } as const;
 
   get slideCount(): number {
     return this.previewer.slideCount;
@@ -89,7 +97,8 @@ export class PptxPreviewRendererAdapter implements PptxRendererAdapter {
     container.replaceChildren();
     let previewer: PptxPreviewer | undefined;
     try {
-      previewer = this.previewerFactory(container, resolveViewport(container));
+      const viewport = resolveViewport(container);
+      previewer = this.previewerFactory(container, viewport);
       await previewer.load(buffer);
       signal.throwIfAborted();
       if (!Number.isInteger(previewer.slideCount) || previewer.slideCount < 1) {
@@ -98,7 +107,12 @@ export class PptxPreviewRendererAdapter implements PptxRendererAdapter {
           "The renderer did not find a usable slide",
         );
       }
-      return new PptxPreviewRendererSession(previewer, container);
+      return new PptxPreviewRendererSession(
+        previewer,
+        container,
+        viewport.width,
+        viewport.height,
+      );
     } catch (error) {
       previewer?.destroy();
       container.replaceChildren();

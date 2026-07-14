@@ -20,6 +20,9 @@ async function loadFixture(pathname: string): Promise<ArrayBuffer> {
 function createSession(): PptxRendererSession {
   return {
     slideCount: 1,
+    slideWidth: 960,
+    slideHeight: 540,
+    capabilities: { thumbnails: false, prefetch: false, zoom: false },
     renderSlide: vi.fn(async () => {}),
     dispose: vi.fn(),
   };
