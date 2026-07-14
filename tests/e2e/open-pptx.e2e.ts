@@ -35,6 +35,73 @@ describe("PPTX file view", () => {
     await assertNoNetworkRequests();
   });
 
+  it("navigates a multi-page deck without mutating the source", async () => {
+    await installNetworkGuard();
+    const path = "performance/representative-12-slides.pptx";
+    const before = await vaultSha256(path);
+
+    await obsidianPage.openFile(path);
+    const root = await browser.$(
+      '.workspace-leaf.mod-active .pptx-viewer[data-state="ready"]',
+    );
+    await expect(root).toExist();
+    await expect(root).toHaveText(expect.stringContaining("1 / 12"));
+    await expect(root.$('[data-action="open-externally"]')).toExist();
+    const readyLayout = await browser.execute(() => {
+      const activeRoot = document.querySelector<HTMLElement>(
+        ".workspace-leaf.mod-active .pptx-viewer",
+      );
+      const controls = activeRoot?.querySelector<HTMLElement>(
+        ".pptx-viewer__controls",
+      );
+      const actionStatus = activeRoot?.querySelector<HTMLElement>(
+        ".pptx-viewer__action-status",
+      );
+      const controlRows = new Set(
+        Array.from(controls?.children ?? [], (element) =>
+          Math.round(
+            element.getBoundingClientRect().top +
+              element.getBoundingClientRect().height / 2,
+          ),
+        ),
+      ).size;
+      return {
+        actionStatusHeight: actionStatus?.getBoundingClientRect().height ?? -1,
+        controlRows,
+      };
+    });
+    expect(readyLayout).toEqual({ actionStatusHeight: 0, controlRows: 1 });
+
+    await root.$('[data-action="next-slide"]').click();
+    await browser.waitUntil(
+      async () => (await root.getText()).includes("2 / 12"),
+      { timeout: 10_000, timeoutMsg: "Next did not render slide 2" },
+    );
+
+    const pageInput = root.$('[data-action="page-number"]');
+    await pageInput.setValue("12");
+    await root.$('[data-action="jump-to-slide"]').click();
+    await browser.waitUntil(
+      async () => (await root.getText()).includes("12 / 12"),
+      { timeout: 10_000, timeoutMsg: "Page jump did not render slide 12" },
+    );
+
+    for (const invalidPage of ["0", "13", "1.5"]) {
+      await pageInput.setValue(invalidPage);
+      await root.$('[data-action="jump-to-slide"]').click();
+      await expect(root).toHaveText(
+        expect.stringContaining("Enter a slide number from 1 to 12."),
+      );
+      await expect(root).toHaveText(expect.stringContaining("12 / 12"));
+      await expect(root).toHaveAttribute("data-state", "ready");
+    }
+
+    expect(await vaultSha256(path)).toBe(before);
+    await browser.executeObsidian(({ app }) => app.workspace.activeLeaf?.detach());
+    expect(await vaultSha256(path)).toBe(before);
+    await assertNoNetworkRequests();
+  });
+
   it("classifies every abnormal fixture without mutation or network access", async () => {
     await installNetworkGuard();
 

@@ -103,3 +103,7 @@
 .pptx-viewer__action-status {
   min-height: 1.5em;
 }
+
+.pptx-viewer__action-status:empty {
+  display: none;
+}
