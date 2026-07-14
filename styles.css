@@ -49,7 +49,8 @@
 .pptx-viewer button:focus-visible,
 .pptx-viewer input:focus-visible,
 .pptx-viewer:focus-visible {
-  outline: 2px solid var(--interactive-accent);
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+  outline: 2px solid var(--text-normal);
   outline-offset: 2px;
 }
 

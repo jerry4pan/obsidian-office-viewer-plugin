@@ -9,6 +9,54 @@ const REPRESENTATIVE = "performance/representative-12-slides.pptx";
 const STRESS = "performance/stress-200-slides.pptx";
 type RootElement = ReturnType<typeof browser.$>;
 
+async function closePptxLeaves(): Promise<void> {
+  await browser.executeObsidian(({ app }) => {
+    for (const leaf of app.workspace.getLeavesOfType("pptx-viewer")) leaf.detach();
+  });
+  await browser.waitUntil(
+    async () => browser.execute(() => document.querySelectorAll(".pptx-viewer").length === 0),
+    { timeout: 10_000, timeoutMsg: "PPTX leaves did not close between tests" },
+  );
+}
+
+async function installFirstReadyCapture(): Promise<void> {
+  await browser.execute(() => {
+    type CaptureWindow = typeof window & {
+      __pptxFirstReadyPage?: string | null;
+      __pptxFirstReadyObserver?: MutationObserver;
+    };
+    const captureWindow = window as CaptureWindow;
+    captureWindow.__pptxFirstReadyObserver?.disconnect();
+    captureWindow.__pptxFirstReadyPage = null;
+    const capture = () => {
+      if (captureWindow.__pptxFirstReadyPage !== null) return;
+      const root = document.querySelector<HTMLElement>(
+        '.pptx-viewer[data-state="ready"]',
+      );
+      const counter = root?.querySelector<HTMLElement>(".pptx-viewer__page-counter");
+      if (counter?.textContent) {
+        captureWindow.__pptxFirstReadyPage = counter.textContent.trim();
+        captureWindow.__pptxFirstReadyObserver?.disconnect();
+      }
+    };
+    captureWindow.__pptxFirstReadyObserver = new MutationObserver(capture);
+    captureWindow.__pptxFirstReadyObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-state"],
+      childList: true,
+      subtree: true,
+    });
+    capture();
+  });
+}
+
+async function firstReadyPage(): Promise<string | null> {
+  return browser.execute(() =>
+    (window as typeof window & { __pptxFirstReadyPage?: string | null })
+      .__pptxFirstReadyPage ?? null
+  );
+}
+
 async function vaultSha256(path: string): Promise<string> {
   return browser.executeObsidian(
     async ({ app, obsidian, require }, vaultPath) => {
@@ -78,11 +126,16 @@ async function installedStoreAction(
 describe("M2 installed PPTX reading experience", () => {
   beforeEach(async () => {
     await installNetworkGuard();
+    await closePptxLeaves();
     await installedStoreAction("clear-and-enable");
   });
 
   afterEach(async () => {
-    await assertNoNetworkRequests();
+    try {
+      await assertNoNetworkRequests();
+    } finally {
+      await closePptxLeaves();
+    }
   });
 
   it("uses keyboard navigation, virtualized thumbnails, zoom, and real full screen without mutation", async () => {
@@ -177,20 +230,30 @@ describe("M2 installed PPTX reading experience", () => {
     await jumpTo(root, 9);
     await browser.pause(350);
 
+    await closePptxLeaves();
+    await assertNoNetworkRequests({ keepGuard: true });
     await browser.reloadObsidian({ plugins: ["office-viewer"] });
     await installNetworkGuard();
+    await closePptxLeaves();
+    await installFirstReadyCapture();
     await obsidianPage.openFile(REPRESENTATIVE);
     root = await activeReadyRoot();
+    expect(await firstReadyPage()).toBe("9 / 12");
     await waitForPage(root, 9);
 
     expect(await installedStoreAction("disable-and-clear")).toEqual({
       rememberReadingPosition: false,
       positions: 0,
     });
+    await closePptxLeaves();
+    await assertNoNetworkRequests({ keepGuard: true });
     await browser.reloadObsidian({ plugins: ["office-viewer"] });
     await installNetworkGuard();
+    await closePptxLeaves();
+    await installFirstReadyCapture();
     await obsidianPage.openFile(REPRESENTATIVE);
     root = await activeReadyRoot();
+    expect(await firstReadyPage()).toBe("1 / 12");
     await waitForPage(root, 1);
     const stored = await browser.executeObsidian(async ({ app }) => {
       const plugin = (app as unknown as {
@@ -212,6 +275,65 @@ describe("M2 installed PPTX reading experience", () => {
 
     for (const theme of ["theme-light", "theme-dark"]) {
       const result = await browser.execute((themeClass) => {
+        type Rgb = { r: number; g: number; b: number; a: number };
+        const parseColor = (color: string): Rgb | null => {
+          const match = color.match(/^rgba?\((\d+(?:\.\d+)?)[, ]+(\d+(?:\.\d+)?)[, ]+(\d+(?:\.\d+)?)(?:\s*[,/]\s*(\d+(?:\.\d+)?))?\)$/);
+          if (!match) return null;
+          return {
+            r: Number(match[1]),
+            g: Number(match[2]),
+            b: Number(match[3]),
+            a: match[4] === undefined ? 1 : Number(match[4]),
+          };
+        };
+        const blend = (foreground: Rgb, background: Rgb): Rgb => ({
+          r: foreground.r * foreground.a + background.r * (1 - foreground.a),
+          g: foreground.g * foreground.a + background.g * (1 - foreground.a),
+          b: foreground.b * foreground.a + background.b * (1 - foreground.a),
+          a: 1,
+        });
+        const effectiveBackground = (element: HTMLElement): Rgb => {
+          const layers: Rgb[] = [];
+          for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+            const color = parseColor(getComputedStyle(current).backgroundColor);
+            if (color && color.a > 0) layers.push(color);
+          }
+          let result: Rgb = { r: 255, g: 255, b: 255, a: 1 };
+          for (const layer of layers.reverse()) result = blend(layer, result);
+          return result;
+        };
+        const luminance = (color: Rgb) => {
+          const channel = (value: number) => {
+            const normalized = value / 255;
+            return normalized <= 0.04045
+              ? normalized / 12.92
+              : ((normalized + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) +
+            0.0722 * channel(color.b);
+        };
+        const contrast = (first: Rgb, second: Rgb) => {
+          const firstLuminance = luminance(first);
+          const secondLuminance = luminance(second);
+          const lighter = Math.max(firstLuminance, secondLuminance);
+          const darker = Math.min(firstLuminance, secondLuminance);
+          return (lighter + 0.05) / (darker + 0.05);
+        };
+        const accessibleName = (control: HTMLElement) => {
+          const ariaLabel = control.getAttribute("aria-label")?.trim();
+          if (ariaLabel) return ariaLabel;
+          const labelledBy = control.getAttribute("aria-labelledby");
+          if (labelledBy) {
+            const text = labelledBy.split(/\s+/).map((id) => document.getElementById(id)?.textContent ?? "").join(" ").trim();
+            if (text) return text;
+          }
+          if (control instanceof HTMLInputElement && control.labels) {
+            const text = Array.from(control.labels, (label) => label.textContent ?? "").join(" ").trim();
+            if (text) return text;
+          }
+          if (control instanceof HTMLButtonElement) return control.textContent?.trim() ?? "";
+          return "";
+        };
         document.body.classList.remove("theme-light", "theme-dark");
         document.body.classList.add(themeClass);
         const viewer = document.querySelector<HTMLElement>(
@@ -223,36 +345,95 @@ describe("M2 installed PPTX reading experience", () => {
           style.getPropertyValue("--text-normal").trim(),
           style.getPropertyValue("--interactive-accent").trim(),
         ];
-        const unnamed = Array.from(
+        const controls = Array.from(
           viewer.querySelectorAll<HTMLElement>("button:not([hidden]), input:not([hidden])"),
-        ).filter((control) => {
-          const visible = control.getClientRects().length > 0;
-          const name = control.getAttribute("aria-label") ?? control.innerText ??
-            (control instanceof HTMLInputElement ? control.value : "");
-          return visible && name.trim().length === 0;
-        }).length;
-        return { variables, unnamed };
+        ).filter((control) => control.getClientRects().length > 0).map((control) => {
+          const style = getComputedStyle(control);
+          const background = effectiveBackground(control);
+          const foreground = parseColor(style.color);
+          const border = parseColor(style.borderTopColor);
+          return {
+            action: control.dataset.action ?? control.tagName,
+            name: accessibleName(control),
+            disabled: control.matches(":disabled"),
+            opacity: Number(style.opacity),
+            foregroundContrast: foreground ? contrast(blend(foreground, background), background) : 0,
+            borderContrast: border ? contrast(blend(border, background), background) : 0,
+            background: [background.r, background.g, background.b, background.a],
+            computedBackground: style.backgroundColor,
+            border: style.borderTopColor,
+          };
+        });
+        return { variables, controls };
       }, theme);
       expect(result.variables.every(Boolean)).toBe(true);
       expect(new Set(result.variables).size).toBeGreaterThan(1);
-      expect(result.unnamed).toBe(0);
-    }
+      expect(result.controls.length).toBeGreaterThan(0);
+      for (const control of result.controls) {
+        expect(control.name).not.toBe("");
+        expect(control.computedBackground).not.toBe("");
+        expect(control.background[3]).toBe(1);
+        expect(control.border).not.toBe("");
+        if (control.disabled) {
+          expect(
+            control.opacity < 1 || control.foregroundContrast >= 2,
+          ).toBe(true);
+        } else {
+          expect(
+            control.foregroundContrast,
+          ).toBeGreaterThanOrEqual(3);
+        }
+        expect(
+          Math.max(control.foregroundContrast, control.borderContrast),
+        ).toBeGreaterThanOrEqual(3);
+      }
 
-    await root.click();
-    await browser.keys(["Tab"]);
-    const focus = await browser.execute(() => {
-      const active = document.activeElement as HTMLElement | null;
-      if (!active) return { action: null, width: 0, style: "none" };
-      const computed = getComputedStyle(active);
-      return {
-        action: active.dataset.action ?? null,
-        width: Number.parseFloat(computed.outlineWidth) || 0,
-        style: computed.outlineStyle,
-      };
-    });
-    expect(focus.action).not.toBeNull();
-    expect(focus.width).toBeGreaterThan(0);
-    expect(focus.style).not.toBe("none");
+      await root.click();
+      await browser.keys(["Tab"]);
+      const focus = await browser.execute(() => {
+        const parse = (color: string) => {
+          const match = color.match(/^rgba?\((\d+(?:\.\d+)?)[, ]+(\d+(?:\.\d+)?)[, ]+(\d+(?:\.\d+)?)(?:\s*[,/]\s*(\d+(?:\.\d+)?))?\)$/);
+          return match
+            ? { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]), a: match[4] === undefined ? 1 : Number(match[4]) }
+            : null;
+        };
+        const luminance = (color: { r: number; g: number; b: number }) => {
+          const channel = (value: number) => {
+            const normalized = value / 255;
+            return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b);
+        };
+        const active = document.activeElement as HTMLElement | null;
+        if (!active) return { action: null, width: 0, style: "none", color: "", contrast: 0 };
+        const computed = getComputedStyle(active);
+        const outline = parse(computed.outlineColor);
+        let current: HTMLElement | null = active;
+        let background = null as ReturnType<typeof parse>;
+        while (current && (!background || background.a === 0)) {
+          background = parse(getComputedStyle(current).backgroundColor);
+          current = current.parentElement;
+        }
+        let ratio = 0;
+        if (outline && background) {
+          const first = luminance(outline);
+          const second = luminance(background);
+          ratio = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+        }
+        return {
+          action: active.dataset.action ?? null,
+          width: Number.parseFloat(computed.outlineWidth) || 0,
+          style: computed.outlineStyle,
+          color: computed.outlineColor,
+          contrast: ratio,
+        };
+      });
+      expect(focus.action).not.toBeNull();
+      expect(focus.width).toBeGreaterThan(0);
+      expect(focus.style).not.toBe("none");
+      expect(focus.color).not.toBe("transparent");
+      expect(focus.contrast).toBeGreaterThanOrEqual(3);
+    }
   });
 
   it("cancels bounded background work and releases mounted thumbnails on detach", async () => {
