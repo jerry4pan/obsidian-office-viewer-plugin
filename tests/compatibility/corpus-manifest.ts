@@ -44,7 +44,7 @@ export interface CandidateHumanReview {
 export interface CandidateBaselineApproval {
   readonly sha256: string;
   readonly reason: string;
-  readonly approvedOn: "2026-07-13";
+  readonly approvedOn: "2026-07-13" | "2026-07-14";
 }
 
 export interface CorpusFixture {
@@ -147,9 +147,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "e152a4483004834fd90d3fac6aa635ee48c719b47461d491aa129fe071de9dd5",
-        reason: "Ticket #5 approved the intentional 10 px capture-height normalization caused by Task 1 navigation controls; rendered content and layout are unchanged.",
-        approvedOn: "2026-07-13",
+        sha256: "b8621cdfc9dd6cffa1c5af2c257d5070bc5a9026e65f28011189f3725d2bdae6",
+        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
+        approvedOn: "2026-07-14",
       },
       "pptx-preview": {
         sha256: "ce1fcdfa514ce879d7da008351f947b35165c31b833a49b441c3953e79ea7167",
@@ -184,9 +184,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "ac54b5ec8c85c943acb63b83df81f807ad355b36a9b9c802c5e80fe0a44904aa",
-        reason: "Ticket #5 approved the intentional 10 px capture-height normalization caused by Task 1 navigation controls; rendered content and layout are unchanged.",
-        approvedOn: "2026-07-13",
+        sha256: "d1ebeaee8c153627001af8d76c54997e65f07f19d67ce3e22547fc87fb8f7166",
+        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
+        approvedOn: "2026-07-14",
       },
       "pptx-preview": {
         sha256: "f9e445481f1dc10b432e24e087d8752da6cef909175baf5d8aad515d960b664a",
@@ -222,9 +222,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "87649d567246d9dfac4e18b20a550889ef75485239d27e522e3060fcb9c3a255",
-        reason: "Ticket #5 approved the intentional 10 px capture-height normalization caused by Task 1 navigation controls; rendered content and layout are unchanged.",
-        approvedOn: "2026-07-13",
+        sha256: "e233151e7c031386b1836d3d05ca79e6eb0ca10b57323f04b12106630f2859de",
+        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
+        approvedOn: "2026-07-14",
       },
       "pptx-preview": {
         sha256: "277205fe5a6d1fad1822fcbcf290af10b91acf7eb5bf824dbbcf8ff2809286c7",
@@ -259,9 +259,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "c2f00dda84ad2f68f42a1ab3c43ff545576b1c049789bcf82bc346ff3bf7b175",
-        reason: "Ticket #5 approved the intentional 10 px capture-height normalization caused by Task 1 navigation controls; rendered content and layout are unchanged.",
-        approvedOn: "2026-07-13",
+        sha256: "d2b797a99d29f0e198816f436fb04cfbe81b5d11a540e35c5c71dfd9f8a125e4",
+        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
+        approvedOn: "2026-07-14",
       },
       "pptx-preview": {
         sha256: "8b9d9377e42546ca5c585f4eddcf8a033da61ad80a4cbb6fc2b2978399c79856",
@@ -291,9 +291,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "1d83188287d530952a41cc1bd867b293ee1afa2f70fad4e4d9cad4f883c7e052",
-        reason: "Ticket #5 approved the intentional 10 px capture-height normalization caused by Task 1 navigation controls; rendered content and layout are unchanged.",
-        approvedOn: "2026-07-13",
+        sha256: "9da90cef6b91003b3875ed2d16bc98973c9791b3e5acba189249a51d0ced3aff",
+        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
+        approvedOn: "2026-07-14",
       },
       "pptx-preview": {
         sha256: "cee7216f5a842e43b7d850f912fff010bfd81e47e5788249a88f029ff1943400",

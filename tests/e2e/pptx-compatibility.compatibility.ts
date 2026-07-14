@@ -28,6 +28,30 @@ const artifactDir = renderer.paths.compatibilityArtifactDir;
 const updateBaselines = process.env.UPDATE_COMPATIBILITY_BASELINES === "1";
 
 describe("installed PPTX compatibility corpus", () => {
+  it("detects main-slide font labels when thumbnails duplicate slide content", async () => {
+    await applyFixedEnvironment(CORPUS_ENVIRONMENT);
+    const fixture = corpusManifest.find(({ id }) => id === "text-theme-wide");
+    if (!fixture) throw new Error("text-theme-wide fixture is missing");
+
+    await obsidianPage.openFile(fixture.vaultPath);
+    const root = await browser.$(".workspace-leaf.mod-active .pptx-viewer");
+    await root.waitForExist({ timeout: 30_000 });
+    await browser.waitUntil(async () =>
+      (await root.getAttribute("data-state")) === "ready" &&
+      (await root.getText()).includes("Quarterly Brief"), {
+      timeout: 30_000,
+      timeoutMsg: "text-theme-wide did not render its main marker",
+    });
+
+    const fontLabels = fixture.mainContentChecks
+      .filter((check) => check.kind === "font")
+      .map(({ label }) => label);
+    const { readableContent } = await inspectActiveFixture(
+      fixture.mainContentChecks,
+    );
+    expect(readableContent).toEqual(expect.arrayContaining(fontLabels));
+  });
+
   it("renders, captures and classifies every representative fixture", async () => {
     await mkdir(artifactDir, { recursive: true });
     await applyFixedEnvironment(CORPUS_ENVIRONMENT);

@@ -3,17 +3,16 @@
 ## Status
 
 The seven M2 deliverables and five M2 exit conditions have direct source,
-focused-test, installed-Obsidian, and performance evidence on local branch
-`codex/m2-daily-reading-experience`. The branch is **not ready to publish yet**:
-the fresh Task 11 compatibility run found a screenshot-dimension regression in
-all five representative visual fixtures and the compatibility gate failed.
-M2 issue #15 and milestone 3 must remain open until that regression is fixed,
-the complete matrix is green, the integration is published, and GitHub is
-updated from the published commit.
+focused-test, installed-Obsidian, compatibility, and performance evidence on
+local branch `codex/m2-daily-reading-experience`. The complete fresh Task 11
+matrix is green. The branch remains unpublished and still requires final
+dual-axis review plus integration, so M2 issue #15 and milestone 3 must remain
+open until the reviewed integration exists remotely and GitHub is updated from
+that published commit.
 
 This report distinguishes M2 requirement completion from branch publication
-readiness. A passing focused M2 test is not used to hide the failing retained
-M1 compatibility gate.
+readiness. The retained M1 compatibility gate was rerun against the intentional
+M2 default toolbar/thumbnail layout rather than inferred from focused tests.
 
 ## Authority and review range
 
@@ -76,9 +75,9 @@ Implementation commits after the M2 plan are:
 
 | Exit condition | Direct evidence | Status |
 | --- | --- | --- |
-| 50-slide benchmark meets fixed latency budgets | Committed 10/10 first-readable p95 `88.1 ms` (`<=3000 ms`) and 40/40 proven-warm switches p95 `1.8 ms` (`<=100 ms`). Fresh Task 11 run: first-readable p95 `86.9 ms`, switches p95 `1.8 ms`; no failures. | PASS |
+| 50-slide benchmark meets fixed latency budgets | Committed 10/10 first-readable p95 `88.1 ms` (`<=3000 ms`) and 40/40 proven-warm switches p95 `1.8 ms` (`<=100 ms`). Final fresh Task 11 run: first-readable p95 `88.5 ms`, switches p95 `1.8 ms`; no failures. | PASS |
 | Large deck does not schedule or mount every page | Virtual-window unit tests cover 100 and 200 slides. Installed stress test observes bounded 200-slide mounting. Committed/fresh 50-slide performance observations mount 10, never 50; the background queue's observed concurrency is one. The 200-slide fixture exceeds the PRD's 100-slide floor. | PASS |
-| Close and file switch stop work and release resources | Committed evidence: close `2.3 ms`, file switch `17.5 ms`, both `0/0/0`; fresh run: close `1.3 ms`, file switch `19.7 ms`, both `0/0/0`. Adapter-stop p95 is `18.1 ms` committed and `17.8 ms` fresh; committed full resource completion p95 `1854.9 ms` is within the unchanged 2000 ms observation window. | PASS |
+| Close and file switch stop work and release resources | Committed evidence: close `2.3 ms`, file switch `17.5 ms`, both `0/0/0`; final fresh run: close `1.1 ms`, file switch `17.5 ms`, both `0/0/0`. Adapter-stop p95 is `18.1 ms` committed and `17.2 ms` fresh; committed/fresh full resource completion p95 `1854.9`/`1855.3 ms` is within the unchanged 2000 ms observation window. | PASS |
 | Valid page restores after restart | Installed M2 test captures the first ready transition at page `9 / 12`, survives `browser.reloadObsidian`, and separately proves disable-and-clear starts at `1 / 12`. Store/plugin focused tests cover invalidation and lifecycle. | PASS |
 | Keyboard-only core reading loop works | Installed M2 test focuses the real viewer and uses `ArrowRight`, `PageDown`, and `PageUp`; focused tests cover both Arrow directions, both Page keys, boundaries, and editable controls. | PASS |
 
@@ -123,12 +122,17 @@ Committed distributions and cleanup outcomes:
 - all ten measured heap-return attempts passed the unchanged 50% retained
   incremental-heap policy; RSS is reported, not gated.
 
-Fresh ignored Task 11 performance output also passed and retained an eighth
-attempt: first readable 10/10 p50 `86.3 ms`, p95 `86.9 ms`; warm switches
-40/40 p50 `1.7 ms`, p95 `1.8 ms`; thumbnail readiness p95 `155 ms`; mounted
-maximum `10`; adapter-stop p95 `17.8 ms`; full completion p95 `1855.6 ms`;
-close/file-switch ended at `0/0/0`; artifact failures were empty. It was not
-copied over the committed reference evidence during documentation work.
+The final ignored Task 11 performance output also passed: first readable 10/10
+p50 `85.1 ms`, p95 `88.5 ms`; warm switches 40/40 p50 `1.7 ms`, p95
+`1.8 ms`; thumbnail readiness p95 `153.9 ms`; mounted maximum `10`;
+adapter-stop p95 `17.2 ms`; full completion p95 `1855.3 ms`;
+close/file-switch ended at `0/0/0`; artifact failures were empty. The retained
+history now has 11 attempts. Attempt 9 remains failed because its first
+cancellation sample missed the unchanged 2000 ms lifecycle/resource deadline;
+attempt 10 (`02a3b988-4c73-4ad3-bc0a-989ae57bf503`) and attempt 11
+(`0c85b8e5-8611-44cd-9ab5-b89a193ca45e`) are the required two consecutive
+clean runs. This ignored evidence was not copied over the committed reference
+baseline.
 
 ## Privacy, offline, read-only, and renderer boundaries
 
@@ -158,18 +162,30 @@ Commands were run from the M2 worktree on 2026-07-14 (Asia/Shanghai).
 | --- | --- |
 | `npm run verify` | PASS — fixture generation, typecheck/build, 31 Vitest files; 295 passed, 1 skipped. |
 | `npm run test:e2e` | PASS — production `open-pptx` 6/6 and M2 5/5; degraded-navigation 1/1; the final production bundle rebuild passed. |
-| `npm run test:compatibility` | **FAIL** — all five screenshots were `632x589` versus approved `462x549`; corpus counted 15/20 readable (`75%`) versus the fixed 80% gate. Fixtures: `text-theme-wide`, `images-transparency-standard`, `tables-charts`, `grouped-rotated`, `complex-drawing`. |
+| `npm run test:compatibility` | PASS after a TDD inspection-boundary fix and explicit baseline review — 18/20 readable (`90%`) versus the fixed 80% gate; 3 supported, 2 known SVG-degraded, 0 failed; all five approved `462x549` M2-layout PNGs matched with zero changed pixels. |
 | `npm run test:performance` | PASS — installed collector 1/1, fresh complete evidence summarized above, no recorded artifact failure. |
 | `npm run test:performance:baseline` | PASS — 24 passed, 1 candidate-specific skip; committed provenance, fixture hash, bundle, derived metrics, and Markdown were accepted. |
 | `git diff --check` | PASS before and after the documentation edits; no whitespace errors. |
 
-The compatibility failure is actionable and prevents a clean Task 11/final M2
-verdict. It is a visual-capture boundary regression, not an explained baseline
-change: the fixed 1024x800 environment produced a different captured PNG
-surface after the M2 layout landed. The baseline must not be regenerated or
-the threshold weakened merely to make this pass. Fix the capture/product
-boundary, rerun the complete matrix, and update this report with the resulting
-green evidence.
+The first Task 11 compatibility run correctly rejected the old `632x589`
+baselines after the M2 default toolbar and 168 px thumbnail rail intentionally
+reduced the main surface to `462x549`. It also exposed a real evidence bug:
+font inspection walked the viewer root, so duplicate thumbnail text could win
+before the main-slide text. A failing installed regression test observed only
+`Revenue grew 24%` and `Theme footer`, missing all three expected font labels.
+Scoping the text walker, images, and contained selectors to
+`.pptx-viewer__slide` restored 5/5 text-theme evidence without changing the
+80% gate. All five new Aiden PNGs were then visually reviewed and explicitly
+approved; ordinary mode proved 18/20 readability and zero pixel drift. The
+PPTX-preview baselines and results were not changed.
+
+Approved Aiden M2-layout baseline SHA-256 values are:
+
+- `text-theme-wide`: `b8621cdfc9dd6cffa1c5af2c257d5070bc5a9026e65f28011189f3725d2bdae6`;
+- `images-transparency-standard`: `d1ebeaee8c153627001af8d76c54997e65f07f19d67ce3e22547fc87fb8f7166`;
+- `tables-charts`: `e233151e7c031386b1836d3d05ca79e6eb0ca10b57323f04b12106630f2859de`;
+- `grouped-rotated`: `d2b797a99d29f0e198816f436fb04cfbe81b5d11a540e35c5c71dfd9f8a125e4`;
+- `complex-drawing`: `9da90cef6b91003b3875ed2d16bc98973c9791b3e5acba189249a51d0ced3aff`.
 
 ## Publication and GitHub state
 
@@ -184,12 +200,11 @@ network read or mutate GitHub.
 Remote closure is not authorized or justified by the current state. Exact
 prerequisites are:
 
-1. fix the compatibility capture regression and rerun every Task 11 command;
-2. integrate the M2 branch with the one local-main delegation-doc commit and
+1. integrate the M2 branch with the one local-main delegation-doc commit and
    complete final code/spec review;
-3. publish the reviewed integration commit to the configured GitHub remote;
-4. verify that exact commit exists on the published integration branch;
-5. only then post this requirement/evidence matrix, replace
+2. publish the reviewed integration commit to the configured GitHub remote;
+3. verify that exact commit exists on the published integration branch;
+4. only then post this requirement/evidence matrix, replace
    `ready-for-agent` with `ready-for-human`, close issue #15 as completed, and
    close milestone 3 only after it reports zero open issues.
 
