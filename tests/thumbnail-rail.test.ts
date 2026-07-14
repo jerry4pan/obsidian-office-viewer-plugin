@@ -58,6 +58,11 @@ function mountedIndices(root: HTMLElement): number[] {
   );
 }
 
+function queuedThumbnailIndex(key: string): number {
+  const match = /:(\d+):\d+$/.exec(key);
+  return match === null ? Number.NaN : Number(match[1]);
+}
+
 afterEach(() => {
   document.body.replaceChildren();
 });
@@ -171,9 +176,9 @@ describe("ThumbnailRail", () => {
     expect(tasks.some((task) => task.priority === 1)).toBe(true);
     expect(tasks.some((task) => task.priority === 2)).toBe(true);
     expect(tasks.filter((task) => task.priority === 1).every((task) => {
-      const index = Number(task.key.split(":")[1]);
+      const index = queuedThumbnailIndex(task.key);
       return index < tasks.filter((candidate) => candidate.priority === 2)
-        .map((candidate) => Number(candidate.key.split(":")[1]))
+        .map((candidate) => queuedThumbnailIndex(candidate.key))
         .reduce((minimum, index) => Math.min(minimum, index), Number.POSITIVE_INFINITY);
     })).toBe(true);
 
@@ -254,16 +259,11 @@ describe("ThumbnailRail", () => {
 
   it("starts a fresh render when an item remounts before its canceled attempt settles", async () => {
     const root = createRoot();
-    const firstReady = deferred<void>();
+    const firstDispose = vi.fn();
     let slideZeroAttempts = 0;
-    const renderer = createRenderer((index, container, signal) => {
+    const renderer = createRenderer((index, container) => {
       if (index === 0 && slideZeroAttempts++ === 0) {
-        signal.addEventListener(
-          "abort",
-          () => firstReady.reject(new DOMException("aborted", "AbortError")),
-          { once: true },
-        );
-        return { ready: firstReady.promise, dispose: vi.fn() };
+        return { ready: new Promise<void>(() => undefined), dispose: firstDispose };
       }
       container.textContent = `Fresh preview ${index + 1}`;
       return { ready: Promise.resolve(), dispose: vi.fn() };
@@ -279,14 +279,54 @@ describe("ThumbnailRail", () => {
     rail.refresh();
     root.scrollTop = 0;
     rail.refresh();
+    await vi.waitFor(() => {
+      expect(renderer.renderThumbnail.mock.calls.filter(([index]) => index === 0))
+        .toHaveLength(2);
+    });
     await queue.whenIdle();
 
-    expect(renderer.renderThumbnail.mock.calls.filter(([index]) => index === 0))
-      .toHaveLength(2);
     expect(root.querySelector('[data-slide-index="0"]')?.textContent)
       .toContain("Fresh preview 1");
+    expect(firstDispose).toHaveBeenCalledTimes(1);
 
     rail.dispose();
+    queue.dispose();
+    expect(firstDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates cancellation when two rails share one queue", async () => {
+    const firstRoot = createRoot(100);
+    const secondRoot = createRoot(100);
+    const firstRenderer = createRenderer((_index, _container) => ({
+      ready: new Promise<void>(() => undefined),
+      dispose: vi.fn(),
+    }));
+    const secondRenderer = createRenderer((index, container) => {
+      container.textContent = `Second rail preview ${index + 1}`;
+      return { ready: Promise.resolve(), dispose: vi.fn() };
+    });
+    const queue = new RenderTaskQueue();
+    const firstRail = new ThumbnailRail(firstRoot, firstRenderer, queue, {
+      onNavigate: vi.fn(),
+    });
+    const secondRail = new ThumbnailRail(secondRoot, secondRenderer, queue, {
+      onNavigate: vi.fn(),
+    });
+    firstRail.start(0);
+    secondRail.start(0);
+    await Promise.resolve();
+
+    firstRail.dispose();
+    await vi.waitFor(() => {
+      expect(secondRenderer.renderThumbnail).toHaveBeenCalled();
+    });
+    await queue.whenIdle();
+
+    expect(secondRoot.querySelector('[data-slide-index="0"]')?.textContent)
+      .toContain("Second rail preview 1");
+    expect(secondRail.mountedCount).toBeGreaterThan(0);
+
+    secondRail.dispose();
     queue.dispose();
   });
 
@@ -319,7 +359,7 @@ describe("ThumbnailRail", () => {
 
     const firstSlideOneTask = enqueue.mock.calls
       .map(([task]) => task)
-      .find((task) => task.key.startsWith("thumbnail:1"));
+      .find((task) => queuedThumbnailIndex(task.key) === 1);
     expect(firstSlideOneTask?.priority).toBe(2);
     if (firstSlideOneTask === undefined) {
       throw new Error("Expected the first overscan task for slide 2");
@@ -330,7 +370,7 @@ describe("ThumbnailRail", () => {
 
     const slideOneTasks = enqueue.mock.calls
       .map(([task]) => task)
-      .filter((task) => task.key.startsWith("thumbnail:1"));
+      .filter((task) => queuedThumbnailIndex(task.key) === 1);
     expect(slideOneTasks).toHaveLength(2);
     expect(slideOneTasks[1]?.priority).toBe(1);
     expect(slideOneTasks[1]?.key).not.toBe(slideOneTasks[0]?.key);

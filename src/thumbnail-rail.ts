@@ -28,6 +28,7 @@ const DEFAULT_THUMBNAIL_WIDTH = 144;
 const DEFAULT_OVERSCAN_VIEWPORTS = 1;
 const FALLBACK_VIEWPORT_HEIGHT = 480;
 const ITEM_CHROME_HEIGHT = 32;
+let nextRailId = 0;
 
 function finitePositive(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isFinite(value) && value > 0
@@ -39,10 +40,33 @@ function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+async function waitForReady(
+  ready: Promise<void>,
+  signal: AbortSignal,
+): Promise<void> {
+  signal.throwIfAborted();
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => {
+      reject(
+        signal.reason ??
+          new DOMException("The operation was aborted.", "AbortError"),
+      );
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    await Promise.race([ready, aborted]);
+  } finally {
+    if (onAbort !== undefined) signal.removeEventListener("abort", onAbort);
+  }
+}
+
 export class ThumbnailRail {
   private readonly disposedResources = new WeakSet<PptxRendererResource>();
   private readonly mounted = new Map<number, MountedThumbnail>();
   private readonly mountedLayer = document.createElement("div");
+  private readonly queueKeyPrefix = `thumbnail:rail-${nextRailId++}:`;
   private readonly spacer = document.createElement("div");
   private readonly itemHeight: number;
   private readonly overscanViewports: number;
@@ -197,7 +221,7 @@ export class ThumbnailRail {
     this.disposed = true;
     this.root.removeEventListener("scroll", this.onScroll);
     this.resizeObserver?.disconnect();
-    this.queue.cancelMatching((key) => key.startsWith("thumbnail:"));
+    this.queue.cancelMatching((key) => key.startsWith(this.queueKeyPrefix));
     for (const item of [...this.mounted.values()]) this.unmount(item);
     this.root.replaceChildren();
   }
@@ -260,7 +284,7 @@ export class ThumbnailRail {
       return;
     }
     const renderThumbnail = this.renderer.renderThumbnail.bind(this.renderer);
-    const queueKey = `thumbnail:${item.index}:${this.nextAttempt++}`;
+    const queueKey = `${this.queueKeyPrefix}${item.index}:${this.nextAttempt++}`;
     item.priority = priority;
     item.queueKey = queueKey;
     item.state = "pending";
@@ -288,7 +312,7 @@ export class ThumbnailRail {
               signal.throwIfAborted();
               throw new DOMException("The operation was aborted.", "AbortError");
             }
-            await resource.ready;
+            await waitForReady(resource.ready, signal);
             signal.throwIfAborted();
             return resource;
           } catch (error) {
