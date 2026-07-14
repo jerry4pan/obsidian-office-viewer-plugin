@@ -22,6 +22,20 @@ function makeRenderer(slideCount = 1) {
 }
 
 describe("PptxViewSession", () => {
+  it("starts in an explicit empty state before a file is selected", () => {
+    const root = document.createElement("div");
+    const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
+    const { adapter } = makeRenderer();
+
+    new PptxViewSession(root, reader, adapter);
+
+    expect(root.dataset.state).toBe("empty");
+    expect(root.dataset.lifecyclePhase).toBe("idle");
+    expect(root.textContent).toContain(
+      "Open a PPTX file from your Vault to start reading.",
+    );
+  });
+
   it("exposes a candidate-independent in-flight phase after Vault reading completes", async () => {
     const root = document.createElement("div");
     let finishRead: ((bytes: ArrayBuffer) => void) | undefined;
@@ -153,6 +167,59 @@ describe("PptxViewSession", () => {
     expect(previous?.disabled).toBe(false);
     expect(next?.disabled).toBe(false);
   });
+
+  it("jumps to a valid one-based slide number", async () => {
+    const root = document.createElement("div");
+    const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
+    const { adapter, rendererSession } = makeRenderer(3);
+    const session = new PptxViewSession(root, reader, adapter);
+    await session.open("deck.pptx");
+
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="page-number"]',
+    );
+    const jump = root.querySelector<HTMLButtonElement>(
+      '[data-action="jump-to-slide"]',
+    );
+    expect(input).not.toBeNull();
+    expect(jump).not.toBeNull();
+
+    input!.value = "3";
+    jump!.click();
+
+    await vi.waitFor(() =>
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(2),
+    );
+    await vi.waitFor(() => expect(root.textContent).toContain("3 / 3"));
+    expect(root.dataset.state).toBe("ready");
+    expect(input?.value).toBe("3");
+  });
+
+  it.each(["", "0", "4", "1.5"])(
+    "rejects invalid page input %j without changing the readable slide",
+    async (value) => {
+      const root = document.createElement("div");
+      const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
+      const { adapter, rendererSession } = makeRenderer(3);
+      const session = new PptxViewSession(root, reader, adapter);
+      await session.open("deck.pptx");
+      const input = root.querySelector<HTMLInputElement>(
+        '[data-action="page-number"]',
+      )!;
+
+      input.value = value;
+      root
+        .querySelector<HTMLButtonElement>('[data-action="jump-to-slide"]')!
+        .click();
+
+      expect(rendererSession.renderSlide).toHaveBeenCalledTimes(1);
+      expect(root.textContent).toContain("1 / 3");
+      expect(root.textContent).toContain(
+        "Enter a slide number from 1 to 3.",
+      );
+      expect(root.dataset.state).toBe("ready");
+    },
+  );
 
   it("captures slide-switch timing before updating product UI", async () => {
     const root = document.createElement("div");
@@ -305,8 +372,10 @@ describe("PptxViewSession", () => {
 
     next?.click();
 
-    await vi.waitFor(() => expect(root.dataset.state).toBe("error"));
-    expect(root.textContent).toContain("Unable to render this slide.");
+    await vi.waitFor(() => expect(root.dataset.state).toBe("degraded"));
+    expect(root.textContent).toContain(
+      "Unable to render this slide. The last readable slide is still shown.",
+    );
     expect(root.textContent).toContain("1 / 3");
     expect(root.dataset.lastSlideSwitchMs).toBeUndefined();
     expect(previous?.disabled).toBe(true);
@@ -447,6 +516,26 @@ describe("PptxViewSession", () => {
     await vi.waitFor(() =>
       expect(openExternally).toHaveBeenCalledWith("deck.pptx"),
     );
+  });
+
+  it("offers the default-application fallback while a deck is readable", async () => {
+    const root = document.createElement("div");
+    const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
+    const { adapter } = makeRenderer(2);
+    const openExternally = vi.fn(async () => {});
+    const session = new PptxViewSession(root, reader, adapter, {
+      openExternally,
+    });
+    await session.open("deck.pptx");
+
+    root
+      .querySelector<HTMLButtonElement>('[data-action="open-externally"]')
+      ?.click();
+
+    await vi.waitFor(() =>
+      expect(openExternally).toHaveBeenCalledWith("deck.pptx"),
+    );
+    expect(root.dataset.state).toBe("ready");
   });
 
   it("disposes renderer resources when first-slide rendering fails", async () => {

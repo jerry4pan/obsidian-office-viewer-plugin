@@ -22,12 +22,31 @@
   align-items: center;
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: var(--size-4-2);
   justify-content: center;
 }
 
 .pptx-viewer__controls .pptx-viewer__page-counter {
   min-width: 5em;
+}
+
+.pptx-viewer__page-jump {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-1);
+}
+
+.pptx-viewer__page-jump input {
+  width: 4.5em;
+}
+
+.pptx-viewer__empty {
+  align-self: center;
+  color: var(--text-muted);
+  margin: auto;
+  max-width: 28rem;
+  text-align: center;
 }
 
 .pptx-viewer__slide {
@@ -47,6 +66,10 @@
 
 .pptx-viewer[data-state="error"] .pptx-viewer__status {
   color: var(--text-error);
+}
+
+.pptx-viewer[data-state="degraded"] .pptx-viewer__status {
+  color: var(--text-warning);
 }
 
 .pptx-viewer__error {

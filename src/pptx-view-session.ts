@@ -25,6 +25,7 @@ export type PptxLifecyclePhase =
   | "adapter-opening"
   | "first-slide-rendering"
   | "ready"
+  | "degraded"
   | "error"
   | "disposed";
 
@@ -54,6 +55,12 @@ export class PptxViewSession<FileRef> {
     private readonly actions: PptxViewActions<FileRef> = {},
   ) {
     root.classList.add("pptx-viewer");
+    const empty = document.createElement("div");
+    empty.className = "pptx-viewer__empty";
+    empty.textContent = "Open a PPTX file from your Vault to start reading.";
+    root.replaceChildren(empty);
+    root.dataset.state = "empty";
+    this.setLifecyclePhase("idle");
   }
 
   async open(file: FileRef): Promise<void> {
@@ -67,6 +74,8 @@ export class PptxViewSession<FileRef> {
 
     const status = document.createElement("div");
     status.className = "pptx-viewer__status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     status.textContent = "Loading presentation…";
     const pageCounter = document.createElement("div");
     pageCounter.className = "pptx-viewer__page-counter";
@@ -80,12 +89,39 @@ export class PptxViewSession<FileRef> {
     nextButton.dataset.action = "next-slide";
     nextButton.textContent = "Next";
     nextButton.disabled = true;
+    const pageInput = document.createElement("input");
+    pageInput.type = "number";
+    pageInput.min = "1";
+    pageInput.step = "1";
+    pageInput.value = "1";
+    pageInput.dataset.action = "page-number";
+    pageInput.setAttribute("aria-label", "Slide number");
+    const pageTotal = document.createElement("span");
+    pageTotal.className = "pptx-viewer__page-total";
+    pageTotal.textContent = "of …";
+    const jumpButton = document.createElement("button");
+    jumpButton.type = "button";
+    jumpButton.dataset.action = "jump-to-slide";
+    jumpButton.textContent = "Go";
+    const jumpForm = document.createElement("form");
+    jumpForm.className = "pptx-viewer__page-jump";
+    const jumpLabel = document.createElement("span");
+    jumpLabel.textContent = "Slide";
+    jumpForm.append(jumpLabel, pageInput, pageTotal, jumpButton);
     const controls = document.createElement("div");
     controls.className = "pptx-viewer__controls";
-    controls.append(previousButton, pageCounter, nextButton);
+    controls.append(previousButton, pageCounter, nextButton, jumpForm);
+    const actionStatus = document.createElement("div");
+    actionStatus.className = "pptx-viewer__action-status";
+    const openExternally = this.createExternalOpenButton(
+      file,
+      generation,
+      actionStatus,
+    );
+    if (openExternally) controls.append(openExternally);
     const slideContainer = document.createElement("div");
     slideContainer.className = "pptx-viewer__slide";
-    this.root.replaceChildren(status, controls, slideContainer);
+    this.root.replaceChildren(status, controls, actionStatus, slideContainer);
     this.root.dataset.state = "loading";
     this.setLifecyclePhase("reading");
     delete this.root.dataset.errorCategory;
@@ -122,10 +158,12 @@ export class PptxViewSession<FileRef> {
         generation === this.generation &&
         !controller.signal.aborted &&
         this.rendererSession === rendererSession;
-      const restoreButtonState = () => {
+      const restoreControlState = () => {
         previousButton.disabled = currentSlideIndex === 0;
         nextButton.disabled =
           currentSlideIndex >= rendererSession.slideCount - 1;
+        pageInput.disabled = false;
+        jumpButton.disabled = false;
       };
       const navigate = async (targetIndex: number) => {
         if (
@@ -136,24 +174,38 @@ export class PptxViewSession<FileRef> {
           return;
         }
 
+        if (targetIndex === currentSlideIndex) {
+          pageInput.value = String(currentSlideIndex + 1);
+          status.textContent = "";
+          this.root.dataset.state = "ready";
+          this.setLifecyclePhase("ready");
+          return;
+        }
+
         previousButton.disabled = true;
         nextButton.disabled = true;
+        pageInput.disabled = true;
+        jumpButton.disabled = true;
         const switchedAt = performance.now();
         try {
           await rendererSession.renderSlide(targetIndex);
           const slideSwitchMs = (performance.now() - switchedAt).toFixed(3);
           if (!isCurrentRun()) return;
           currentSlideIndex = targetIndex;
+          pageInput.value = String(currentSlideIndex + 1);
           pageCounter.textContent = `${currentSlideIndex + 1} / ${rendererSession.slideCount}`;
           this.root.dataset.lastSlideSwitchMs = slideSwitchMs;
           this.root.dataset.state = "ready";
+          this.setLifecyclePhase("ready");
           status.textContent = "";
         } catch {
           if (!isCurrentRun()) return;
-          this.root.dataset.state = "error";
-          status.textContent = "Unable to render this slide.";
+          this.root.dataset.state = "degraded";
+          this.setLifecyclePhase("degraded");
+          status.textContent =
+            "Unable to render this slide. The last readable slide is still shown.";
         } finally {
-          if (isCurrentRun()) restoreButtonState();
+          if (isCurrentRun()) restoreControlState();
         }
       };
 
@@ -163,9 +215,29 @@ export class PptxViewSession<FileRef> {
       nextButton.addEventListener("click", () => {
         void navigate(currentSlideIndex + 1);
       });
+      const jumpToRequestedPage = () => {
+        const requestedPage = Number(pageInput.value);
+        if (
+          !Number.isInteger(requestedPage) ||
+          requestedPage < 1 ||
+          requestedPage > rendererSession.slideCount
+        ) {
+          status.textContent = `Enter a slide number from 1 to ${rendererSession.slideCount}.`;
+          pageInput.focus();
+          return;
+        }
+        void navigate(requestedPage - 1);
+      };
+      jumpButton.addEventListener("click", jumpToRequestedPage);
+      jumpForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        jumpToRequestedPage();
+      });
 
       pageCounter.textContent = `1 / ${rendererSession.slideCount}`;
-      restoreButtonState();
+      pageInput.max = String(rendererSession.slideCount);
+      pageTotal.textContent = `of ${rendererSession.slideCount}`;
+      restoreControlState();
       status.textContent = "";
       this.root.dataset.state = "ready";
       this.setLifecyclePhase("ready");
@@ -237,25 +309,38 @@ export class PptxViewSession<FileRef> {
 
     const actionStatus = document.createElement("div");
     actionStatus.className = "pptx-viewer__action-status";
-    if (this.actions.openExternally) {
-      const openExternally = document.createElement("button");
-      openExternally.type = "button";
-      openExternally.dataset.action = "open-externally";
-      openExternally.textContent = "Open in default application";
-      openExternally.addEventListener("click", () => {
-        void this.actions.openExternally?.(file).catch(() => {
-          if (generation === this.generation) {
-            actionStatus.textContent = "Unable to open the default application.";
-          }
-        });
-      });
-      actions.append(openExternally);
-    }
+    const openExternally = this.createExternalOpenButton(
+      file,
+      generation,
+      actionStatus,
+    );
+    if (openExternally) actions.append(openExternally);
 
     panel.append(title, safety, actions, actionStatus);
     this.root.replaceChildren(panel);
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = error.category;
+  }
+
+  private createExternalOpenButton(
+    file: FileRef,
+    generation: number,
+    actionStatus: HTMLElement,
+  ): HTMLButtonElement | null {
+    if (!this.actions.openExternally) return null;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.action = "open-externally";
+    button.textContent = "Open in default application";
+    button.addEventListener("click", () => {
+      actionStatus.textContent = "";
+      void this.actions.openExternally?.(file).catch(() => {
+        if (generation === this.generation) {
+          actionStatus.textContent = "Unable to open the default application.";
+        }
+      });
+    });
+    return button;
   }
 
   private stopCurrentRun(): void {
