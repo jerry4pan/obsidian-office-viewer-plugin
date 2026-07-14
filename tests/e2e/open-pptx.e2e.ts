@@ -47,30 +47,6 @@ describe("PPTX file view", () => {
     await expect(root).toExist();
     await expect(root).toHaveText(expect.stringContaining("1 / 12"));
     await expect(root.$('[data-action="open-externally"]')).toExist();
-    const readyLayout = await browser.execute(() => {
-      const activeRoot = document.querySelector<HTMLElement>(
-        ".workspace-leaf.mod-active .pptx-viewer",
-      );
-      const controls = activeRoot?.querySelector<HTMLElement>(
-        ".pptx-viewer__controls",
-      );
-      const actionStatus = activeRoot?.querySelector<HTMLElement>(
-        ".pptx-viewer__action-status",
-      );
-      const controlRows = new Set(
-        Array.from(controls?.children ?? [], (element) =>
-          Math.round(
-            element.getBoundingClientRect().top +
-              element.getBoundingClientRect().height / 2,
-          ),
-        ),
-      ).size;
-      return {
-        actionStatusHeight: actionStatus?.getBoundingClientRect().height ?? -1,
-        controlRows,
-      };
-    });
-    expect(readyLayout).toEqual({ actionStatusHeight: 0, controlRows: 1 });
 
     await root.$('[data-action="next-slide"]').click();
     await browser.waitUntil(

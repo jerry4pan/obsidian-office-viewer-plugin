@@ -88,10 +88,11 @@ remains `1 / 3`, and the status is `Enter a slide number from 1 to 3.`.
 - [ ] **Step 5: Implement validation and degraded navigation**
 
 Accept only finite integers between 1 and `slideCount`. On a later
-`renderSlide` rejection, keep the previous page, set `data-state="degraded"`,
-show `Unable to render this slide. The last readable slide is still shown.`,
-and restore controls. Clear the message and return to `ready` after a
-successful navigation.
+`renderSlide` rejection or adapter-reported slide error, keep the last
+successful page number, reset the jump input, set `data-state="degraded"`,
+show an honest page-specific failure without claiming old pixels remain, and
+restore controls. Clear the message and return to `ready` after a successful
+navigation.
 
 - [ ] **Step 6: Expose the default-application action in the ready toolbar**
 

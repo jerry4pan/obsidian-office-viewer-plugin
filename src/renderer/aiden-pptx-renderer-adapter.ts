@@ -8,6 +8,26 @@ import type {
 import { PptxOpenError } from "../pptx-open-error";
 import { PPTX_ZIP_LIMITS } from "./pptx-package-preflight";
 
+async function rejectReportedSlideError(
+  viewer: PptxViewer,
+  slideIndex: number,
+  action: () => Promise<void>,
+  createError: () => Error,
+): Promise<void> {
+  let slideErrorReported = false;
+  const onSlideError = (event: Event) => {
+    const detail = (event as CustomEvent<{ index?: unknown }>).detail;
+    if (detail?.index === slideIndex) slideErrorReported = true;
+  };
+  viewer.addEventListener("slideerror", onSlideError);
+  try {
+    await action();
+  } finally {
+    viewer.removeEventListener("slideerror", onSlideError);
+  }
+  if (slideErrorReported) throw createError();
+}
+
 class AidenPptxRendererSession implements PptxRendererSession {
   private disposed = false;
 
@@ -24,7 +44,12 @@ class AidenPptxRendererSession implements PptxRendererSession {
     if (this.disposed) {
       throw new Error("PPTX renderer session has been disposed");
     }
-    await this.viewer.renderSlide(index);
+    await rejectReportedSlideError(
+      this.viewer,
+      index,
+      () => this.viewer.renderSlide(index),
+      () => new Error(`The renderer could not display slide ${index + 1}`),
+    );
   }
 
   dispose(): void {
@@ -45,27 +70,38 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
     container.replaceChildren();
     let viewer: PptxViewer | undefined;
     try {
-      viewer = new PptxViewer(container, {
+      const allocatedViewer = new PptxViewer(container, {
         fitMode: "contain",
         lazyMedia: true,
         lazySlides: true,
         pdfjs: false,
         zipLimits: PPTX_ZIP_LIMITS,
       });
-      await viewer.open(buffer, {
-        renderMode: "slide",
-        signal,
-        lazyMedia: true,
-        lazySlides: true,
-      });
+      viewer = allocatedViewer;
+      await rejectReportedSlideError(
+        allocatedViewer,
+        0,
+        () =>
+          allocatedViewer.open(buffer, {
+            renderMode: "slide",
+            signal,
+            lazyMedia: true,
+            lazySlides: true,
+          }),
+        () =>
+          new PptxOpenError(
+            "incompatible",
+            "The renderer could not display the first slide",
+          ),
+      );
       signal.throwIfAborted();
-      if (viewer.slideCount < 1) {
+      if (allocatedViewer.slideCount < 1) {
         throw new PptxOpenError(
           "incompatible",
           "The renderer did not find a usable slide",
         );
       }
-      return new AidenPptxRendererSession(viewer, container);
+      return new AidenPptxRendererSession(allocatedViewer, container);
     } catch (error) {
       viewer?.destroy();
       container.replaceChildren();

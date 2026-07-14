@@ -98,6 +98,14 @@ describe("PptxViewSession", () => {
       rendererActive: false,
       disposed: false,
     });
+    expect(
+      root.querySelector<HTMLInputElement>('[data-action="page-number"]')
+        ?.disabled,
+    ).toBe(true);
+    expect(
+      root.querySelector<HTMLButtonElement>('[data-action="jump-to-slide"]')
+        ?.disabled,
+    ).toBe(true);
 
     finishRead?.(new ArrayBuffer(1));
     await opening;
@@ -106,6 +114,14 @@ describe("PptxViewSession", () => {
       rendererActive: true,
       disposed: false,
     });
+    expect(
+      root.querySelector<HTMLInputElement>('[data-action="page-number"]')
+        ?.disabled,
+    ).toBe(false);
+    expect(
+      root.querySelector<HTMLButtonElement>('[data-action="jump-to-slide"]')
+        ?.disabled,
+    ).toBe(false);
 
     session.dispose();
     expect(session.getPerformanceDiagnostics()).toMatchObject({
@@ -358,7 +374,11 @@ describe("PptxViewSession", () => {
     rendererSession.renderSlide = vi
       .fn()
       .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("render failed"))
+      .mockImplementationOnce(async () => {
+        root.querySelector<HTMLElement>(".pptx-viewer__slide")!.textContent =
+          "Renderer error placeholder";
+        throw new Error("render failed");
+      })
       .mockResolvedValueOnce(undefined);
     const session = new PptxViewSession(root, reader, adapter);
 
@@ -374,9 +394,15 @@ describe("PptxViewSession", () => {
 
     await vi.waitFor(() => expect(root.dataset.state).toBe("degraded"));
     expect(root.textContent).toContain(
-      "Unable to render this slide. The last readable slide is still shown.",
+      "Slide 2 could not be rendered. Try another slide or open it in the default application.",
     );
+    expect(root.textContent).not.toContain("last readable slide is still shown");
+    expect(root.textContent).toContain("Renderer error placeholder");
     expect(root.textContent).toContain("1 / 3");
+    expect(
+      root.querySelector<HTMLInputElement>('[data-action="page-number"]')
+        ?.value,
+    ).toBe("1");
     expect(root.dataset.lastSlideSwitchMs).toBeUndefined();
     expect(previous?.disabled).toBe(true);
     expect(next?.disabled).toBe(false);

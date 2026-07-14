@@ -94,6 +94,7 @@ export class PptxViewSession<FileRef> {
     pageInput.min = "1";
     pageInput.step = "1";
     pageInput.value = "1";
+    pageInput.disabled = true;
     pageInput.dataset.action = "page-number";
     pageInput.setAttribute("aria-label", "Slide number");
     const pageTotal = document.createElement("span");
@@ -101,6 +102,7 @@ export class PptxViewSession<FileRef> {
     pageTotal.textContent = "of …";
     const jumpButton = document.createElement("button");
     jumpButton.type = "button";
+    jumpButton.disabled = true;
     jumpButton.dataset.action = "jump-to-slide";
     jumpButton.textContent = "Go";
     const jumpForm = document.createElement("form");
@@ -200,10 +202,10 @@ export class PptxViewSession<FileRef> {
           status.textContent = "";
         } catch {
           if (!isCurrentRun()) return;
+          pageInput.value = String(currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
           this.setLifecyclePhase("degraded");
-          status.textContent =
-            "Unable to render this slide. The last readable slide is still shown.";
+          status.textContent = `Slide ${targetIndex + 1} could not be rendered. Try another slide or open it in the default application.`;
         } finally {
           if (isCurrentRun()) restoreControlState();
         }

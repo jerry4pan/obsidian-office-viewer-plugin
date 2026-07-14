@@ -103,6 +103,61 @@ describe("AidenPptxRendererAdapter", () => {
     }
   });
 
+  it("turns an internally handled first-slide error into a blocking open error", async () => {
+    const open = vi.spyOn(PptxViewer.prototype, "open").mockImplementation(
+      async function (this: PptxViewer) {
+        this.dispatchEvent(
+          new CustomEvent("slideerror", {
+            detail: { index: 0, error: new Error("private renderer details") },
+          }),
+        );
+      },
+    );
+
+    try {
+      await expect(
+        new AidenPptxRendererAdapter().open(
+          await loadFixture(),
+          document.createElement("div"),
+          new AbortController().signal,
+        ),
+      ).rejects.toMatchObject({
+        name: "PptxOpenError",
+        category: "incompatible",
+        message: "The renderer could not display the first slide",
+      });
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("rejects a slide navigation when Aiden reports an internal slide error", async () => {
+    const container = document.createElement("div");
+    const session = await new AidenPptxRendererAdapter().open(
+      await loadFixture(),
+      container,
+      new AbortController().signal,
+    );
+    const renderSlide = vi
+      .spyOn(PptxViewer.prototype, "renderSlide")
+      .mockImplementation(async function (this: PptxViewer, index = 0) {
+        this.dispatchEvent(
+          new CustomEvent("slideerror", {
+            detail: { index, error: new Error("private renderer details") },
+          }),
+        );
+      });
+
+    try {
+      await expect(session.renderSlide(0)).rejects.toThrow(
+        "The renderer could not display slide 1",
+      );
+    } finally {
+      renderSlide.mockRestore();
+      session.dispose();
+    }
+  });
+
   for (const fixture of expectedFailureFixtures) {
     it(`reports ${fixture.id} as ${fixture.category} without leaving renderer DOM`, async () => {
       const container = document.createElement("div");

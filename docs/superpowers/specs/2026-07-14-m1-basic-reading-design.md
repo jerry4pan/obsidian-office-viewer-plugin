@@ -56,7 +56,8 @@ input, a total-page label, a jump button, and an external-open button when the
 desktop action is available. All navigation routes call one zero-based
 `navigate(targetIndex)` function. A navigation begins only for an integer in
 range, disables navigation while rendering, and commits the current page only
-after the render succeeds.
+after the adapter reports that the render completed without a slide-level
+error.
 
 ## State and failure behavior
 
@@ -64,14 +65,18 @@ after the render succeeds.
 - `loading`: Vault reading, adapter opening, or first-slide rendering is in
   progress.
 - `ready`: the current slide rendered and navigation is available.
-- `degraded`: a later slide failed to render; the last readable page remains
-  current, a non-blocking message is shown, and navigation is restored.
+- `degraded`: a later slide failed to render; the last successfully committed
+  page number remains current, a non-blocking message is shown, and navigation
+  is restored. The selected renderer may replace the slide canvas with its own
+  error placeholder, so the viewer does not claim that old pixels remain.
 - `error`: initial read/open/render failed; stable safe copy, retry, and the
   external fallback replace the viewer content.
 
 Invalid page input never calls the renderer and never changes the current
 page. It shows `Enter a slide number from 1 to N.` and returns focus to the
-input. A successful navigation clears that validation or degraded message.
+input. A slide-level renderer error shows an honest page-specific failure and
+leaves the last successful page number committed. A successful navigation
+clears that validation or degraded message.
 External-open failures are reported locally and do not replace a readable
 slide or reveal filesystem details.
 
