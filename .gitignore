@@ -5,3 +5,4 @@ main.js
 *.js.map
 .obsidian-cache/
 coverage/
+.VSCodeCounter/
