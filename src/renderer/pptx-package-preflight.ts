@@ -115,6 +115,9 @@ function enforceZipLimits(zip: JSZip): void {
   let preflightXmlBytes = 0;
   for (const part of entries) {
     const size = uncompressedSize(part);
+    if (size > PPTX_ZIP_LIMITS.maxEntryUncompressedBytes) {
+      throw incompatible(`OOXML part ${part.name} exceeds the safe size limit`);
+    }
     totalBytes += size;
     if (part.name.startsWith("ppt/media/")) mediaBytes += size;
     if (part.name.endsWith(".xml") || part.name.endsWith(".rels")) {

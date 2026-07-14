@@ -5,6 +5,11 @@
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "paths": {
+      "#selected-pptx-renderer": [
+        "./src/renderer/selected-pptx-renderer-adapter.aiden.ts"
+      ]
+    },
     "noEmit": true,
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true,

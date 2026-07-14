@@ -1,8 +1,7 @@
 import { FileView, type App, type TFile, type WorkspaceLeaf } from "obsidian";
 import { PptxViewSession } from "./pptx-view-session";
 import type { PptxViewSessionDiagnostics } from "./pptx-view-session";
-import { AidenPptxRendererAdapter } from "./renderer/aiden-pptx-renderer-adapter";
-import { PreflightPptxRendererAdapter } from "./renderer/preflight-pptx-renderer-adapter";
+import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
 
 export const PPTX_VIEW_TYPE = "pptx-viewer";
 
@@ -39,7 +38,7 @@ export class PptxFileView extends FileView {
     this.session = new PptxViewSession(
       root,
       { readBinary: (file) => this.app.vault.readBinary(file) },
-      new PreflightPptxRendererAdapter(new AidenPptxRendererAdapter()),
+      createPptxRendererAdapter(),
       { openExternally: createExternalOpenAction(this.app) },
     );
   }

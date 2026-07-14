@@ -37,8 +37,10 @@ import {
 } from "../performance/installed-performance-artifact";
 import { renderInstalledPerformanceMarkdown } from "../performance/installed-performance-markdown";
 import { writePerformanceProgressAtomic } from "../performance/performance-progress";
+import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 
-const ARTIFACT_DIR = path.resolve("artifacts/performance");
+const renderer = activeRendererAcceptanceConfig();
+const ARTIFACT_DIR = renderer.paths.performanceArtifactDir;
 const PROGRESS_PATH = path.join(ARTIFACT_DIR, "progress.json");
 const ACTIVE_ROOT = ".workspace-leaf.mod-active .pptx-viewer";
 const OBSERVATION_WINDOW_MS = 2_000;
@@ -515,7 +517,7 @@ describe("installed PPTX performance collector", () => {
       electronVersion: runtimeVersions.electron,
       chromiumVersion: runtimeVersions.chromium,
       nodeVersion: runtimeVersions.node,
-      renderer: "@aiden0z/pptx-renderer@1.2.4",
+      renderer: renderer.candidate.label,
       coldDefinition: "First representative open after installed Obsidian launch; excluded from gates.",
       warmDefinition: "Same-process opens after closing the prior leaf; two warmups excluded, ten measured.",
       warmupRuns: WARMUP_RUNS,
@@ -1136,7 +1138,14 @@ describe("installed PPTX performance collector", () => {
       path.join(ARTIFACT_DIR, "summary.md"),
       renderInstalledPerformanceMarkdown(artifact),
     );
-    validateInstalledPerformanceArtifact(artifact, bundleBytes);
+    validateInstalledPerformanceArtifact(
+      artifact,
+      bundleBytes,
+      renderer.candidate.id === "pptx-preview"
+        ? "expected-open-failure"
+        : "pass",
+      renderer.candidate.label,
+    );
     if (invariantFailures.length > 0) throw new Error(invariantFailures.join("\n"));
   });
 });

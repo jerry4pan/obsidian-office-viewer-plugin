@@ -17,11 +17,14 @@ import {
   CORPUS_ENVIRONMENT,
   CORPUS_EXPECTED_GATE,
   corpusManifest,
+  getCandidateReview,
 } from "../compatibility/corpus-manifest";
 import { inspectActiveFixture } from "../compatibility/fixture-inspection";
 import { fileSha256 } from "../compatibility/hash";
+import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 
-const artifactDir = path.resolve("artifacts/compatibility");
+const renderer = activeRendererAcceptanceConfig();
+const artifactDir = renderer.paths.compatibilityArtifactDir;
 const updateBaselines = process.env.UPDATE_COMPATIBILITY_BASELINES === "1";
 
 describe("installed PPTX compatibility corpus", () => {
@@ -41,6 +44,7 @@ describe("installed PPTX compatibility corpus", () => {
     const observations: CompatibilityObservation[] = [];
     const failures: string[] = [];
     for (const fixture of corpusManifest) {
+      const review = getCandidateReview(fixture, renderer.candidate.id);
       let visualDiffRatio = 0;
       let error: string | undefined;
       let expectedContent: readonly string[] = fixture.mainContentChecks.map(
@@ -71,9 +75,18 @@ describe("installed PPTX compatibility corpus", () => {
           throw new Error("view reached error state");
         }
 
+        // Candidate chart renderers may finish an internal animation after the
+        // view becomes readable. Capture only after that fixed settling window
+        // so the shared zero-pixel drift gate compares stable output.
+        await browser.pause(1_200);
+
         ({ expectedContent, readableContent } = await inspectActiveFixture(
           fixture.mainContentChecks,
         ));
+        const manuallyUnreadable = new Set(review.unreadableContent);
+        readableContent = readableContent.filter(
+          (label) => !manuallyUnreadable.has(label),
+        );
         visualDiffRatio = await captureApprovedBaseline(
           fixture,
           await root.$(".pptx-viewer__slide"),
@@ -89,8 +102,8 @@ describe("installed PPTX compatibility corpus", () => {
         title: fixture.title,
         expectedContent,
         readableContent,
-        reviewClassification: fixture.review.classification,
-        reviewReason: fixture.review.reason,
+        reviewClassification: review.classification,
+        reviewReason: review.reason,
         visualDiffRatio,
         ...(error ? { error } : {}),
       });
@@ -112,7 +125,14 @@ describe("installed PPTX compatibility corpus", () => {
     );
     await writeFile(
       path.join(artifactDir, "results.json"),
-      `${JSON.stringify({ environment: CORPUS_ENVIRONMENT, ...summary }, null, 2)}\n`,
+      `${JSON.stringify({
+        candidate: renderer.candidate.id,
+        environment: {
+          ...CORPUS_ENVIRONMENT,
+          renderer: renderer.candidate.label,
+        },
+        ...summary,
+      }, null, 2)}\n`,
     );
     await writeFile(
       path.join(artifactDir, "summary.md"),

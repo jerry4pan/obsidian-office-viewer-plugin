@@ -1,0 +1,138 @@
+{
+  "candidate": "pptx-preview",
+  "environment": {
+    "viewport": {
+      "width": 1024,
+      "height": 800
+    },
+    "theme": "light",
+    "zoom": 1,
+    "fontFamily": "Arial",
+    "fontSamples": [
+      "Arial",
+      "Times New Roman",
+      "Definitely Missing Font"
+    ],
+    "readabilityGate": 0.8,
+    "maxVisualDiffRatio": 0,
+    "renderer": "pptx-preview@1.0.7"
+  },
+  "threshold": 0.8,
+  "readableContentCount": 16,
+  "totalContentCount": 20,
+  "readableRatio": 0.8,
+  "gatePassed": true,
+  "counts": {
+    "supported": 1,
+    "degraded": 4,
+    "failed": 0
+  },
+  "fixtures": [
+    {
+      "fixtureId": "text-theme-wide",
+      "title": "Text, fonts, theme and master on 16:9",
+      "expectedContent": [
+        "Quarterly Brief [Arial]",
+        "Revenue grew 24%",
+        "Theme footer",
+        "Times New Roman sample [Times New Roman]",
+        "Missing font fallback sample [Definitely Missing Font]"
+      ],
+      "readableContent": [
+        "Quarterly Brief [Arial]",
+        "Revenue grew 24%",
+        "Times New Roman sample [Times New Roman]",
+        "Missing font fallback sample [Definitely Missing Font]"
+      ],
+      "reviewClassification": "degraded",
+      "reviewReason": "Body text and both font samples are readable, but the theme master footer is missing.",
+      "visualDiffRatio": 0,
+      "classification": "degraded",
+      "readableContentCount": 4,
+      "totalContentCount": 5
+    },
+    {
+      "fixtureId": "images-transparency-standard",
+      "title": "Images and transparency on 4:3",
+      "expectedContent": [
+        "Layered Product",
+        "50% transparency",
+        "Embedded SVG",
+        "Product illustration"
+      ],
+      "readableContent": [
+        "Layered Product",
+        "50% transparency",
+        "Embedded SVG"
+      ],
+      "reviewClassification": "degraded",
+      "reviewReason": "Labels and transparency render, but the embedded SVG product illustration is broken.",
+      "visualDiffRatio": 0,
+      "classification": "degraded",
+      "readableContentCount": 3,
+      "totalContentCount": 4
+    },
+    {
+      "fixtureId": "tables-charts",
+      "title": "Business table and chart",
+      "expectedContent": [
+        "Regional performance",
+        "North",
+        "South",
+        "FY26 plan",
+        "Chart fully visible"
+      ],
+      "readableContent": [
+        "Regional performance",
+        "North",
+        "South",
+        "FY26 plan"
+      ],
+      "reviewClassification": "degraded",
+      "reviewReason": "The table text and chart container render, but the chart categories and data bars are empty or incorrect.",
+      "visualDiffRatio": 0,
+      "classification": "degraded",
+      "readableContentCount": 4,
+      "totalContentCount": 5
+    },
+    {
+      "fixtureId": "grouped-rotated",
+      "title": "Native grouped and rotated shapes",
+      "expectedContent": [
+        "Grouped workflow",
+        "Discover",
+        "Decide",
+        "Deliver"
+      ],
+      "readableContent": [
+        "Grouped workflow",
+        "Discover",
+        "Decide",
+        "Deliver"
+      ],
+      "reviewClassification": "supported",
+      "reviewReason": "All three native group members and the rotated callout are fully visible.",
+      "visualDiffRatio": 0,
+      "classification": "supported",
+      "readableContentCount": 4,
+      "totalContentCount": 4
+    },
+    {
+      "fixtureId": "complex-drawing",
+      "title": "Complex vector drawing fallback",
+      "expectedContent": [
+        "Architecture map",
+        "Architecture diagram"
+      ],
+      "readableContent": [
+        "Architecture map"
+      ],
+      "reviewClassification": "degraded",
+      "reviewReason": "The complex SVG drawing is replaced by a broken-image placeholder.",
+      "visualDiffRatio": 0,
+      "classification": "degraded",
+      "readableContentCount": 1,
+      "totalContentCount": 2
+    }
+  ]
+}
