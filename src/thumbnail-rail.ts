@@ -8,6 +8,7 @@ import { computeThumbnailWindow } from "./thumbnail-virtual-window";
 export interface ThumbnailRailOptions {
   readonly onNavigate: (index: number) => void;
   readonly onMountedCountChange?: (count: number) => void;
+  readonly onReadyCountChange?: (count: number) => void;
   readonly thumbnailWidth?: number;
   readonly overscanViewports?: number;
   readonly createResizeObserver?: (
@@ -80,6 +81,7 @@ export class ThumbnailRail {
   private nextAttempt = 0;
   private started = false;
   private lastReportedMountedCount: number | undefined;
+  private lastReportedReadyCount: number | undefined;
 
   constructor(
     private readonly root: HTMLElement,
@@ -116,6 +118,11 @@ export class ThumbnailRail {
     return this.mounted.size;
   }
 
+  get readyCount(): number {
+    return [...this.mounted.values()].filter(({ state }) => state === "ready")
+      .length;
+  }
+
   start(currentSlideIndex: number): void {
     if (this.disposed) return;
     this.currentSlideIndex = this.clampIndex(currentSlideIndex);
@@ -138,6 +145,7 @@ export class ThumbnailRail {
     this.resizeObserver?.observe(this.root);
     this.refresh();
     this.reportMountedCount();
+    this.reportReadyCount();
   }
 
   setCurrentSlide(index: number): void {
@@ -229,6 +237,7 @@ export class ThumbnailRail {
     for (const item of [...this.mounted.values()]) this.unmount(item);
     this.root.replaceChildren();
     this.reportMountedCount();
+    this.reportReadyCount();
   }
 
   private readonly onScroll = (): void => {
@@ -338,6 +347,8 @@ export class ThumbnailRail {
           this.disposeResource(resource);
         } else {
           item.state = "ready";
+          item.button.dataset.thumbnailReady = "true";
+          this.reportReadyCount();
         }
       })
       .catch((error: unknown) => {
@@ -371,8 +382,10 @@ export class ThumbnailRail {
 
   private unmount(item: MountedThumbnail): void {
     if (!this.mounted.delete(item.index)) return;
+    delete item.button.dataset.thumbnailReady;
     this.cancelAttempt(item);
     item.button.remove();
+    this.reportReadyCount();
   }
 
   private reportMountedCount(): void {
@@ -386,12 +399,24 @@ export class ThumbnailRail {
     }
   }
 
+  private reportReadyCount(): void {
+    const count = this.readyCount;
+    if (count === this.lastReportedReadyCount) return;
+    this.lastReportedReadyCount = count;
+    try {
+      this.options.onReadyCountChange?.(count);
+    } catch {
+      // Product diagnostics must not corrupt thumbnail rendering.
+    }
+  }
+
   private cancelAttempt(item: MountedThumbnail): void {
     if (item.queueKey !== undefined) this.queue.cancel(item.queueKey);
     if (item.resource !== undefined) this.disposeResource(item.resource);
     delete item.priority;
     delete item.queueKey;
     delete item.resource;
+    delete item.button.dataset.thumbnailReady;
     item.state = "idle";
   }
 

@@ -43,6 +43,8 @@ export interface InstalledPerformanceAnalysisInput {
   readonly slideSwitchMs: readonly number[];
   readonly thumbnailReadinessMs: readonly number[];
   readonly mountedThumbnailCounts: readonly number[];
+  readonly runOutcomes: readonly ("passed" | "failed")[];
+  readonly requiredConsecutiveCleanRuns: number;
   readonly memory: readonly MemoryRunInput[];
   readonly cancellationElapsedMs: readonly number[];
   readonly resourceCompletionElapsedMs: readonly number[];
@@ -109,6 +111,20 @@ export function summarizeInstalledPerformance(
     input.mountedThumbnailCounts,
     input.expectedMeasuredRuns,
   );
+  let consecutiveCleanRuns = 0;
+  for (const outcome of [...input.runOutcomes].reverse()) {
+    if (outcome !== "passed") break;
+    consecutiveCleanRuns += 1;
+  }
+  const runSelection = {
+    attemptCount: input.runOutcomes.length,
+    failedAttemptCount: input.runOutcomes.filter((outcome) => outcome === "failed")
+      .length,
+    consecutiveCleanRuns,
+    requiredConsecutiveCleanRuns: input.requiredConsecutiveCleanRuns,
+    eligibleForPromotion:
+      consecutiveCleanRuns >= input.requiredConsecutiveCleanRuns,
+  };
   const memoryPhase = (phase: keyof MemoryRunInput) => ({
     heapUsedBytes: distribution(
       input.memory.map((run) => run[phase].heapUsedBytes),
@@ -165,6 +181,7 @@ export function summarizeInstalledPerformance(
     slideSwitch,
     thumbnailReadiness,
     mountedThumbnails,
+    runSelection,
     memory: {
       peak: memoryPhase("peak"),
       steady: memoryPhase("steady"),

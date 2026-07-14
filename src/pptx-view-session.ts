@@ -26,6 +26,7 @@ export interface PptxViewSessionDiagnostics {
   readonly backgroundPending: number;
   readonly backgroundRunning: number;
   readonly mountedThumbnails: number;
+  readonly readyThumbnails: number;
   readonly zoomMode: PptxZoomMode;
   readonly zoomPercent: number;
 }
@@ -128,6 +129,7 @@ export class PptxViewSession<FileRef> {
     this.root.dataset.zoomPercent = "100";
     this.root.dataset.fullscreen = "false";
     this.root.dataset.mountedThumbnailCount = "0";
+    this.root.dataset.readyThumbnailCount = "0";
     const pageCounter = document.createElement("div");
     pageCounter.className = "pptx-viewer__page-counter";
     const previousButton = document.createElement("button");
@@ -361,6 +363,11 @@ export class PptxViewSession<FileRef> {
             this.root.dataset.mountedThumbnailCount = String(count);
           }
         },
+        onReadyCountChange: (count) => {
+          if (isCurrentRun() && this.thumbnailRail === rail) {
+            this.root.dataset.readyThumbnailCount = String(count);
+          }
+        },
         onNavigate: navigate,
       });
       this.thumbnailRail = rail;
@@ -509,6 +516,7 @@ export class PptxViewSession<FileRef> {
       backgroundPending: queue?.pending ?? 0,
       backgroundRunning: queue?.running ?? 0,
       mountedThumbnails: this.thumbnailRail?.mountedCount ?? 0,
+      readyThumbnails: this.thumbnailRail?.readyCount ?? 0,
       zoomMode: controller?.zoomMode ?? "fit",
       zoomPercent: controller?.zoomPercent ?? 100,
     };
@@ -530,6 +538,7 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.zoomPercent;
     delete this.root.dataset.fullscreen;
     delete this.root.dataset.mountedThumbnailCount;
+    delete this.root.dataset.readyThumbnailCount;
   }
 
   private showError(
@@ -604,6 +613,9 @@ export class PptxViewSession<FileRef> {
     this.viewerController = null;
     this.backgroundQueue = null;
     this.rendererSession = null;
+    if (this.root.dataset.readyThumbnailCount !== undefined) {
+      this.root.dataset.readyThumbnailCount = "0";
+    }
 
     try {
       abortController?.abort();

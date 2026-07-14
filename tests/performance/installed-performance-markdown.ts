@@ -4,6 +4,7 @@ import {
 } from "../../src/performance/performance-report";
 import type { ElectronMemoryRuntimeProbe } from "./electron-memory";
 import type { summarizeInstalledPerformance } from "./installed-performance-analysis";
+import type { PerformanceRunProvenance } from "./performance-run-provenance";
 
 type Analysis = ReturnType<typeof summarizeInstalledPerformance>;
 
@@ -17,6 +18,16 @@ export interface InstalledMarkdownArtifact extends PerformanceSummary {
   readonly memoryRuntime: ElectronMemoryRuntimeProbe;
   readonly rawMemoryAttempts: readonly {
     readonly loadingSnapshotCount: number;
+  }[];
+  readonly rawOpens: readonly {
+    readonly kind: "cold" | "warmup" | "measured";
+    readonly thumbnailReadiness: {
+      readonly signal: "data-ready-thumbnail-count";
+      readonly readyCount: number;
+      readonly mountedCount: number;
+    } | null;
+    readonly switchWarmup: readonly unknown[];
+    readonly slideSwitches: readonly { readonly warmupVisitOrdinal: number }[];
   }[];
   readonly rawCancellationAttempts: readonly {
     readonly cancellationElapsedMs: number | null;
@@ -33,6 +44,7 @@ export interface InstalledMarkdownArtifact extends PerformanceSummary {
     readonly running: number;
     readonly mounted: number;
   }[];
+  readonly runProvenance: PerformanceRunProvenance;
   readonly analysis: Analysis;
 }
 
@@ -101,8 +113,11 @@ function renderInstalledAnalysis(artifact: InstalledMarkdownArtifact): string {
     `- Memory attempts: ${artifact.rawMemoryAttempts.length}; all have loading snapshot: ${artifact.rawMemoryAttempts.every(({ loadingSnapshotCount }) => loadingSnapshotCount > 0) ? "yes" : "no"}.`,
     `- In-flight cancellation attempts: ${artifact.rawCancellationAttempts.length}; all prove adapter-opening: ${artifact.rawCancellationAttempts.every(({ sawInFlight, inFlightSnapshotCount }) => sawInFlight && inFlightSnapshotCount > 0) ? "yes" : "no"}; all adapter stops met deadline: ${artifact.rawCancellationAttempts.every(({ cancellationElapsedMs }) => cancellationElapsedMs !== null && cancellationElapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}; all full resource completions met deadline: ${artifact.rawCancellationAttempts.every(({ resourceCompletionElapsedMs }) => resourceCompletionElapsedMs !== null && resourceCompletionElapsedMs <= protocol.observationWindowMs) ? "yes" : "no"}.`,
     `- M2 thumbnail observations: ${artifact.thumbnailReadinessMs.length}; mounted counts strictly below 50: ${artifact.mountedThumbnailCounts.every((count) => count > 0 && count < 50) ? "yes" : "no"}.`,
+    `- Thumbnail readiness source: project-owned \`data-ready-thumbnail-count\` after renderer resource readiness; all measured attempts carry raw proof: ${artifact.rawOpens.filter(({ kind }) => kind === "measured").every(({ thumbnailReadiness }) => thumbnailReadiness?.signal === "data-ready-thumbnail-count" && thumbnailReadiness.readyCount > 0 && thumbnailReadiness.readyCount <= thumbnailReadiness.mountedCount) ? "yes" : "no"}.`,
+    `- Rendered-page switch provenance: every measured attempt performs ${artifact.rawOpens.find(({ kind }) => kind === "measured")?.switchWarmup.length ?? 0} untimed rendered visits first; all timed switches reference a warmup visit: ${artifact.rawOpens.filter(({ kind }) => kind === "measured").every(({ slideSwitches }) => slideSwitches.every(({ warmupVisitOrdinal }) => warmupVisitOrdinal > 0)) ? "yes" : "no"}.`,
     `- M2 background stops: ${artifact.backgroundStopObservations.map(({ reason, elapsedMs, pending, running, mounted }) => `${reason}=${elapsedMs} ms (pending=${pending}, running=${running}, mounted=${mounted})`).join("; ")}.`,
     `- Renderer memory source: ${memoryRuntime.selectedHeapSource ?? "none"}; RSS source: ${memoryRuntime.selectedRssSource ?? "none"}.`,
+    `- Run selection policy: ${artifact.runProvenance.policy.id}; retained attempts=${artifact.runProvenance.attempts.length}; failed attempts=${analysis.runSelection.failedAttemptCount}; consecutive clean runs=${analysis.runSelection.consecutiveCleanRuns}/${analysis.runSelection.requiredConsecutiveCleanRuns}; eligible for promotion=${artifact.runProvenance.eligibleForPromotion ? "yes" : "no"}; accepted run IDs=${artifact.runProvenance.acceptedRunIds.join(", ") || "none"}.`,
   ];
   return `${lines.join("\n")}\n`;
 }

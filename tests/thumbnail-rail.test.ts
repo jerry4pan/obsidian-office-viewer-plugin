@@ -68,6 +68,48 @@ afterEach(() => {
 });
 
 describe("ThumbnailRail", () => {
+  it("reports readiness only after the resource resolves and clears it on unmount and dispose", async () => {
+    const root = createRoot(1);
+    const firstReady = deferred<void>();
+    const renderer = createRenderer((index, container) => {
+      container.textContent = `Allocated preview ${index + 1}`;
+      return {
+        ready: index === 0 ? firstReady.promise : new Promise<void>(() => undefined),
+        dispose: vi.fn(),
+      };
+    });
+    const queue = new RenderTaskQueue();
+    const readyCounts: number[] = [];
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+      onReadyCountChange: (count) => readyCounts.push(count),
+      overscanViewports: 0,
+    });
+
+    rail.start(0);
+    await vi.waitFor(() => expect(renderer.renderThumbnail).toHaveBeenCalled());
+    const first = root.querySelector<HTMLElement>('[data-slide-index="0"]')!;
+    expect(first.textContent).toContain("Allocated preview 1");
+    expect(first.dataset.thumbnailReady).toBeUndefined();
+    expect(rail.readyCount).toBe(0);
+
+    firstReady.resolve();
+    await vi.waitFor(() => expect(first.dataset.thumbnailReady).toBe("true"));
+    expect(rail.readyCount).toBe(1);
+
+    root.scrollTop = 20_000;
+    rail.refresh();
+    expect(first.isConnected).toBe(false);
+    expect(first.dataset.thumbnailReady).toBeUndefined();
+    expect(rail.readyCount).toBe(0);
+
+    rail.dispose();
+    expect(rail.readyCount).toBe(0);
+    expect(readyCounts).toContain(1);
+    expect(readyCounts.at(-1)).toBe(0);
+    queue.dispose();
+  });
+
   it("mounts a bounded, accessible window for a 200-slide deck", () => {
     const root = createRoot();
     const renderer = createRenderer();

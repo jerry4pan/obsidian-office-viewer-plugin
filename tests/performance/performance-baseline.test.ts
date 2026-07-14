@@ -39,6 +39,22 @@ describe("committed installed PPTX performance baseline", () => {
     expect(baseline.rawOpens).toHaveLength(13);
     expect(baseline.rawMemoryAttempts).toHaveLength(10);
     expect(baseline.rawCancellationAttempts).toHaveLength(5);
+    const measuredOpens = baseline.rawOpens.filter(
+      ({ kind }) => kind === "measured",
+    );
+    expect(
+      measuredOpens.every(
+        ({ thumbnailReadiness, switchWarmup, slideSwitches }) =>
+          thumbnailReadiness?.signal === "data-ready-thumbnail-count" &&
+          switchWarmup.length === 4 &&
+          slideSwitches.every(({ warmupVisitOrdinal }) =>
+            Number.isInteger(warmupVisitOrdinal),
+          ),
+      ),
+    ).toBe(true);
+    expect(baseline.runProvenance.eligibleForPromotion).toBe(true);
+    expect(baseline.runProvenance.acceptedRunIds).toHaveLength(2);
+    expect(baseline.runProvenance.attempts.length).toBeGreaterThanOrEqual(2);
     expect(baseline.thumbnailReadinessMs.length).toBeGreaterThanOrEqual(10);
     expect(baseline.mountedThumbnailCounts.length).toBeGreaterThanOrEqual(10);
     expect(
@@ -232,6 +248,71 @@ describe("committed installed PPTX performance baseline", () => {
           renderer.candidate.label,
         ),
       ).toThrow(/close and file-switch cleanup/);
+    },
+  );
+
+  it.runIf(expectedOutcome === "pass")(
+    "rejects allocation-only thumbnail evidence without the project ready signal",
+    () => {
+      const tampered = cloneBaseline() as {
+        rawOpens: Array<{
+          kind: string;
+          thumbnailReadiness: { signal: string } | null;
+        }>;
+      };
+      tampered.rawOpens.find(({ kind }) => kind === "measured")!
+        .thumbnailReadiness!.signal = "thumbnail-dom-allocated";
+
+      expect(() =>
+        validateInstalledPerformanceArtifact(
+          tampered,
+          actualBundleBytes(),
+          expectedOutcome,
+          renderer.candidate.label,
+        ),
+      ).toThrow(/data-ready-thumbnail-count/);
+    },
+  );
+
+  it.runIf(expectedOutcome === "pass")(
+    "rejects timing-only slide switches without a prior rendered visit",
+    () => {
+      const tampered = cloneBaseline() as {
+        rawOpens: Array<{
+          kind: string;
+          slideSwitches: Array<{ warmupVisitOrdinal: number }>;
+        }>;
+      };
+      tampered.rawOpens.find(({ kind }) => kind === "measured")!
+        .slideSwitches[0]!.warmupVisitOrdinal = 0;
+
+      expect(() =>
+        validateInstalledPerformanceArtifact(
+          tampered,
+          actualBundleBytes(),
+          expectedOutcome,
+          renderer.candidate.label,
+        ),
+      ).toThrow(/timing-only switch/);
+    },
+  );
+
+  it.runIf(expectedOutcome === "pass")(
+    "rejects a run history that discards the selected-run provenance",
+    () => {
+      const tampered = cloneBaseline() as {
+        runProvenance: { attempts: unknown[] };
+      };
+      tampered.runProvenance.attempts = tampered.runProvenance.attempts.slice(-1);
+
+      expect(() =>
+        validateInstalledPerformanceArtifact(
+          tampered,
+          actualBundleBytes(),
+          expectedOutcome,
+          renderer.candidate.label,
+        ),
+      ).toThrow(/selection|two-consecutive-clean-runs/);
     },
   );
 

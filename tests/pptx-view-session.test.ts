@@ -839,6 +839,35 @@ describe("PptxViewSession", () => {
     expect(root.dataset.mountedThumbnailCount).toBeUndefined();
   });
 
+  it("exposes a thumbnail-ready count only after readiness and clears it on dispose", async () => {
+    const root = document.createElement("div");
+    const pending = new Promise<void>((resolve) => {
+      (root as HTMLElement & { resolveThumbnail?: () => void }).resolveThumbnail = resolve;
+    });
+    const { adapter, rendererSession } = makeM2Renderer(2);
+    rendererSession.renderThumbnail = vi.fn((index, container) => {
+      container.textContent = `Allocated preview ${index + 1}`;
+      return { ready: pending, dispose: vi.fn() };
+    });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+
+    await session.open("ready-signal.pptx");
+    await vi.waitFor(() => expect(rendererSession.renderThumbnail).toHaveBeenCalled());
+    expect(root.dataset.readyThumbnailCount).toBe("0");
+
+    (root as HTMLElement & { resolveThumbnail?: () => void }).resolveThumbnail?.();
+    await vi.waitFor(() => expect(Number(root.dataset.readyThumbnailCount)).toBeGreaterThan(0));
+    expect(session.getPerformanceDiagnostics().readyThumbnails).toBeGreaterThan(0);
+
+    session.dispose();
+    expect(root.dataset.readyThumbnailCount).toBeUndefined();
+    expect(session.getPerformanceDiagnostics().readyThumbnails).toBe(0);
+  });
+
   it("disposes the previous renderer before reopening", async () => {
     const root = document.createElement("div");
     const bytes = new ArrayBuffer(1);
