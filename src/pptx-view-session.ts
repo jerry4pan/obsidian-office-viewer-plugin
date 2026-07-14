@@ -428,15 +428,19 @@ export class PptxViewSession<FileRef> {
       updateFullscreenState();
       toggleFullscreen.addEventListener("click", () => {
         actionStatus.textContent = "";
-        const operation = fullscreen.isActive(this.root)
-          ? fullscreen.exit()
-          : fullscreen.enter(this.root);
-        void operation.then(updateFullscreenState).catch(() => {
-          if (isCurrentRun()) {
-            actionStatus.textContent = "Unable to change full-screen mode.";
-            updateFullscreenState();
-          }
-        });
+        void Promise.resolve()
+          .then(() =>
+            fullscreen.isActive(this.root)
+              ? fullscreen.exit()
+              : fullscreen.enter(this.root),
+          )
+          .then(updateFullscreenState)
+          .catch(() => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = "Unable to change full-screen mode.";
+              updateFullscreenState();
+            }
+          });
       });
 
       const onKeyDown = (event: KeyboardEvent) => {
@@ -569,28 +573,31 @@ export class PptxViewSession<FileRef> {
 
   private teardownOpenResources(): void {
     const abortController = this.abortController;
+    const cleanups = [...this.runCleanups];
+    const thumbnailRail = this.thumbnailRail;
+    const viewerController = this.viewerController;
+    const backgroundQueue = this.backgroundQueue;
+    const rendererSession = this.rendererSession;
+
     this.abortController = null;
+    this.runCleanups.clear();
+    this.thumbnailRail = null;
+    this.viewerController = null;
+    this.backgroundQueue = null;
+    this.rendererSession = null;
+
     try {
       abortController?.abort();
     } catch {
       // Continue releasing owned resources if cancellation hooks misbehave.
     }
-    for (const cleanup of this.runCleanups) {
+    for (const cleanup of cleanups) {
       try {
         cleanup();
       } catch {
         // One detached platform listener must not block remaining cleanup.
       }
     }
-    this.runCleanups.clear();
-    const thumbnailRail = this.thumbnailRail;
-    this.thumbnailRail = null;
-    const viewerController = this.viewerController;
-    this.viewerController = null;
-    const backgroundQueue = this.backgroundQueue;
-    this.backgroundQueue = null;
-    const rendererSession = this.rendererSession;
-    this.rendererSession = null;
     for (const dispose of [
       () => thumbnailRail?.dispose(),
       () => viewerController?.dispose(),

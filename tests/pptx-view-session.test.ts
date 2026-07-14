@@ -64,7 +64,9 @@ function makeFullscreen() {
       }),
       subscribe: vi.fn((listener: () => void) => {
         listeners.add(listener);
-        return () => listeners.delete(listener);
+        return () => {
+          listeners.delete(listener);
+        };
       }),
     },
     listeners,
@@ -560,6 +562,80 @@ describe("PptxViewSession", () => {
       mountedThumbnails: 0,
       rendererActive: false,
     });
+  });
+
+  it("detaches every owned resource before a cleanup callback re-enters dispose", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeM2Renderer(20);
+    let session!: PptxViewSession<string>;
+    let diagnosticsDuringCleanup: ReturnType<PptxViewSession<string>["getPerformanceDiagnostics"]> | undefined;
+    let reentered = false;
+    const unsubscribe = vi.fn(() => {
+      diagnosticsDuringCleanup = session.getPerformanceDiagnostics();
+      if (!reentered) {
+        reentered = true;
+        session.dispose();
+      }
+    });
+    const fullscreen = makeFullscreen();
+    fullscreen.api.subscribe.mockReturnValue(unsubscribe);
+    session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { fullscreen: fullscreen.api },
+    );
+    await session.open("deck.pptx");
+    const internals = session as unknown as {
+      thumbnailRail: { dispose(): void };
+      viewerController: { dispose(): void };
+      backgroundQueue: { dispose(): void };
+    };
+    const railDispose = vi.spyOn(internals.thumbnailRail, "dispose");
+    const controllerDispose = vi.spyOn(internals.viewerController, "dispose");
+    const queueDispose = vi.spyOn(internals.backgroundQueue, "dispose");
+
+    expect(() => session.dispose()).not.toThrow();
+
+    expect(diagnosticsDuringCleanup).toMatchObject({
+      backgroundPending: 0,
+      backgroundRunning: 0,
+      mountedThumbnails: 0,
+      rendererActive: false,
+    });
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(railDispose).toHaveBeenCalledOnce();
+    expect(controllerDispose).toHaveBeenCalledOnce();
+    expect(queueDispose).toHaveBeenCalledOnce();
+    expect(rendererSession.dispose).toHaveBeenCalledOnce();
+    expect(root.childElementCount).toBe(0);
+    expect(root.dataset.state).toBeUndefined();
+  });
+
+  it("reports a synchronous full-screen action failure locally", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(2);
+    const fullscreen = makeFullscreen();
+    fullscreen.api.enter.mockImplementation(() => {
+      throw new Error("synchronous platform failure");
+    });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { fullscreen: fullscreen.api },
+    );
+    await session.open("deck.pptx");
+
+    root.querySelector<HTMLButtonElement>('[data-action="toggle-fullscreen"]')!.click();
+
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain("Unable to change full-screen mode."),
+    );
+    expect(root.dataset.state).toBe("ready");
+    expect(root.dataset.fullscreen).toBe("false");
+    expect(root.textContent).not.toContain("synchronous platform failure");
+    session.dispose();
   });
 
   it("survives a throwing previous renderer disposer while reopening", async () => {
