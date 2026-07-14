@@ -427,6 +427,52 @@ describe("ThumbnailRail", () => {
     await queue.whenIdle();
   });
 
+  it("treats external cancellation before a mounted task runs as cancellation", async () => {
+    const root = createRoot(100);
+    const blocker = deferred<void>();
+    const renderer = createRenderer((index, container) => {
+      if (index === 0) {
+        return { ready: blocker.promise, dispose: vi.fn() };
+      }
+      container.textContent = `Preview ${index + 1}`;
+      return { ready: Promise.resolve(), dispose: vi.fn() };
+    });
+    const queue = new RenderTaskQueue();
+    const enqueue = vi.spyOn(queue, "enqueue");
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+      overscanViewports: 1,
+    });
+    rail.start(0);
+    await Promise.resolve();
+
+    const pendingKey = enqueue.mock.calls
+      .map(([task]) => task)
+      .find((task) => queuedThumbnailIndex(task.key) === 1)?.key;
+    if (pendingKey === undefined) {
+      throw new Error("Expected a pending thumbnail task for slide 2");
+    }
+    queue.cancel(pendingKey);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(root.querySelector('[data-slide-index="1"]')?.textContent)
+      .not.toContain("preview unavailable");
+    rail.refresh();
+    expect(enqueue.mock.calls
+      .map(([task]) => task)
+      .filter((task) => queuedThumbnailIndex(task.key) === 1))
+      .toHaveLength(2);
+
+    blocker.resolve();
+    await queue.whenIdle();
+    expect(root.querySelector('[data-slide-index="1"]')?.textContent)
+      .toContain("Preview 2");
+
+    rail.dispose();
+    queue.dispose();
+  });
+
   it("disconnects observation, cancels work, and disposes mounted resources exactly once", async () => {
     const root = createRoot();
     const disconnect = vi.fn();
@@ -458,6 +504,39 @@ describe("ThumbnailRail", () => {
     expect(rail.mountedCount).toBe(0);
     expect(root.childElementCount).toBe(0);
     expect(renderer.dispose).not.toHaveBeenCalled();
+
+    queue.dispose();
+  });
+
+  it("finishes full cleanup when one renderer resource disposer throws", async () => {
+    const root = createRoot();
+    const disconnect = vi.fn();
+    const throwingDispose = vi.fn(() => {
+      throw new Error("candidate cleanup failed");
+    });
+    const normalDispose = vi.fn();
+    const renderer = createRenderer((index, container) => {
+      container.textContent = `Preview ${index + 1}`;
+      return {
+        ready: Promise.resolve(),
+        dispose: index === 0 ? throwingDispose : normalDispose,
+      };
+    });
+    const queue = new RenderTaskQueue();
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      createResizeObserver: () => ({ disconnect, observe: vi.fn() }),
+      onNavigate: vi.fn(),
+    });
+    rail.start(0);
+    await queue.whenIdle();
+
+    expect(() => rail.dispose()).not.toThrow();
+
+    expect(throwingDispose).toHaveBeenCalledTimes(1);
+    expect(normalDispose).toHaveBeenCalled();
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    expect(rail.mountedCount).toBe(0);
+    expect(root.childElementCount).toBe(0);
 
     queue.dispose();
   });

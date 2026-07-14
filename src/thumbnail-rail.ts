@@ -36,6 +36,10 @@ function finitePositive(value: number | undefined, fallback: number): number {
     : fallback;
 }
 
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 async function waitForReady(
   ready: Promise<void>,
   signal: AbortSignal,
@@ -331,8 +335,10 @@ export class ThumbnailRail {
           item.state = "ready";
         }
       })
-      .catch(() => {
-        const canceled = attemptSignal?.aborted === true;
+      .catch((error: unknown) => {
+        const canceled = attemptSignal === undefined
+          ? isAbort(error)
+          : attemptSignal.aborted;
         if (
           !this.disposed &&
           this.mounted.get(item.index) === item &&
@@ -376,6 +382,10 @@ export class ThumbnailRail {
   private disposeResource(resource: PptxRendererResource): void {
     if (this.disposedResources.has(resource)) return;
     this.disposedResources.add(resource);
-    resource.dispose();
+    try {
+      resource.dispose();
+    } catch {
+      // A candidate cleanup failure must not strand other rail resources.
+    }
   }
 }
