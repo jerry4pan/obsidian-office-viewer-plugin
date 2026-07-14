@@ -205,7 +205,7 @@ export class PptxViewSession<FileRef> {
           pageInput.value = String(currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
           this.setLifecyclePhase("degraded");
-          status.textContent = `Slide ${targetIndex + 1} could not be rendered. Try another slide or open it in the default application.`;
+          status.textContent = `Slide ${targetIndex + 1} could not be rendered. The previous slide is still shown. Try another slide or open it in the default application.`;
         } finally {
           if (isCurrentRun()) restoreControlState();
         }

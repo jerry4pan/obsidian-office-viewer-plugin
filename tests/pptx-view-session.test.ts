@@ -374,11 +374,7 @@ describe("PptxViewSession", () => {
     rendererSession.renderSlide = vi
       .fn()
       .mockResolvedValueOnce(undefined)
-      .mockImplementationOnce(async () => {
-        root.querySelector<HTMLElement>(".pptx-viewer__slide")!.textContent =
-          "Renderer error placeholder";
-        throw new Error("render failed");
-      })
+      .mockRejectedValueOnce(new Error("render failed"))
       .mockResolvedValueOnce(undefined);
     const session = new PptxViewSession(root, reader, adapter);
 
@@ -394,10 +390,9 @@ describe("PptxViewSession", () => {
 
     await vi.waitFor(() => expect(root.dataset.state).toBe("degraded"));
     expect(root.textContent).toContain(
-      "Slide 2 could not be rendered. Try another slide or open it in the default application.",
+      "Slide 2 could not be rendered. The previous slide is still shown. Try another slide or open it in the default application.",
     );
-    expect(root.textContent).not.toContain("last readable slide is still shown");
-    expect(root.textContent).toContain("Renderer error placeholder");
+    expect(root.textContent).toContain("Obsidian PPTX smoke test");
     expect(root.textContent).toContain("1 / 3");
     expect(
       root.querySelector<HTMLInputElement>('[data-action="page-number"]')

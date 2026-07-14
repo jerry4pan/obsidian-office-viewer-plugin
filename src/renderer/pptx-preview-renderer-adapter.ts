@@ -4,6 +4,7 @@ import type {
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./pptx-renderer-adapter";
+import { captureRenderedSlide } from "./rendered-slide-backup";
 
 interface PptxPreviewerOptions {
   readonly width: number;
@@ -40,6 +41,7 @@ function resolveViewport(container: HTMLElement): PptxPreviewerOptions {
 
 class PptxPreviewRendererSession implements PptxRendererSession {
   private disposed = false;
+  private currentSlideIndex: number | null = null;
 
   constructor(
     private readonly previewer: PptxPreviewer,
@@ -54,7 +56,23 @@ class PptxPreviewRendererSession implements PptxRendererSession {
     if (this.disposed) {
       throw new Error("PPTX renderer session has been disposed");
     }
-    this.previewer.renderSingleSlide(index);
+    const previousIndex = this.currentSlideIndex;
+    const backup = captureRenderedSlide(this.container);
+    try {
+      this.previewer.renderSingleSlide(index);
+    } catch {
+      if (previousIndex !== null) {
+        try {
+          this.previewer.renderSingleSlide(previousIndex);
+        } catch {
+          backup.restore();
+        }
+      } else {
+        backup.restore();
+      }
+      throw new Error(`The renderer could not display slide ${index + 1}`);
+    }
+    this.currentSlideIndex = index;
   }
 
   dispose(): void {

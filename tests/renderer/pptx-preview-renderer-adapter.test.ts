@@ -89,6 +89,63 @@ describe("PptxPreviewRendererAdapter", () => {
     expect(previewer.renderSingleSlide).toHaveBeenNthCalledWith(2, 2);
   });
 
+  it("restores the last readable slide when candidate navigation fails", async () => {
+    const container = document.createElement("div");
+    const previewer = {
+      slideCount: 2,
+      load: vi.fn(async () => ({})),
+      renderSingleSlide: vi.fn((index: number) => {
+        if (index === 1) {
+          container.textContent = "renderer error placeholder";
+          throw new Error("private renderer details");
+        }
+        container.textContent = "slide 1";
+      }),
+      destroy: vi.fn(),
+    };
+    const session = await new PptxPreviewRendererAdapter(() => previewer).open(
+      new ArrayBuffer(8),
+      container,
+      new AbortController().signal,
+    );
+    await session.renderSlide(0);
+
+    await expect(session.renderSlide(1)).rejects.toThrow(
+      "The renderer could not display slide 2",
+    );
+    expect(previewer.renderSingleSlide).toHaveBeenNthCalledWith(3, 0);
+    expect(container.textContent).toBe("slide 1");
+  });
+
+  it("falls back to a DOM snapshot when candidate rollback also fails", async () => {
+    const container = document.createElement("div");
+    let shouldFail = false;
+    const previewer = {
+      slideCount: 2,
+      load: vi.fn(async () => ({})),
+      renderSingleSlide: vi.fn((index: number) => {
+        if (shouldFail) {
+          container.textContent = "renderer error placeholder";
+          throw new Error(`failed slide ${index}`);
+        }
+        container.textContent = "slide 1";
+      }),
+      destroy: vi.fn(),
+    };
+    const session = await new PptxPreviewRendererAdapter(() => previewer).open(
+      new ArrayBuffer(8),
+      container,
+      new AbortController().signal,
+    );
+    await session.renderSlide(0);
+    shouldFail = true;
+
+    await expect(session.renderSlide(1)).rejects.toThrow(
+      "The renderer could not display slide 2",
+    );
+    expect(container.textContent).toBe("slide 1");
+  });
+
   it("disposes once, clears candidate DOM, and rejects later rendering", async () => {
     const container = document.createElement("div");
     const previewer = {

@@ -65,18 +65,19 @@ error.
 - `loading`: Vault reading, adapter opening, or first-slide rendering is in
   progress.
 - `ready`: the current slide rendered and navigation is available.
-- `degraded`: a later slide failed to render; the last successfully committed
-  page number remains current, a non-blocking message is shown, and navigation
-  is restored. The selected renderer may replace the slide canvas with its own
-  error placeholder, so the viewer does not claim that old pixels remain.
+- `degraded`: a later slide failed to render; the last readable slide and its
+  page number remain current, a non-blocking message is shown, and navigation
+  is restored. Each adapter attempts to re-render the last successful slide
+  after a candidate failure and falls back to a DOM-and-canvas snapshot if the
+  rollback render also fails.
 - `error`: initial read/open/render failed; stable safe copy, retry, and the
   external fallback replace the viewer content.
 
 Invalid page input never calls the renderer and never changes the current
 page. It shows `Enter a slide number from 1 to N.` and returns focus to the
-input. A slide-level renderer error shows an honest page-specific failure and
-leaves the last successful page number committed. A successful navigation
-clears that validation or degraded message.
+input. A slide-level renderer error shows a page-specific failure and leaves
+the last readable slide visible. A successful navigation clears that
+validation or degraded message.
 External-open failures are reported locally and do not replace a readable
 slide or reveal filesystem details.
 

@@ -131,31 +131,102 @@ describe("AidenPptxRendererAdapter", () => {
     }
   });
 
-  it("rejects a slide navigation when Aiden reports an internal slide error", async () => {
+  it("restores the visible slide when navigation rendering reports an internal failure", async () => {
     const container = document.createElement("div");
     const session = await new AidenPptxRendererAdapter().open(
       await loadFixture(),
       container,
       new AbortController().signal,
     );
+    await session.renderSlide(0);
+    const readableContent = container.textContent;
+    let attempt = 0;
     const renderSlide = vi
       .spyOn(PptxViewer.prototype, "renderSlide")
-      .mockImplementation(async function (this: PptxViewer, index = 0) {
-        this.dispatchEvent(
-          new CustomEvent("slideerror", {
-            detail: { index, error: new Error("private renderer details") },
-          }),
-        );
+      .mockImplementation(async function (this: PptxViewer) {
+        attempt += 1;
+        if (attempt === 1) {
+          container.textContent = "renderer error placeholder";
+          this.dispatchEvent(
+            new CustomEvent("slideerror", {
+              detail: { index: 0, error: new Error("private renderer details") },
+            }),
+          );
+          return;
+        }
+        container.textContent = readableContent;
       });
 
     try {
       await expect(session.renderSlide(0)).rejects.toThrow(
         "The renderer could not display slide 1",
       );
+      expect(container.textContent).toBe(readableContent);
+      expect(container.textContent).toContain("Obsidian PPTX smoke test");
+    } finally {
+      expect(renderSlide).toHaveBeenCalledTimes(2);
+      renderSlide.mockRestore();
+      session.dispose();
+    }
+  });
+
+  it("falls back to a DOM snapshot when both navigation and rollback fail", async () => {
+    const container = document.createElement("div");
+    const session = await new AidenPptxRendererAdapter().open(
+      await loadFixture(),
+      container,
+      new AbortController().signal,
+    );
+    await session.renderSlide(0);
+    const readableContent = container.textContent;
+    const renderSlide = vi
+      .spyOn(PptxViewer.prototype, "renderSlide")
+      .mockImplementation(async () => {
+        container.textContent = "renderer error placeholder";
+        throw new Error("private renderer details");
+      });
+
+    try {
+      await expect(session.renderSlide(0)).rejects.toThrow(
+        "The renderer could not display slide 1",
+      );
+      expect(renderSlide).toHaveBeenCalledTimes(2);
+      expect(container.textContent).toBe(readableContent);
     } finally {
       renderSlide.mockRestore();
       session.dispose();
     }
+  });
+
+  it("does not restore stale content when a pending render rejects after disposal", async () => {
+    const container = document.createElement("div");
+    const session = await new AidenPptxRendererAdapter().open(
+      await loadFixture(),
+      container,
+      new AbortController().signal,
+    );
+    await session.renderSlide(0);
+    let rejectRender: ((reason: Error) => void) | undefined;
+    const renderSlide = vi
+      .spyOn(PptxViewer.prototype, "renderSlide")
+      .mockImplementation(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectRender = reject;
+          }),
+      );
+
+    const pendingRender = session.renderSlide(0);
+    session.dispose();
+    container.textContent = "newly opened presentation";
+    rejectRender?.(new Error("late renderer failure"));
+
+    await expect(pendingRender).rejects.toThrow(
+      "PPTX renderer session has been disposed",
+    );
+    expect(renderSlide).toHaveBeenCalledOnce();
+    expect(container.textContent).toBe("newly opened presentation");
+    renderSlide.mockRestore();
   });
 
   for (const fixture of expectedFailureFixtures) {

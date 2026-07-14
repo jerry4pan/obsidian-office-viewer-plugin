@@ -1,12 +1,11 @@
-import {
-  PptxViewer,
-} from "@aiden0z/pptx-renderer";
+import { PptxViewer } from "@aiden0z/pptx-renderer";
 import type {
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./pptx-renderer-adapter";
 import { PptxOpenError } from "../pptx-open-error";
 import { PPTX_ZIP_LIMITS } from "./pptx-package-preflight";
+import { captureRenderedSlide } from "./rendered-slide-backup";
 
 async function rejectReportedSlideError(
   viewer: PptxViewer,
@@ -30,6 +29,7 @@ async function rejectReportedSlideError(
 
 class AidenPptxRendererSession implements PptxRendererSession {
   private disposed = false;
+  private currentSlideIndex = 0;
 
   constructor(
     private readonly viewer: PptxViewer,
@@ -40,16 +40,41 @@ class AidenPptxRendererSession implements PptxRendererSession {
     return this.viewer.slideCount;
   }
 
-  async renderSlide(index: number): Promise<void> {
+  private throwIfDisposed(): void {
     if (this.disposed) {
       throw new Error("PPTX renderer session has been disposed");
     }
-    await rejectReportedSlideError(
-      this.viewer,
-      index,
-      () => this.viewer.renderSlide(index),
-      () => new Error(`The renderer could not display slide ${index + 1}`),
-    );
+  }
+
+  async renderSlide(index: number): Promise<void> {
+    this.throwIfDisposed();
+    const previousIndex = this.currentSlideIndex;
+    const backup = captureRenderedSlide(this.container);
+    try {
+      await rejectReportedSlideError(
+        this.viewer,
+        index,
+        () => this.viewer.renderSlide(index),
+        () => new Error(`The renderer could not display slide ${index + 1}`),
+      );
+    } catch {
+      this.throwIfDisposed();
+      try {
+        await rejectReportedSlideError(
+          this.viewer,
+          previousIndex,
+          () => this.viewer.renderSlide(previousIndex),
+          () => new Error("The renderer could not restore the previous slide"),
+        );
+      } catch {
+        this.throwIfDisposed();
+        backup.restore();
+      }
+      this.throwIfDisposed();
+      throw new Error(`The renderer could not display slide ${index + 1}`);
+    }
+    this.throwIfDisposed();
+    this.currentSlideIndex = index;
   }
 
   dispose(): void {
