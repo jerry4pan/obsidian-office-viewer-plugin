@@ -638,6 +638,134 @@ describe("PptxViewSession", () => {
     session.dispose();
   });
 
+  it("keeps the viewer ready when the initial full-screen state probe throws", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(2);
+    const fullscreen = makeFullscreen();
+    fullscreen.api.isActive.mockImplementation(() => {
+      throw new Error("initial full-screen probe failed");
+    });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { fullscreen: fullscreen.api },
+    );
+
+    await expect(session.open("deck.pptx")).resolves.toBeUndefined();
+
+    expect(root.dataset.state).toBe("ready");
+    expect(root.dataset.fullscreen).toBe("false");
+    expect(root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute("aria-label"))
+      .toBe("Enter full screen");
+    expect(root.textContent).not.toContain("initial full-screen probe failed");
+    session.dispose();
+  });
+
+  it("isolates a throwing full-screen probe from the subscribed event", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(2);
+    const fullscreen = makeFullscreen();
+    fullscreen.api.isActive
+      .mockReturnValueOnce(false)
+      .mockImplementation(() => {
+        throw new Error("event full-screen probe failed");
+      });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { fullscreen: fullscreen.api },
+    );
+    await session.open("deck.pptx");
+
+    expect(() => {
+      fullscreen.listeners.forEach((listener) => listener());
+    }).not.toThrow();
+
+    expect(root.dataset.state).toBe("ready");
+    expect(root.dataset.fullscreen).toBe("false");
+    expect(root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute("aria-label"))
+      .toBe("Enter full screen");
+    session.dispose();
+  });
+
+  it("keeps full-screen failure status stable when the recovery probe throws", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(2);
+    const fullscreen = makeFullscreen();
+    fullscreen.api.isActive
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockImplementation(() => {
+        throw new Error("recovery full-screen probe failed");
+      });
+    fullscreen.api.enter.mockRejectedValueOnce(new Error("enter failed"));
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { fullscreen: fullscreen.api },
+    );
+    try {
+      await session.open("deck.pptx");
+
+      root.querySelector<HTMLButtonElement>('[data-action="toggle-fullscreen"]')!.click();
+
+      await vi.waitFor(() =>
+        expect(root.textContent).toContain("Unable to change full-screen mode."),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(root.dataset.fullscreen).toBe("false");
+      expect(root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute("aria-label"))
+        .toBe("Enter full screen");
+      expect(root.textContent).not.toContain("recovery full-screen probe failed");
+    } finally {
+      process.off("unhandledRejection", unhandled);
+      session.dispose();
+    }
+  });
+
+  it("retains the last known state without rejection when a successful toggle recovery probe throws", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(2);
+    const fullscreen = makeFullscreen();
+    fullscreen.api.isActive
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockImplementation(() => {
+        throw new Error("successful recovery probe failed");
+      });
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { fullscreen: fullscreen.api },
+    );
+    try {
+      await session.open("deck.pptx");
+
+      root.querySelector<HTMLButtonElement>('[data-action="toggle-fullscreen"]')!.click();
+
+      await vi.waitFor(() => expect(fullscreen.api.enter).toHaveBeenCalledOnce());
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(root.dataset.fullscreen).toBe("false");
+      expect(root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute("aria-label"))
+        .toBe("Enter full screen");
+      expect(root.textContent).not.toContain("Unable to change full-screen mode.");
+      expect(root.textContent).not.toContain("successful recovery probe failed");
+    } finally {
+      process.off("unhandledRejection", unhandled);
+      session.dispose();
+    }
+  });
+
   it("survives a throwing previous renderer disposer while reopening", async () => {
     const root = document.createElement("div");
     const first = makeRenderer(2);

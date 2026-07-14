@@ -413,9 +413,8 @@ export class PptxViewSession<FileRef> {
       fitSlide.addEventListener("click", () => void viewController.resetToFit());
 
       const fullscreen = this.actions.fullscreen ?? createDefaultFullscreenActions();
-      const updateFullscreenState = () => {
-        if (!isCurrentRun()) return;
-        const active = fullscreen.isActive(this.root);
+      let lastKnownFullscreenState = false;
+      const applyFullscreenState = (active: boolean) => {
         this.root.dataset.fullscreen = String(active);
         toggleFullscreen.textContent = active ? "Exit full screen" : "Full screen";
         toggleFullscreen.setAttribute(
@@ -423,22 +422,42 @@ export class PptxViewSession<FileRef> {
           active ? "Exit full screen" : "Enter full screen",
         );
       };
-      const unsubscribeFullscreen = fullscreen.subscribe(updateFullscreenState);
+      const probeFullscreenState = (): {
+        active: boolean;
+        determinate: boolean;
+      } => {
+        if (!isCurrentRun()) {
+          return { active: lastKnownFullscreenState, determinate: false };
+        }
+        try {
+          lastKnownFullscreenState = fullscreen.isActive(this.root);
+          applyFullscreenState(lastKnownFullscreenState);
+          return { active: lastKnownFullscreenState, determinate: true };
+        } catch {
+          return { active: lastKnownFullscreenState, determinate: false };
+        }
+      };
+      const unsubscribeFullscreen = fullscreen.subscribe(() => {
+        probeFullscreenState();
+      });
       this.runCleanups.add(unsubscribeFullscreen);
-      updateFullscreenState();
+      probeFullscreenState();
       toggleFullscreen.addEventListener("click", () => {
         actionStatus.textContent = "";
         void Promise.resolve()
-          .then(() =>
-            fullscreen.isActive(this.root)
+          .then(() => {
+            const { active } = probeFullscreenState();
+            return active
               ? fullscreen.exit()
-              : fullscreen.enter(this.root),
-          )
-          .then(updateFullscreenState)
+              : fullscreen.enter(this.root);
+          })
+          .then(() => {
+            probeFullscreenState();
+          })
           .catch(() => {
             if (isCurrentRun()) {
               actionStatus.textContent = "Unable to change full-screen mode.";
-              updateFullscreenState();
+              probeFullscreenState();
             }
           });
       });
