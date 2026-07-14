@@ -6,6 +6,10 @@ without converting them to PDF or uploading them to a service.
 The current M0 tracer bullet opens a PPTX from the Vault and renders slide 1.
 It is not yet a public release and does not represent a final renderer choice.
 
+Malformed, incomplete, protected, and renderer-incompatible PPTX inputs now
+reach stable read-only error states with retry and desktop external-open actions;
+see `docs/compatibility/pptx-failure-handling.md`.
+
 ## Development
 
 Requirements: Node.js 22 and npm.

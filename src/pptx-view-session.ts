@@ -2,6 +2,10 @@ import type {
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./renderer/pptx-renderer-adapter";
+import {
+  PptxOpenError,
+  type PptxOpenErrorCategory,
+} from "./pptx-open-error";
 
 export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
@@ -24,6 +28,17 @@ export type PptxLifecyclePhase =
   | "error"
   | "disposed";
 
+export interface PptxViewActions<FileRef> {
+  openExternally?: (file: FileRef) => Promise<void>;
+}
+
+const errorMessages: Record<PptxOpenErrorCategory, string> = {
+  malformed: "This PPTX is damaged or incomplete.",
+  protected: "This PPTX is encrypted or password-protected.",
+  incompatible: "This PPTX uses content this viewer cannot safely display.",
+  unknown: "An unexpected error prevented this PPTX from opening.",
+};
+
 export class PptxViewSession<FileRef> {
   private abortController: AbortController | null = null;
   private rendererSession: PptxRendererSession | null = null;
@@ -36,6 +51,7 @@ export class PptxViewSession<FileRef> {
     private readonly root: HTMLElement,
     private readonly reader: VaultBinaryReader<FileRef>,
     private readonly renderer: PptxRendererAdapter,
+    private readonly actions: PptxViewActions<FileRef> = {},
   ) {
     root.classList.add("pptx-viewer");
   }
@@ -72,12 +88,15 @@ export class PptxViewSession<FileRef> {
     this.root.replaceChildren(status, controls, slideContainer);
     this.root.dataset.state = "loading";
     this.setLifecyclePhase("reading");
+    delete this.root.dataset.errorCategory;
+    let phase: "read" | "renderer" = "read";
 
     try {
       const openedAt = performance.now();
       const buffer = await this.reader.readBinary(file);
       controller.signal.throwIfAborted();
       this.setLifecyclePhase("adapter-opening");
+      phase = "renderer";
       const rendererSession = await this.renderer.open(
         buffer,
         slideContainer,
@@ -150,13 +169,22 @@ export class PptxViewSession<FileRef> {
       status.textContent = "";
       this.root.dataset.state = "ready";
       this.setLifecyclePhase("ready");
+      if (this.abortController === controller) this.abortController = null;
     } catch (error) {
       if (controller.signal.aborted || generation !== this.generation) return;
-      this.root.dataset.state = "error";
+      this.rendererSession?.dispose();
+      this.rendererSession = null;
+      if (this.abortController === controller) this.abortController = null;
       this.setLifecyclePhase("error");
-      status.textContent = "Unable to open this PPTX file.";
-      slideContainer.replaceChildren();
-      throw error;
+      const openError =
+        error instanceof PptxOpenError
+          ? error
+          : new PptxOpenError(
+              phase === "renderer" ? "incompatible" : "unknown",
+              "Unexpected PPTX open failure",
+              { cause: error },
+            );
+      this.showError(file, openError, generation);
     } finally {
       if (generation === this.generation) this.openPending = false;
     }
@@ -182,6 +210,52 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.state;
     delete this.root.dataset.lifecyclePhase;
     this.clearTimings();
+    delete this.root.dataset.errorCategory;
+  }
+
+  private showError(
+    file: FileRef,
+    error: PptxOpenError,
+    generation: number,
+  ): void {
+    const panel = document.createElement("div");
+    panel.className = "pptx-viewer__error";
+    const title = document.createElement("div");
+    title.className = "pptx-viewer__status";
+    title.textContent = errorMessages[error.category];
+    const safety = document.createElement("p");
+    safety.className = "pptx-viewer__safety-note";
+    safety.textContent = "The original PPTX file was not modified.";
+    const actions = document.createElement("div");
+    actions.className = "pptx-viewer__actions";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.dataset.action = "retry";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", () => void this.open(file));
+    actions.append(retry);
+
+    const actionStatus = document.createElement("div");
+    actionStatus.className = "pptx-viewer__action-status";
+    if (this.actions.openExternally) {
+      const openExternally = document.createElement("button");
+      openExternally.type = "button";
+      openExternally.dataset.action = "open-externally";
+      openExternally.textContent = "Open in default application";
+      openExternally.addEventListener("click", () => {
+        void this.actions.openExternally?.(file).catch(() => {
+          if (generation === this.generation) {
+            actionStatus.textContent = "Unable to open the default application.";
+          }
+        });
+      });
+      actions.append(openExternally);
+    }
+
+    panel.append(title, safety, actions, actionStatus);
+    this.root.replaceChildren(panel);
+    this.root.dataset.state = "error";
+    this.root.dataset.errorCategory = error.category;
   }
 
   private stopCurrentRun(): void {

@@ -1,11 +1,12 @@
 import {
   PptxViewer,
-  RECOMMENDED_ZIP_LIMITS,
 } from "@aiden0z/pptx-renderer";
 import type {
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./pptx-renderer-adapter";
+import { PptxOpenError } from "../pptx-open-error";
+import { PPTX_ZIP_LIMITS } from "./pptx-package-preflight";
 
 class AidenPptxRendererSession implements PptxRendererSession {
   private disposed = false;
@@ -41,15 +42,16 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
     signal: AbortSignal,
   ): Promise<PptxRendererSession> {
     signal.throwIfAborted();
-    const viewerOptions = {
-      fitMode: "contain",
-      lazyMedia: true,
-      lazySlides: true,
-      pdfjs: false,
-      zipLimits: RECOMMENDED_ZIP_LIMITS,
-    } as const;
-    const viewer = new PptxViewer(container, viewerOptions);
+    container.replaceChildren();
+    let viewer: PptxViewer | undefined;
     try {
+      viewer = new PptxViewer(container, {
+        fitMode: "contain",
+        lazyMedia: true,
+        lazySlides: true,
+        pdfjs: false,
+        zipLimits: PPTX_ZIP_LIMITS,
+      });
       await viewer.open(buffer, {
         renderMode: "slide",
         signal,
@@ -57,10 +59,26 @@ export class AidenPptxRendererAdapter implements PptxRendererAdapter {
         lazySlides: true,
       });
       signal.throwIfAborted();
+      if (viewer.slideCount < 1) {
+        throw new PptxOpenError(
+          "incompatible",
+          "The renderer did not find a usable slide",
+        );
+      }
       return new AidenPptxRendererSession(viewer, container);
     } catch (error) {
-      viewer.destroy();
-      throw error;
+      viewer?.destroy();
+      container.replaceChildren();
+      if (error instanceof PptxOpenError) throw error;
+      if (
+        error instanceof Error &&
+        error.name === "AbortError"
+      ) throw error;
+      throw new PptxOpenError(
+        "incompatible",
+        "The renderer could not safely display this PPTX package",
+        { cause: error },
+      );
     }
   }
 }
