@@ -2,6 +2,14 @@ export interface RenderedSlideBackup {
   restore(): void;
 }
 
+export interface AtomicSlideRenderOptions {
+  readonly container: HTMLElement;
+  readonly targetIndex: number;
+  readonly previousIndex: number | null;
+  readonly render: (index: number) => void | Promise<void>;
+  readonly assertActive?: () => void;
+}
+
 export function captureRenderedSlide(
   container: HTMLElement,
 ): RenderedSlideBackup {
@@ -34,4 +42,35 @@ export function captureRenderedSlide(
       container.replaceChildren(...Array.from(snapshot.childNodes));
     },
   };
+}
+
+export async function renderSlideAtomically({
+  container,
+  targetIndex,
+  previousIndex,
+  render,
+  assertActive = () => {},
+}: AtomicSlideRenderOptions): Promise<void> {
+  assertActive();
+  const backup = captureRenderedSlide(container);
+  try {
+    await render(targetIndex);
+  } catch {
+    assertActive();
+    if (previousIndex !== null) {
+      try {
+        await render(previousIndex);
+      } catch {
+        assertActive();
+        backup.restore();
+      }
+    } else {
+      backup.restore();
+    }
+    assertActive();
+    throw new Error(
+      `The renderer could not display slide ${targetIndex + 1}`,
+    );
+  }
+  assertActive();
 }

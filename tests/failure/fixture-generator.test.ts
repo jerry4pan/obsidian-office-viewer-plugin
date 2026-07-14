@@ -70,6 +70,29 @@ describe("failure fixture generator", () => {
     }
   });
 
+  it("keeps all three degraded-navigation source slides valid and readable", async () => {
+    const fixtureBytes = await readFile(
+      "tests/fixtures/m1/degraded-navigation.pptx",
+    );
+    const vaultBytes = await readFile(
+      "tests/vault/m1/degraded-navigation.pptx",
+    );
+    expect(vaultBytes).toEqual(fixtureBytes);
+    const zip = await JSZip.loadAsync(fixtureBytes);
+
+    for (const slideNumber of [1, 2, 3]) {
+      const xml = await zip
+        .file(`ppt/slides/slide${slideNumber}.xml`)
+        ?.async("text");
+      expect(xml).toContain(`Readable slide ${slideNumber}`);
+      const document = new DOMParser().parseFromString(
+        xml ?? "",
+        "application/xml",
+      );
+      expect(document.querySelector("parsererror")).toBeNull();
+    }
+  });
+
   it("uses a standard slide-referenced external hyperlink for the no-network fixture", async () => {
     const fixture = allSafetyFixtures.find(
       ({ id }) => id === "external-relationship-safe",

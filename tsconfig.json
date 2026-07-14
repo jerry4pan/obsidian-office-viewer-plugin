@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "module": "ESNext",
@@ -25,5 +26,5 @@
       "wdio-obsidian-service"
     ]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "wdio.conf.mts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "wdio*.conf.mts"]
 }

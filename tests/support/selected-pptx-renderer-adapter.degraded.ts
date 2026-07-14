@@ -1,0 +1,40 @@
+import { AidenPptxRendererAdapter } from "../../src/renderer/aiden-pptx-renderer-adapter";
+import type {
+  PptxRendererAdapter,
+  PptxRendererSession,
+} from "../../src/renderer/pptx-renderer-adapter";
+import { SELECTED_PPTX_RENDERER } from "../../src/renderer/selected-pptx-renderer-adapter.aiden";
+
+export { SELECTED_PPTX_RENDERER };
+
+class DegradedNavigationTestAdapter implements PptxRendererAdapter {
+  private readonly delegate = new AidenPptxRendererAdapter();
+
+  async open(
+    buffer: ArrayBuffer,
+    container: HTMLElement,
+    signal: AbortSignal,
+  ): Promise<PptxRendererSession> {
+    const session = await this.delegate.open(buffer, container, signal);
+    return {
+      get slideCount() {
+        return session.slideCount;
+      },
+      renderSlide(index: number): Promise<void> {
+        if (index === 1) {
+          return Promise.reject(
+            new Error("Injected installed-test slide failure"),
+          );
+        }
+        return session.renderSlide(index);
+      },
+      dispose(): void {
+        session.dispose();
+      },
+    };
+  }
+}
+
+export function createSelectedPptxRendererAdapter(): PptxRendererAdapter {
+  return new DegradedNavigationTestAdapter();
+}

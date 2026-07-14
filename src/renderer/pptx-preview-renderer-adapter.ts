@@ -4,7 +4,7 @@ import type {
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./pptx-renderer-adapter";
-import { captureRenderedSlide } from "./rendered-slide-backup";
+import { renderSlideAtomically } from "./rendered-slide-backup";
 
 interface PptxPreviewerOptions {
   readonly width: number;
@@ -57,21 +57,12 @@ class PptxPreviewRendererSession implements PptxRendererSession {
       throw new Error("PPTX renderer session has been disposed");
     }
     const previousIndex = this.currentSlideIndex;
-    const backup = captureRenderedSlide(this.container);
-    try {
-      this.previewer.renderSingleSlide(index);
-    } catch {
-      if (previousIndex !== null) {
-        try {
-          this.previewer.renderSingleSlide(previousIndex);
-        } catch {
-          backup.restore();
-        }
-      } else {
-        backup.restore();
-      }
-      throw new Error(`The renderer could not display slide ${index + 1}`);
-    }
+    await renderSlideAtomically({
+      container: this.container,
+      targetIndex: index,
+      previousIndex,
+      render: (slideIndex) => this.previewer.renderSingleSlide(slideIndex),
+    });
     this.currentSlideIndex = index;
   }
 

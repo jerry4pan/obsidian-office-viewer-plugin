@@ -8,6 +8,12 @@ Run `npm run fixtures` to copy the committed fixture into the e2e test Vault.
 Run `npm run fixtures:regenerate` only when intentionally rebuilding it; the
 ZIP container records generation metadata, so review and commit the new binary.
 
+The `m1/degraded-navigation.pptx` fixture is a valid repository-authored
+three-slide deck. The installed degraded-navigation acceptance test pairs it
+with a test-only renderer adapter that rejects slide 2 before mutation, proving
+that the last readable slide is preserved and later navigation can recover.
+The production bundle is rebuilt after that test-only run.
+
 The `failure/` corpus is also repository-authored. It contains intentionally
 truncated ZIP, malformed XML, missing-media, encrypted, inert active-content,
 candidate/preflight resource-limit, safe standard external-hyperlink, and blocked

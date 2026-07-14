@@ -43,7 +43,10 @@ npm run test:performance:baseline
 ```
 
 `npm run test:e2e` downloads and launches a sandboxed Obsidian instance. It
-does not use the normal Obsidian configuration or a personal Vault.
+does not use the normal Obsidian configuration or a personal Vault. Six cases
+exercise the production adapter; a separate installed case uses a test-only
+adapter to inject one recoverable slide failure, then rebuilds the production
+bundle before exiting.
 
 `npm run test:compatibility` opens the representative corpus through the same
 installed plugin path, captures fixed-environment screenshots, compares them

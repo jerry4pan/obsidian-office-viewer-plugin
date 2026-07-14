@@ -5,7 +5,7 @@ import type {
 } from "./pptx-renderer-adapter";
 import { PptxOpenError } from "../pptx-open-error";
 import { PPTX_ZIP_LIMITS } from "./pptx-package-preflight";
-import { captureRenderedSlide } from "./rendered-slide-backup";
+import { renderSlideAtomically } from "./rendered-slide-backup";
 
 async function rejectReportedSlideError(
   viewer: PptxViewer,
@@ -47,33 +47,23 @@ class AidenPptxRendererSession implements PptxRendererSession {
   }
 
   async renderSlide(index: number): Promise<void> {
-    this.throwIfDisposed();
     const previousIndex = this.currentSlideIndex;
-    const backup = captureRenderedSlide(this.container);
-    try {
-      await rejectReportedSlideError(
-        this.viewer,
-        index,
-        () => this.viewer.renderSlide(index),
-        () => new Error(`The renderer could not display slide ${index + 1}`),
-      );
-    } catch {
-      this.throwIfDisposed();
-      try {
-        await rejectReportedSlideError(
+    await renderSlideAtomically({
+      container: this.container,
+      targetIndex: index,
+      previousIndex,
+      render: (slideIndex) =>
+        rejectReportedSlideError(
           this.viewer,
-          previousIndex,
-          () => this.viewer.renderSlide(previousIndex),
-          () => new Error("The renderer could not restore the previous slide"),
-        );
-      } catch {
-        this.throwIfDisposed();
-        backup.restore();
-      }
-      this.throwIfDisposed();
-      throw new Error(`The renderer could not display slide ${index + 1}`);
-    }
-    this.throwIfDisposed();
+          slideIndex,
+          () => this.viewer.renderSlide(slideIndex),
+          () =>
+            new Error(
+              `The renderer could not display slide ${slideIndex + 1}`,
+            ),
+        ),
+      assertActive: () => this.throwIfDisposed(),
+    });
     this.currentSlideIndex = index;
   }
 

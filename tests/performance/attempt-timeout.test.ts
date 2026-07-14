@@ -2,6 +2,7 @@ import {
   AttemptDeadlineExceededError,
   attemptRemainingMs,
   pollUntilAttemptDeadline,
+  runBoundedCollectorCleanup,
   withAttemptDeadline,
   withFreshAttemptDeadline,
 } from "./attempt-timeout";
@@ -120,5 +121,25 @@ describe("attempt-level monotonic timeout", () => {
         timeoutMs: 10,
       }),
     ).rejects.toBeInstanceOf(AttemptDeadlineExceededError);
+  });
+});
+
+describe("runBoundedCollectorCleanup", () => {
+  it("still releases evidence after close fails and returns both errors", async () => {
+    const operations: string[] = [];
+    const errors = await runBoundedCollectorCleanup({
+      runWithDeadline: async (operation) => operation(),
+      beginClose: async () => {
+        operations.push("close");
+        throw new Error("close failed");
+      },
+      releaseEvidence: async () => {
+        operations.push("release");
+        throw new Error("release failed");
+      },
+    });
+
+    expect(operations).toEqual(["close", "release"]);
+    expect(errors).toEqual(["close failed", "release failed"]);
   });
 });

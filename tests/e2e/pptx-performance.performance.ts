@@ -28,6 +28,7 @@ import {
   AttemptDeadlineExceededError,
   attemptRemainingMs,
   pollUntilAttemptDeadline,
+  runBoundedCollectorCleanup,
   withAttemptDeadline,
   withFreshAttemptDeadline,
   type AttemptDeadline,
@@ -259,6 +260,14 @@ function withCollectorCleanupDeadline<T>(
     () => performance.now(),
     operation,
   );
+}
+
+function cleanupRunEvidence(token: string): Promise<string[]> {
+  return runBoundedCollectorCleanup({
+    runWithDeadline: withCollectorCleanupDeadline,
+    beginClose: () => beginClose(token, 0),
+    releaseEvidence: () => releaseRunEvidence(token),
+  });
 }
 
 function closeDeadline(
@@ -870,29 +879,11 @@ describe("installed PPTX performance collector", () => {
             synchronizeMemoryAttempt(memoryAttempt);
           }
         } finally {
-          let collectorCleanupError: string | null = null;
-          try {
-            await withCollectorCleanupDeadline(() => beginClose(token, 0));
-          } catch (error) {
-            collectorCleanupError = message(error);
-            recordFailure(
-              "collector-cleanup",
-              collectorCleanupError,
-              sampleIndex,
-            );
+          const collectorCleanupErrors = await cleanupRunEvidence(token);
+          for (const error of collectorCleanupErrors) {
+            recordFailure("collector-cleanup", error, sampleIndex);
           }
-          try {
-            await withCollectorCleanupDeadline(() =>
-              releaseRunEvidence(token),
-            );
-          } catch (error) {
-            collectorCleanupError ??= message(error);
-            recordFailure(
-              "collector-cleanup",
-              message(error),
-              sampleIndex,
-            );
-          }
+          const collectorCleanupError = collectorCleanupErrors[0] ?? null;
           if (collectorCleanupError) {
             openAttempt.status = "failed";
             openAttempt.error ??= collectorCleanupError;
@@ -1100,29 +1091,14 @@ describe("installed PPTX performance collector", () => {
         attempt.timedOut = error instanceof AttemptDeadlineExceededError;
         attempt.error ??= message(error);
         recordFailure("cancellation", attempt.error, index);
-        try {
-          await run(() => beginClose(token, 0));
-        } catch {
-          // The attempt retains the original failure.
-        }
       } finally {
-        let collectorCleanupError: string | null = null;
-        try {
-          await withCollectorCleanupDeadline(() => beginClose(token, 0));
-        } catch (error) {
-          collectorCleanupError = message(error);
+        const collectorCleanupErrors = await cleanupRunEvidence(token);
+        for (const error of collectorCleanupErrors) {
           attempt.status = "failed";
-          attempt.error ??= collectorCleanupError;
-          recordFailure("collector-cleanup", collectorCleanupError, index);
+          attempt.error ??= error;
+          recordFailure("collector-cleanup", error, index);
         }
-        try {
-          await withCollectorCleanupDeadline(() => releaseRunEvidence(token));
-        } catch (error) {
-          collectorCleanupError ??= message(error);
-          attempt.status = "failed";
-          attempt.error ??= message(error);
-          recordFailure("collector-cleanup", message(error), index);
-        }
+        const collectorCleanupError = collectorCleanupErrors[0] ?? null;
         rawCancellationAttempts.push(attempt);
         await checkpointProgress();
         if (collectorCleanupError) {

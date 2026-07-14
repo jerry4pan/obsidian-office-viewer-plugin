@@ -9,12 +9,22 @@ import { parseSafetyFixtureManifest } from "./safety-fixture-manifest.mjs";
 
 const execFileAsync = promisify(execFile);
 const allSafetyFixtures = parseSafetyFixtureManifest(manifest);
+const degradedNavigationFixturePath = path.resolve(
+  "tests/fixtures/m1/degraded-navigation.pptx",
+);
+const degradedNavigationVaultPath = path.resolve(
+  "tests/vault/m1/degraded-navigation.pptx",
+);
 
 for (const directory of new Set(
-  allSafetyFixtures.flatMap((fixture) => [
-    path.dirname(fixture.fixturePath),
-    path.dirname(fixture.vaultPath),
-  ]),
+  [
+    ...allSafetyFixtures.flatMap((fixture) => [
+      path.dirname(fixture.fixturePath),
+      path.dirname(fixture.vaultPath),
+    ]),
+    path.dirname(degradedNavigationFixturePath),
+    path.dirname(degradedNavigationVaultPath),
+  ],
 )) {
   await mkdir(path.resolve(directory), { recursive: true });
 }
@@ -69,6 +79,30 @@ async function writeZip(zip) {
     compression: "DEFLATE",
     compressionOptions: { level: 6 },
   });
+}
+
+async function generateDegradedNavigationFixture() {
+  const pptx = new PptxGenJS();
+  pptx.author = "Obsidian Office Viewer";
+  pptx.subject = "Installed degraded-navigation acceptance fixture";
+  pptx.title = "Readable slides for deterministic navigation fault injection";
+  pptx.lang = "en-US";
+  pptx.layout = "LAYOUT_WIDE";
+  for (const slideNumber of [1, 2, 3]) {
+    const slide = pptx.addSlide();
+    slide.addText(`Readable slide ${slideNumber}`, {
+      x: 1,
+      y: 1,
+      w: 7,
+      h: 0.8,
+      fontFace: "Arial",
+      fontSize: 28,
+    });
+  }
+  const bytes = Buffer.from(
+    await pptx.write({ outputType: "nodebuffer", compression: true }),
+  );
+  await writeFile(degradedNavigationFixturePath, bytes);
 }
 
 async function generateFixtures() {
@@ -242,7 +276,22 @@ const allFixtureFilesExist = (
 
 if (force || !allFixtureFilesExist) await generateFixtures();
 
+const degradedNavigationFixtureIsCurrent = await readFile(
+  degradedNavigationFixturePath,
+).then(
+  async (bytes) => {
+    const zip = await JSZip.loadAsync(bytes);
+    const slide2 = await zip.file("ppt/slides/slide2.xml")?.async("text");
+    return slide2?.includes("Readable slide 2") === true;
+  },
+  () => false,
+);
+if (force || !degradedNavigationFixtureIsCurrent) {
+  await generateDegradedNavigationFixture();
+}
+
 for (const { id } of allSafetyFixtures) {
   await readFile(fixturePath(id));
   await copyFile(fixturePath(id), vaultPath(id));
 }
+await copyFile(degradedNavigationFixturePath, degradedNavigationVaultPath);

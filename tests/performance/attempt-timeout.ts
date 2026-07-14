@@ -80,6 +80,28 @@ export function withFreshAttemptDeadline<T>(
   );
 }
 
+export interface BoundedCollectorCleanupOptions {
+  readonly runWithDeadline: <T>(operation: () => Promise<T>) => Promise<T>;
+  readonly beginClose: () => Promise<void>;
+  readonly releaseEvidence: () => Promise<void>;
+}
+
+export async function runBoundedCollectorCleanup({
+  runWithDeadline,
+  beginClose,
+  releaseEvidence,
+}: BoundedCollectorCleanupOptions): Promise<string[]> {
+  const errors: string[] = [];
+  for (const operation of [beginClose, releaseEvidence]) {
+    try {
+      await runWithDeadline(operation);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  return errors;
+}
+
 export async function pollUntilAttemptDeadline<T>(
   options: AttemptPollOptions<T>,
 ): Promise<AttemptPollResult<T>> {
