@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TFile, type ToggleComponent } from "obsidian";
+import { getLanguage, TFile, type ToggleComponent } from "obsidian";
 
 import OfficeViewerPlugin from "../src/main";
 
@@ -25,7 +25,29 @@ async function representativeFixtureBuffer(): Promise<ArrayBuffer> {
 }
 
 describe("OfficeViewerPlugin", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getLanguage).mockReturnValue("en");
+  });
+
+  it("selects the message locale from Obsidian when the plugin loads", async () => {
+    vi.mocked(getLanguage).mockReturnValue("zh-TW");
+    const app = {
+      vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+
+    await plugin.onload();
+    const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+    const view = factory?.({ app } as never) as unknown as {
+      contentEl: HTMLElement;
+    };
+
+    expect(getLanguage).toHaveBeenCalledOnce();
+    expect(view.contentEl.textContent).toContain(
+      "從倉庫開啟 PPTX 檔案即可開始閱讀。",
+    );
+  });
 
   it("registers pptx files with the dedicated view", async () => {
     let releaseLoad!: () => void;

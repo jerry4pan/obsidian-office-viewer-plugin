@@ -1,4 +1,5 @@
-import { Plugin, TFile } from "obsidian";
+import { getLanguage, Plugin, TFile } from "obsidian";
+import { createMessageTranslator } from "./i18n";
 import { OfficeViewerSettingTab } from "./office-viewer-setting-tab";
 import { PptxFileView, PPTX_VIEW_TYPE } from "./pptx-file-view";
 import {
@@ -22,6 +23,7 @@ export default class OfficeViewerPlugin extends Plugin {
 
   override async onload(): Promise<void> {
     this.unloading = false;
+    const messages = createMessageTranslator(getLanguage());
     const store = new ReadingPositionStore({
       loadData: () => this.loadData(),
       saveData: (data) => this.saveData(data),
@@ -68,6 +70,7 @@ export default class OfficeViewerPlugin extends Plugin {
           subscribeThumbnailRailWidth: (listener) =>
             store.subscribeThumbnailRailWidth(listener),
         },
+        messages,
       );
       this.views.add(view);
       return view;

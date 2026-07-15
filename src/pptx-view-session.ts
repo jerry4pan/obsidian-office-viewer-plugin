@@ -3,6 +3,10 @@ import type {
   PptxRendererSession,
 } from "./renderer/pptx-renderer-adapter";
 import {
+  ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageTranslator,
+} from "./i18n";
+import {
   PptxOpenError,
   type PptxOpenErrorCategory,
 } from "./pptx-open-error";
@@ -42,7 +46,8 @@ export type PptxLifecyclePhase =
   | "error"
   | "disposed";
 
-export interface PptxViewActions<FileRef> {
+export interface PptxViewOptions<FileRef> {
+  messages?: MessageTranslator;
   openExternally?: (file: FileRef) => Promise<void>;
   positions?: {
     initialSlideFor(file: FileRef, slideCount: number): number;
@@ -99,17 +104,19 @@ export class PptxViewSession<FileRef> {
   private openPending = false;
   private disposed = false;
   private lifecyclePhase: PptxLifecyclePhase = "idle";
+  private readonly messages: MessageTranslator;
 
   constructor(
     private readonly root: HTMLElement,
     private readonly reader: VaultBinaryReader<FileRef>,
     private readonly renderer: PptxRendererAdapter,
-    private readonly actions: PptxViewActions<FileRef> = {},
+    private readonly options: PptxViewOptions<FileRef> = {},
   ) {
+    this.messages = options.messages ?? ENGLISH_MESSAGE_TRANSLATOR;
     root.classList.add("pptx-viewer");
     const empty = document.createElement("div");
     empty.className = "pptx-viewer__empty";
-    empty.textContent = "Open a PPTX file from your Vault to start reading.";
+    empty.textContent = this.messages.text("viewer.empty");
     root.replaceChildren(empty);
     root.dataset.state = "empty";
     this.setLifecyclePhase("idle");
@@ -128,7 +135,7 @@ export class PptxViewSession<FileRef> {
     status.className = "pptx-viewer__status";
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
-    status.textContent = "Loading presentation…";
+    status.textContent = this.messages.text("viewer.loading");
     this.root.tabIndex = 0;
     this.root.dataset.thumbnailsCollapsed = "false";
     this.root.dataset.fullscreen = "false";
@@ -139,12 +146,12 @@ export class PptxViewSession<FileRef> {
     const previousButton = document.createElement("button");
     previousButton.type = "button";
     previousButton.dataset.action = "previous-slide";
-    previousButton.textContent = "Previous";
+    previousButton.textContent = this.messages.text("navigation.previous");
     previousButton.disabled = true;
     const nextButton = document.createElement("button");
     nextButton.type = "button";
     nextButton.dataset.action = "next-slide";
-    nextButton.textContent = "Next";
+    nextButton.textContent = this.messages.text("navigation.next");
     nextButton.disabled = true;
     const pageInput = document.createElement("input");
     pageInput.type = "number";
@@ -153,33 +160,42 @@ export class PptxViewSession<FileRef> {
     pageInput.value = "1";
     pageInput.disabled = true;
     pageInput.dataset.action = "page-number";
-    pageInput.setAttribute("aria-label", "Slide number");
+    pageInput.setAttribute(
+      "aria-label",
+      this.messages.text("navigation.slideNumber"),
+    );
     const pageTotal = document.createElement("span");
     pageTotal.className = "pptx-viewer__page-total";
-    pageTotal.textContent = "of …";
+    pageTotal.textContent = this.messages.text("navigation.pageTotalPending");
     const jumpButton = document.createElement("button");
     jumpButton.type = "button";
     jumpButton.disabled = true;
     jumpButton.dataset.action = "jump-to-slide";
-    jumpButton.textContent = "Go";
+    jumpButton.textContent = this.messages.text("navigation.go");
     const jumpForm = document.createElement("form");
     jumpForm.className = "pptx-viewer__page-jump";
     const jumpLabel = document.createElement("span");
-    jumpLabel.textContent = "Slide";
+    jumpLabel.textContent = this.messages.text("navigation.slide");
     jumpForm.append(jumpLabel, pageInput, pageTotal, jumpButton);
     const controls = document.createElement("div");
     controls.className = "pptx-viewer__controls";
     const toggleThumbnails = document.createElement("button");
     toggleThumbnails.type = "button";
     toggleThumbnails.dataset.action = "toggle-thumbnails";
-    toggleThumbnails.textContent = "Thumbnails";
-    toggleThumbnails.setAttribute("aria-label", "Toggle slide thumbnails");
+    toggleThumbnails.textContent = this.messages.text("thumbnails.toggle");
+    toggleThumbnails.setAttribute(
+      "aria-label",
+      this.messages.text("thumbnails.toggleLabel"),
+    );
     toggleThumbnails.setAttribute("aria-expanded", "true");
     const toggleFullscreen = document.createElement("button");
     toggleFullscreen.type = "button";
     toggleFullscreen.dataset.action = "toggle-fullscreen";
-    toggleFullscreen.textContent = "Full screen";
-    toggleFullscreen.setAttribute("aria-label", "Enter full screen");
+    toggleFullscreen.textContent = this.messages.text("fullscreen.button");
+    toggleFullscreen.setAttribute(
+      "aria-label",
+      this.messages.text("fullscreen.enterLabel"),
+    );
     controls.append(
       previousButton,
       pageCounter,
@@ -264,7 +280,7 @@ export class PptxViewSession<FileRef> {
       };
       let initialSlideIndex = 0;
       try {
-        initialSlideIndex = this.actions.positions?.initialSlideFor(
+        initialSlideIndex = this.options.positions?.initialSlideFor(
           file,
           rendererSession.slideCount,
         ) ?? 0;
@@ -296,7 +312,10 @@ export class PptxViewSession<FileRef> {
           }
           navigationStartedAt = undefined;
           pageInput.value = String(index + 1);
-          pageCounter.textContent = `${index + 1} / ${rendererSession.slideCount}`;
+          pageCounter.textContent = this.messages.text("page.counter", {
+            current: index + 1,
+            total: rendererSession.slideCount,
+          });
           rail?.setCurrentSlide(index);
           updateMountedCount();
           this.root.dataset.state = "ready";
@@ -304,7 +323,7 @@ export class PptxViewSession<FileRef> {
           status.textContent = "";
           if (!isInitialCommit) {
             try {
-              this.actions.positions?.record(file, index);
+              this.options.positions?.record(file, index);
             } catch {
               // The readable page remains authoritative if persistence fails.
             }
@@ -330,7 +349,7 @@ export class PptxViewSession<FileRef> {
 
       let preferredThumbnailRailWidth = DEFAULT_THUMBNAIL_RAIL_WIDTH;
       try {
-        preferredThumbnailRailWidth = this.actions.thumbnailRail?.initialWidth() ??
+        preferredThumbnailRailWidth = this.options.thumbnailRail?.initialWidth() ??
           DEFAULT_THUMBNAIL_RAIL_WIDTH;
       } catch {
         // Preference persistence must not interrupt reading.
@@ -361,13 +380,13 @@ export class PptxViewSession<FileRef> {
         rail,
         {
           preferredWidth: preferredThumbnailRailWidth,
-          onCommit: (width) => this.actions.thumbnailRail?.recordWidth(width),
+          onCommit: (width) => this.options.thumbnailRail?.recordWidth(width),
         },
       );
       readingBody.insertBefore(railResizer.element, slideContainer);
       this.runCleanups.add(() => railResizer.dispose());
       try {
-        const unsubscribe = this.actions.thumbnailRail?.subscribeWidth?.(
+        const unsubscribe = this.options.thumbnailRail?.subscribeWidth?.(
           (width) => railResizer.setPreferredWidth(width),
         );
         if (unsubscribe !== undefined) this.runCleanups.add(unsubscribe);
@@ -402,10 +421,15 @@ export class PptxViewSession<FileRef> {
       });
 
       const currentSlideIndex = viewController.state.currentSlideIndex;
-      pageCounter.textContent = `${currentSlideIndex + 1} / ${rendererSession.slideCount}`;
+      pageCounter.textContent = this.messages.text("page.counter", {
+        current: currentSlideIndex + 1,
+        total: rendererSession.slideCount,
+      });
       pageInput.value = String(currentSlideIndex + 1);
       pageInput.max = String(rendererSession.slideCount);
-      pageTotal.textContent = `of ${rendererSession.slideCount}`;
+      pageTotal.textContent = this.messages.text("page.total", {
+        total: rendererSession.slideCount,
+      });
       restoreControlState();
       status.textContent = "";
       this.root.dataset.state = "ready";
@@ -417,14 +441,18 @@ export class PptxViewSession<FileRef> {
         if (!collapsed) rail?.refresh();
         updateMountedCount();
       });
-      const fullscreen = this.actions.fullscreen ?? createDefaultFullscreenActions();
+      const fullscreen = this.options.fullscreen ?? createDefaultFullscreenActions();
       let lastKnownFullscreenState = false;
       const applyFullscreenState = (active: boolean) => {
         this.root.dataset.fullscreen = String(active);
-        toggleFullscreen.textContent = active ? "Exit full screen" : "Full screen";
+        toggleFullscreen.textContent = this.messages.text(
+          active ? "fullscreen.exit" : "fullscreen.button",
+        );
         toggleFullscreen.setAttribute(
           "aria-label",
-          active ? "Exit full screen" : "Enter full screen",
+          this.messages.text(
+            active ? "fullscreen.exit" : "fullscreen.enterLabel",
+          ),
         );
       };
       const probeFullscreenState = (): {
@@ -576,14 +604,14 @@ export class PptxViewSession<FileRef> {
     generation: number,
     actionStatus: HTMLElement,
   ): HTMLButtonElement | null {
-    if (!this.actions.openExternally) return null;
+    if (!this.options.openExternally) return null;
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.action = "open-externally";
-    button.textContent = "Open in default application";
+    button.textContent = this.messages.text("external.open");
     button.addEventListener("click", () => {
       actionStatus.textContent = "";
-      void this.actions.openExternally?.(file).catch(() => {
+      void this.options.openExternally?.(file).catch(() => {
         if (generation === this.generation) {
           actionStatus.textContent = "Unable to open the default application.";
         }

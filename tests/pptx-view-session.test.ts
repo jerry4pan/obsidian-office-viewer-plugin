@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createMessageTranslator } from "../src/i18n";
 import { PptxViewSession } from "../src/pptx-view-session";
 import { PptxOpenError } from "../src/pptx-open-error";
 import type {
@@ -73,6 +74,124 @@ function makeFullscreen() {
 }
 
 describe("PptxViewSession", () => {
+  it("renders the core reading loop in Simplified Chinese", async () => {
+    const root = document.createElement("div");
+    let finishRead!: (bytes: ArrayBuffer) => void;
+    const reader = {
+      readBinary: vi.fn(
+        () => new Promise<ArrayBuffer>((resolve) => {
+          finishRead = resolve;
+        }),
+      ),
+    };
+    const { adapter } = makeRenderer(3);
+    const session = new PptxViewSession(root, reader, adapter, {
+      messages: createMessageTranslator("zh-CN"),
+      openExternally: vi.fn(async () => {}),
+    });
+
+    expect(root.textContent).toContain("从仓库中打开 PPTX 文件即可开始阅读。");
+
+    const opening = session.open("deck.pptx");
+    expect(root.textContent).toContain("正在加载演示文稿…");
+    expect(root.querySelector('[data-action="previous-slide"]')?.textContent)
+      .toBe("上一页");
+    expect(root.querySelector('[data-action="next-slide"]')?.textContent)
+      .toBe("下一页");
+    expect(
+      root.querySelector('[data-action="page-number"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("幻灯片编号");
+    expect(root.querySelector('[data-action="jump-to-slide"]')?.textContent)
+      .toBe("跳转");
+    expect(root.querySelector('[data-action="toggle-thumbnails"]')?.textContent)
+      .toBe("缩略图");
+    expect(
+      root.querySelector('[data-action="toggle-thumbnails"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("切换幻灯片缩略图");
+    expect(root.querySelector('[data-action="toggle-fullscreen"]')?.textContent)
+      .toBe("全屏");
+    expect(
+      root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("进入全屏");
+    expect(root.querySelector('[data-action="open-externally"]')?.textContent)
+      .toBe("在默认应用程序中打开");
+
+    finishRead(new ArrayBuffer(1));
+    await opening;
+
+    expect(root.textContent).toContain("1 / 3");
+    expect(root.querySelector(".pptx-viewer__page-total")?.textContent).toBe(
+      "共 3 页",
+    );
+  });
+
+  it("renders the core reading loop in Traditional Chinese", async () => {
+    const root = document.createElement("div");
+    let finishRead!: (bytes: ArrayBuffer) => void;
+    const { adapter } = makeRenderer(3);
+    const session = new PptxViewSession(
+      root,
+      {
+        readBinary: vi.fn(
+          () => new Promise<ArrayBuffer>((resolve) => {
+            finishRead = resolve;
+          }),
+        ),
+      },
+      adapter,
+      {
+        messages: createMessageTranslator("zh-TW"),
+        openExternally: vi.fn(async () => {}),
+      },
+    );
+
+    expect(root.textContent).toContain("從倉庫開啟 PPTX 檔案即可開始閱讀。");
+
+    const opening = session.open("deck.pptx");
+    expect(root.textContent).toContain("正在載入簡報…");
+
+    expect(root.querySelector('[data-action="previous-slide"]')?.textContent)
+      .toBe("上一頁");
+    expect(root.querySelector('[data-action="next-slide"]')?.textContent)
+      .toBe("下一頁");
+    expect(root.querySelector('[data-action="jump-to-slide"]')?.textContent)
+      .toBe("跳至");
+    expect(root.querySelector('[data-action="toggle-thumbnails"]')?.textContent)
+      .toBe("縮圖");
+    expect(
+      root.querySelector('[data-action="toggle-thumbnails"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("切換投影片縮圖");
+    expect(root.querySelector('[data-action="toggle-fullscreen"]')?.textContent)
+      .toBe("全螢幕");
+    expect(
+      root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("進入全螢幕");
+    expect(
+      root.querySelector('[data-action="page-number"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("投影片編號");
+    expect(root.querySelector('[data-action="open-externally"]')?.textContent)
+      .toBe("在預設應用程式中開啟");
+
+    finishRead(new ArrayBuffer(1));
+    await opening;
+
+    expect(root.querySelector(".pptx-viewer__page-total")?.textContent).toBe(
+      "共 3 頁",
+    );
+  });
+
   it("keeps fit-to-window automatic and exposes no manual zoom controls", async () => {
     const root = document.createElement("div");
     const { adapter } = makeM2Renderer(3);

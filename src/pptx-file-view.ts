@@ -1,4 +1,8 @@
 import { FileView, type App, type TFile, type WorkspaceLeaf } from "obsidian";
+import {
+  ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageTranslator,
+} from "./i18n";
 import { PptxViewSession } from "./pptx-view-session";
 import type { PptxViewSessionDiagnostics } from "./pptx-view-session";
 import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
@@ -39,6 +43,7 @@ export class PptxFileView extends FileView {
     leaf: WorkspaceLeaf,
     private readonly onDisposed: () => void = () => {},
     state?: PptxFileViewState,
+    messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
@@ -49,6 +54,7 @@ export class PptxFileView extends FileView {
       { readBinary: (file) => this.app.vault.readBinary(file) },
       createPptxRendererAdapter(),
       {
+        messages,
         openExternally: createExternalOpenAction(this.app),
         positions: state,
         thumbnailRail: state === undefined
