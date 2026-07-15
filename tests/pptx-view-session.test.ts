@@ -464,6 +464,44 @@ describe("PptxViewSession", () => {
     expect(root.textContent).toContain(copiedStatus);
   });
 
+  it.each([
+    ["en", "Unable to copy the diagnostic summary."],
+    ["zh-CN", "无法复制诊断摘要。"],
+    ["zh-TW", "無法複製診斷摘要。"],
+  ] as const)("reports a diagnostic copy failure in %s", async (
+    language,
+    failureStatus,
+  ) => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer();
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        messages: createMessageTranslator(language),
+        diagnostics: {
+          environment: {
+            pluginVersion: "0.0.1",
+            obsidianVersion: "1.13.1",
+            rendererVersion: "1.2.4",
+            operatingSystem: "darwin-arm64",
+          },
+          rememberReadingPosition: () => false,
+          copy: vi.fn(async () => { throw new Error("clipboard unavailable"); }),
+        },
+      },
+    );
+
+    await session.open("deck.pptx");
+    root.querySelector<HTMLButtonElement>('[data-action="copy-diagnostics"]')!
+      .click();
+
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain(failureStatus)
+    );
+  });
+
   it("classifies a current AbortError as a recoverable cancelled load", async () => {
     const root = document.createElement("div");
     const adapter: PptxRendererAdapter = {

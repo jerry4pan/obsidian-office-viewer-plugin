@@ -82,12 +82,20 @@ describe("OfficeViewerPlugin", () => {
   );
 
   it.each([
-    ["en", "Local processing and privacy", "Compatibility and safety", "Diagnostic summary"],
-    ["zh-CN", "本地处理与隐私", "兼容性与安全", "诊断摘要"],
-    ["zh-TW", "本機處理與隱私", "相容性與安全", "診斷摘要"],
+    ["en", "Local processing and privacy", "Presentation bytes stay on this device", "Compatibility and safety", "Rendering is a read-only preview", "Diagnostic summary", "excludes filenames, paths, slide text, images, and author metadata"],
+    ["zh-CN", "本地处理与隐私", "演示文稿数据始终保留在此设备上", "兼容性与安全", "渲染结果是只读预览", "诊断摘要", "不包含文件名、路径、幻灯片文本、图像或作者元数据"],
+    ["zh-TW", "本機處理與隱私", "簡報資料始終保留在此裝置上", "相容性與安全", "呈現結果是唯讀預覽", "診斷摘要", "不包含檔名、路徑、投影片文字、影像或作者中繼資料"],
   ] as const)(
     "explains M3 settings in the Obsidian %s language",
-    async (language, privacy, compatibility, diagnostics) => {
+    async (
+      language,
+      privacy,
+      privacyDescription,
+      compatibility,
+      compatibilityDescription,
+      diagnostics,
+      diagnosticsDescription,
+    ) => {
       vi.mocked(getLanguage).mockReturnValue(language);
       const app = {
         vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
@@ -102,8 +110,15 @@ describe("OfficeViewerPlugin", () => {
       settingTab.display();
 
       expect(settingTab.containerEl.textContent).toContain(privacy);
+      expect(settingTab.containerEl.textContent).toContain(privacyDescription);
       expect(settingTab.containerEl.textContent).toContain(compatibility);
+      expect(settingTab.containerEl.textContent).toContain(
+        compatibilityDescription,
+      );
       expect(settingTab.containerEl.textContent).toContain(diagnostics);
+      expect(settingTab.containerEl.textContent).toContain(
+        diagnosticsDescription,
+      );
     },
   );
 
