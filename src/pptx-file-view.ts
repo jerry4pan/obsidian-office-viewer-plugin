@@ -43,7 +43,7 @@ export class PptxFileView extends FileView {
     leaf: WorkspaceLeaf,
     private readonly onDisposed: () => void = () => {},
     state?: PptxFileViewState,
-    messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
+    private readonly messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
@@ -54,7 +54,7 @@ export class PptxFileView extends FileView {
       { readBinary: (file) => this.app.vault.readBinary(file) },
       createPptxRendererAdapter(),
       {
-        messages,
+        messages: this.messages,
         openExternally: createExternalOpenAction(this.app),
         positions: state,
         thumbnailRail: state === undefined
@@ -74,7 +74,7 @@ export class PptxFileView extends FileView {
   }
 
   override getDisplayText(): string {
-    return this.file?.basename ?? "PPTX viewer";
+    return this.file?.basename ?? this.messages.text("viewer.fallbackTitle");
   }
 
   getPerformanceDiagnostics(): PptxViewSessionDiagnostics {

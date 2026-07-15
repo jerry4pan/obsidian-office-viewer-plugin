@@ -1,4 +1,8 @@
 import { PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
+import {
+  ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageTranslator,
+} from "./i18n";
 import type { ReadingPositionStore } from "./reading-position-store";
 import { reportNonFatalError } from "./report-error";
 
@@ -7,6 +11,7 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
     app: App,
     plugin: Plugin,
     private readonly store: ReadingPositionStore,
+    private readonly messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
   ) {
     super(app, plugin);
   }
@@ -14,9 +19,9 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
   override display(): void {
     this.containerEl.empty();
     new Setting(this.containerEl)
-      .setName("Remember reading position")
+      .setName(this.messages.text("settings.rememberPosition"))
       .setDesc(
-        "Store only the last slide number and a local file-change fingerprint.",
+        this.messages.text("settings.rememberPositionDescription"),
       )
       .addToggle((toggle) =>
         toggle

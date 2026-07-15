@@ -41,13 +41,45 @@ describe("OfficeViewerPlugin", () => {
     const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
     const view = factory?.({ app } as never) as unknown as {
       contentEl: HTMLElement;
+      getDisplayText(): string;
     };
 
     expect(getLanguage).toHaveBeenCalledOnce();
     expect(view.contentEl.textContent).toContain(
-      "從倉庫開啟 PPTX 檔案即可開始閱讀。",
+      "從儲存庫開啟 PPTX 檔案即可開始閱讀。",
     );
+    expect(view.getDisplayText()).toBe("PPTX 檢視器");
   });
+
+  it.each([
+    ["en", "Remember reading position", "Store only the last slide number and a local file-change fingerprint.", "PPTX viewer"],
+    ["zh-CN", "记住阅读位置", "仅存储上次阅读的幻灯片编号和用于检测本地文件更改的信息。", "PPTX 查看器"],
+    ["zh-TW", "記住閱讀位置", "僅儲存上次閱讀的投影片編號，以及用於偵測本機檔案變更的資訊。", "PPTX 檢視器"],
+  ] as const)(
+    "renders settings with the Obsidian %s language",
+    async (language, name, description, fallbackTitle) => {
+      vi.mocked(getLanguage).mockReturnValue(language);
+      const app = {
+        vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+      };
+      const plugin = new OfficeViewerPlugin(app as never, {} as never);
+
+      await plugin.onload();
+      const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+        containerEl: HTMLElement;
+        display(): void;
+      };
+      settingTab.display();
+
+      expect(settingTab.containerEl.textContent).toContain(name);
+      expect(settingTab.containerEl.textContent).toContain(description);
+      const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+      const view = factory?.({ app } as never) as unknown as {
+        getDisplayText(): string;
+      };
+      expect(view.getDisplayText()).toBe(fallbackTitle);
+    },
+  );
 
   it("registers pptx files with the dedicated view", async () => {
     let releaseLoad!: () => void;

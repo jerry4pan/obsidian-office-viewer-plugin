@@ -4,6 +4,7 @@ import type {
 } from "./renderer/pptx-renderer-adapter";
 import {
   ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageKey,
   type MessageTranslator,
 } from "./i18n";
 import {
@@ -86,11 +87,11 @@ function isEditableTarget(target: EventTarget | null): boolean {
       ["INPUT", "BUTTON", "SELECT", "TEXTAREA"].includes(target.tagName));
 }
 
-const errorMessages: Record<PptxOpenErrorCategory, string> = {
-  malformed: "This PPTX is damaged or incomplete.",
-  protected: "This PPTX is encrypted or password-protected.",
-  incompatible: "This PPTX uses content this viewer cannot safely display.",
-  unknown: "An unexpected error prevented this PPTX from opening.",
+const errorMessageKeys: Record<PptxOpenErrorCategory, MessageKey> = {
+  malformed: "error.malformed",
+  protected: "error.protected",
+  incompatible: "error.incompatible",
+  unknown: "error.unknown",
 };
 
 export class PptxViewSession<FileRef> {
@@ -336,7 +337,9 @@ export class PptxViewSession<FileRef> {
           pageInput.value = String(viewController.state.currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
           this.setLifecyclePhase("degraded");
-          status.textContent = `Slide ${index + 1} could not be rendered. The previous slide is still shown. Try another slide or open it in the default application.`;
+          status.textContent = this.messages.text("navigation.renderFailure", {
+            slide: index + 1,
+          });
         },
       }, { initialSlideIndex });
       this.viewerController = viewController;
@@ -359,6 +362,7 @@ export class PptxViewSession<FileRef> {
         preferredThumbnailRailWidth,
       );
       rail = new ThumbnailRail(thumbnailRoot, rendererSession, queue, {
+        messages: this.messages,
         onMountedCountChange: (count) => {
           if (isCurrentRun() && this.thumbnailRail === rail) {
             this.root.dataset.mountedThumbnailCount = String(count);
@@ -379,6 +383,7 @@ export class PptxViewSession<FileRef> {
         thumbnailRoot,
         rail,
         {
+          messages: this.messages,
           preferredWidth: preferredThumbnailRailWidth,
           onCommit: (width) => this.options.thumbnailRail?.recordWidth(width),
         },
@@ -408,7 +413,9 @@ export class PptxViewSession<FileRef> {
           requestedPage < 1 ||
           requestedPage > rendererSession.slideCount
         ) {
-          status.textContent = `Enter a slide number from 1 to ${rendererSession.slideCount}.`;
+          status.textContent = this.messages.text("navigation.invalidPage", {
+            total: rendererSession.slideCount,
+          });
           pageInput.focus();
           return;
         }
@@ -489,7 +496,9 @@ export class PptxViewSession<FileRef> {
           })
           .catch(() => {
             if (isCurrentRun()) {
-              actionStatus.textContent = "Unable to change full-screen mode.";
+              actionStatus.textContent = this.messages.text(
+                "fullscreen.failure",
+              );
               probeFullscreenState();
             }
           });
@@ -571,16 +580,16 @@ export class PptxViewSession<FileRef> {
     panel.className = "pptx-viewer__error";
     const title = document.createElement("div");
     title.className = "pptx-viewer__status";
-    title.textContent = errorMessages[error.category];
+    title.textContent = this.messages.text(errorMessageKeys[error.category]);
     const safety = document.createElement("p");
     safety.className = "pptx-viewer__safety-note";
-    safety.textContent = "The original PPTX file was not modified.";
+    safety.textContent = this.messages.text("error.sourceUnmodified");
     const actions = document.createElement("div");
     actions.className = "pptx-viewer__actions";
     const retry = document.createElement("button");
     retry.type = "button";
     retry.dataset.action = "retry";
-    retry.textContent = "Retry";
+    retry.textContent = this.messages.text("error.retry");
     retry.addEventListener("click", () => void this.open(file));
     actions.append(retry);
 
@@ -613,7 +622,7 @@ export class PptxViewSession<FileRef> {
       actionStatus.textContent = "";
       void this.options.openExternally?.(file).catch(() => {
         if (generation === this.generation) {
-          actionStatus.textContent = "Unable to open the default application.";
+          actionStatus.textContent = this.messages.text("external.failure");
         }
       });
     });

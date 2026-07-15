@@ -43,7 +43,9 @@ export default class OfficeViewerPlugin extends Plugin {
       return;
     }
 
-    this.addSettingTab(new OfficeViewerSettingTab(this.app, this, store));
+    this.addSettingTab(
+      new OfficeViewerSettingTab(this.app, this, store, messages),
+    );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         if (file instanceof TFile) store.rename(oldPath, fingerprint(file));

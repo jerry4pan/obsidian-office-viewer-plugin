@@ -58,7 +58,7 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "navigation.slide": "幻灯片",
   "navigation.invalidPage": "请输入 1 到 {total} 之间的幻灯片编号。",
   "navigation.renderFailure":
-    "无法渲染第 {slide} 张幻灯片。仍显示上一张幻灯片。请尝试其他幻灯片，或使用默认应用程序打开。",
+    "无法渲染第 {slide} 张幻灯片。仍显示上一张幻灯片。请尝试其他幻灯片，或使用默认应用打开。",
   "page.counter": "{current} / {total}",
   "page.total": "共 {total} 页",
   "thumbnails.toggle": "缩略图",
@@ -73,8 +73,8 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "fullscreen.enterLabel": "进入全屏",
   "fullscreen.exit": "退出全屏",
   "fullscreen.failure": "无法切换全屏模式。",
-  "external.open": "在默认应用程序中打开",
-  "external.failure": "无法打开默认应用程序。",
+  "external.open": "在默认应用中打开",
+  "external.failure": "无法打开默认应用。",
   "error.malformed": "此 PPTX 已损坏或不完整。",
   "error.protected": "此 PPTX 已加密或受密码保护。",
   "error.incompatible": "此 PPTX 包含此查看器无法安全显示的内容。",
@@ -87,7 +87,7 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
 } as const satisfies MessageCatalog;
 
 const TRADITIONAL_CHINESE_MESSAGES = {
-  "viewer.empty": "從倉庫開啟 PPTX 檔案即可開始閱讀。",
+  "viewer.empty": "從儲存庫開啟 PPTX 檔案即可開始閱讀。",
   "viewer.loading": "正在載入簡報…",
   "viewer.fallbackTitle": "PPTX 檢視器",
   "navigation.previous": "上一頁",

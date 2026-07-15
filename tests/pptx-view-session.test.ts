@@ -120,7 +120,7 @@ describe("PptxViewSession", () => {
       ),
     ).toBe("进入全屏");
     expect(root.querySelector('[data-action="open-externally"]')?.textContent)
-      .toBe("在默认应用程序中打开");
+      .toBe("在默认应用中打开");
 
     finishRead(new ArrayBuffer(1));
     await opening;
@@ -151,7 +151,7 @@ describe("PptxViewSession", () => {
       },
     );
 
-    expect(root.textContent).toContain("從倉庫開啟 PPTX 檔案即可開始閱讀。");
+    expect(root.textContent).toContain("從儲存庫開啟 PPTX 檔案即可開始閱讀。");
 
     const opening = session.open("deck.pptx");
     expect(root.textContent).toContain("正在載入簡報…");
@@ -190,7 +190,187 @@ describe("PptxViewSession", () => {
     expect(root.querySelector(".pptx-viewer__page-total")?.textContent).toBe(
       "共 3 頁",
     );
+    expect(
+      root.querySelector('.pptx-viewer__thumbnail-rail')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("投影片縮圖");
+    expect(
+      root.querySelector('[data-action="resize-thumbnails"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("調整投影片縮圖大小");
   });
+
+  it.each([
+    [
+      "en",
+      "Enter a slide number from 1 to 3.",
+      "Unable to change full-screen mode.",
+      "Unable to open the default application.",
+      "Slide 2 could not be rendered. The previous slide is still shown. Try another slide or open it in the default application.",
+    ],
+    [
+      "zh-CN",
+      "请输入 1 到 3 之间的幻灯片编号。",
+      "无法切换全屏模式。",
+      "无法打开默认应用。",
+      "无法渲染第 2 张幻灯片。仍显示上一张幻灯片。请尝试其他幻灯片，或使用默认应用打开。",
+    ],
+    [
+      "zh-TW",
+      "請輸入 1 到 3 之間的投影片編號。",
+      "無法切換全螢幕模式。",
+      "無法開啟預設應用程式。",
+      "無法呈現第 2 張投影片。仍顯示上一張投影片。請嘗試其他投影片，或使用預設應用程式開啟。",
+    ],
+  ] as const)(
+    "renders validation and recoverable failures for %s",
+    async (
+      language,
+      invalidPage,
+      fullscreenFailure,
+      externalFailure,
+      renderFailure,
+    ) => {
+      const root = document.createElement("div");
+      const rendererSession: PptxRendererSession = {
+        slideCount: 3,
+        slideWidth: 960,
+        slideHeight: 540,
+        capabilities: { thumbnails: false, prefetch: false },
+        renderSlide: vi.fn(async (index) => {
+          if (index === 1) throw new Error("candidate detail");
+        }),
+        dispose: vi.fn(),
+      };
+      const adapter: PptxRendererAdapter = {
+        open: vi.fn(async () => rendererSession),
+      };
+      const fullscreen = {
+        isActive: vi.fn(() => false),
+        enter: vi.fn(async () => {
+          throw new Error("platform detail");
+        }),
+        exit: vi.fn(async () => {}),
+        subscribe: vi.fn(() => () => {}),
+      };
+      const session = new PptxViewSession(
+        root,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        adapter,
+        {
+          messages: createMessageTranslator(language),
+          fullscreen,
+          openExternally: vi.fn(async () => {
+            throw new Error("filesystem detail");
+          }),
+        },
+      );
+      await session.open("deck.pptx");
+
+      const input = root.querySelector<HTMLInputElement>(
+        '[data-action="page-number"]',
+      )!;
+      input.value = "0";
+      root.querySelector<HTMLButtonElement>('[data-action="jump-to-slide"]')!
+        .click();
+      expect(root.textContent).toContain(invalidPage);
+
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="toggle-fullscreen"]',
+      )!.click();
+      await vi.waitFor(() => expect(root.textContent).toContain(fullscreenFailure));
+
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="open-externally"]',
+      )!.click();
+      await vi.waitFor(() => expect(root.textContent).toContain(externalFailure));
+
+      root.querySelector<HTMLButtonElement>('[data-action="next-slide"]')!
+        .click();
+      await vi.waitFor(() => expect(root.textContent).toContain(renderFailure));
+      expect(root.textContent).not.toContain("candidate detail");
+      expect(root.textContent).not.toContain("platform detail");
+      expect(root.textContent).not.toContain("filesystem detail");
+    },
+  );
+
+  it.each([
+    ["en", "Exit full screen", "Full screen", "Enter full screen"],
+    ["zh-CN", "退出全屏", "全屏", "进入全屏"],
+    ["zh-TW", "結束全螢幕", "全螢幕", "進入全螢幕"],
+  ] as const)(
+    "updates full-screen visible and accessible text for %s",
+    async (language, exit, enterButton, enterLabel) => {
+      const root = document.createElement("div");
+      const { adapter } = makeRenderer(2);
+      const fullscreen = makeFullscreen();
+      const session = new PptxViewSession(
+        root,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        adapter,
+        {
+          messages: createMessageTranslator(language),
+          fullscreen: fullscreen.api,
+        },
+      );
+      await session.open("deck.pptx");
+      const button = root.querySelector<HTMLButtonElement>(
+        '[data-action="toggle-fullscreen"]',
+      )!;
+
+      button.click();
+      await vi.waitFor(() => expect(root.dataset.fullscreen).toBe("true"));
+      expect(button.textContent).toBe(exit);
+      expect(button.getAttribute("aria-label")).toBe(exit);
+
+      button.click();
+      await vi.waitFor(() => expect(root.dataset.fullscreen).toBe("false"));
+      expect(button.textContent).toBe(enterButton);
+      expect(button.getAttribute("aria-label")).toBe(enterLabel);
+    },
+  );
+
+  it.each([
+    ["en", "malformed", "This PPTX is damaged or incomplete.", "The original PPTX file was not modified.", "Retry"],
+    ["en", "protected", "This PPTX is encrypted or password-protected.", "The original PPTX file was not modified.", "Retry"],
+    ["en", "incompatible", "This PPTX uses content this viewer cannot safely display.", "The original PPTX file was not modified.", "Retry"],
+    ["en", "unknown", "An unexpected error prevented this PPTX from opening.", "The original PPTX file was not modified.", "Retry"],
+    ["zh-CN", "malformed", "此 PPTX 已损坏或不完整。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-CN", "protected", "此 PPTX 已加密或受密码保护。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-CN", "incompatible", "此 PPTX 包含此查看器无法安全显示的内容。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-CN", "unknown", "发生意外错误，无法打开此 PPTX。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-TW", "malformed", "此 PPTX 已損毀或不完整。", "原始 PPTX 檔案未經修改。", "重試"],
+    ["zh-TW", "protected", "此 PPTX 已加密或受密碼保護。", "原始 PPTX 檔案未經修改。", "重試"],
+    ["zh-TW", "incompatible", "此 PPTX 包含此檢視器無法安全顯示的內容。", "原始 PPTX 檔案未經修改。", "重試"],
+    ["zh-TW", "unknown", "發生未預期的錯誤，無法開啟此 PPTX。", "原始 PPTX 檔案未經修改。", "重試"],
+  ] as const)(
+    "renders the %s %s blocking error surface",
+    async (language, category, title, safety, retry) => {
+      const root = document.createElement("div");
+      const adapter: PptxRendererAdapter = {
+        open: vi.fn(async () => {
+          throw new PptxOpenError(category, "private candidate detail");
+        }),
+      };
+      const session = new PptxViewSession(
+        root,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        adapter,
+        { messages: createMessageTranslator(language) },
+      );
+
+      await session.open("deck.pptx");
+
+      expect(root.textContent).toContain(title);
+      expect(root.textContent).toContain(safety);
+      expect(root.querySelector('[data-action="retry"]')?.textContent).toBe(
+        retry,
+      );
+      expect(root.textContent).not.toContain("private candidate detail");
+    },
+  );
 
   it("keeps fit-to-window automatic and exposes no manual zoom controls", async () => {
     const root = document.createElement("div");
