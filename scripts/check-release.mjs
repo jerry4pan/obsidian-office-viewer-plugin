@@ -44,8 +44,14 @@ export async function checkRelease({ releaseTag = process.env.RELEASE_TAG } = {}
   ) {
     errors.push("release contract must declare pptx and legacy ppt routing");
   }
-  if (releaseTag && releaseTag !== `v${manifest.version}`) {
-    errors.push(`release tag ${releaseTag} does not match v${manifest.version}`);
+  if (
+    releaseTag &&
+    releaseTag !== manifest.version &&
+    releaseTag !== `v${manifest.version}`
+  ) {
+    errors.push(
+      `release tag ${releaseTag} does not match ${manifest.version} or v${manifest.version}`,
+    );
   }
   for (const relativePath of requiredFiles) {
     try {
