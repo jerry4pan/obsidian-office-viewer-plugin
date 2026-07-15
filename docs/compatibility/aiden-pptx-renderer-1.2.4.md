@@ -1,6 +1,6 @@
 # @aiden0z/pptx-renderer 1.2.4 compatibility result
 
-Date: 2026-07-14
+Date: 2026-07-15
 Ticket: #4  
 Decision status: selected by ADR-0001; the M2 revalidation retains the known SVG gaps
 
@@ -69,6 +69,16 @@ are now restricted to `.pptx-viewer__slide`, preventing duplicate thumbnail
 DOM from being mistaken for main-slide evidence. The refreshed hashes and
 2026-07-14 approval reasons are recorded per fixture; ordinary runs still
 require 18 / 20 readable units and zero changed pixels.
+
+The 2026-07-15 multilingual revalidation explicitly fixes the ordinary
+installed compatibility host to `en-US`. Visual inspection and repeated
+captures found 304 material changed pixels, all confined to the glyph raster
+of the `Definitely Missing Font` fallback sample in `text-theme-wide`. Exact
+RGB comparison also found 69 capture-edge antialias pixels at the slide/shadow
+boundary; all are below the unchanged `pixelmatch` threshold and do not alter
+the zero-material-drift result. All content and layout remained unchanged. The
+approved hash and reason now record that host-language normalization; the
+visual drift limit remains zero material changed pixels after this approval.
 
 ## Reproduce
 

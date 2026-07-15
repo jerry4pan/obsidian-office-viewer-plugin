@@ -44,7 +44,7 @@ export interface CandidateHumanReview {
 export interface CandidateBaselineApproval {
   readonly sha256: string;
   readonly reason: string;
-  readonly approvedOn: "2026-07-13" | "2026-07-14";
+  readonly approvedOn: "2026-07-13" | "2026-07-14" | "2026-07-15";
 }
 
 export interface CorpusFixture {
@@ -147,9 +147,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "b8621cdfc9dd6cffa1c5af2c257d5070bc5a9026e65f28011189f3725d2bdae6",
-        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
-        approvedOn: "2026-07-14",
+        sha256: "575c0c33f264cc310ed2e9d73abcaf5b4ed958277293a68e6012124f1ce3fb26",
+        reason: "The 2026-07-15 en-US host-language revalidation approved 304 material pixels confined to the missing-font fallback glyph raster; 69 additional raw edge-antialias pixels remain below the fixed comparison threshold, while layout, readable content, and known SVG limitations are unchanged.",
+        approvedOn: "2026-07-15",
       },
       "pptx-preview": {
         sha256: "ce1fcdfa514ce879d7da008351f947b35165c31b833a49b441c3953e79ea7167",
