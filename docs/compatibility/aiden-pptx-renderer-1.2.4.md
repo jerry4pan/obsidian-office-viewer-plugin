@@ -16,11 +16,11 @@ matched all approved PNG baselines with zero changed pixels.
 
 | Fixture | Classification | Readable units | Observed difference |
 | --- | --- | ---: | --- |
-| `text-theme-wide` | supported | 5 / 5 | Arial, Times New Roman, missing-font fallback, theme, and master footer are readable. |
-| `images-transparency-standard` | degraded | 3 / 4 | Transparency renders, but the embedded SVG is broken. |
-| `tables-charts` | supported | 5 / 5 | Table and chart are complete and contained. |
-| `grouped-rotated` | supported | 4 / 4 | All native group members and rotation are visible. |
-| `complex-drawing` | degraded | 1 / 2 | Complex SVG is replaced by a broken-image placeholder. |
+| `text-theme-wide` | supported with font warning when unavailable | 5 / 5 | Arial, Times New Roman, missing-font fallback, theme, and master footer are readable; runtime category `font-substitution` appears when needed. |
+| `images-transparency-standard` | degraded with warning | 3 / 4 | Transparency renders, but the embedded SVG is broken; runtime category `unsupported-content`. |
+| `tables-charts` | supported | 5 / 5 | Table and chart are complete and contained; no known runtime warning. |
+| `grouped-rotated` | supported | 4 / 4 | All native group members and rotation are visible; no known runtime warning. |
+| `complex-drawing` | degraded with warning | 1 / 2 | Complex SVG is replaced by a broken-image placeholder; runtime category `unsupported-content`. |
 
 Each denominator item is an explicitly named main-content check in the corpus
 manifest: readable text, a decoded image, or a fully contained chart. Text
@@ -97,7 +97,8 @@ UPDATE_COMPATIBILITY_BASELINES=1 npm run test:compatibility
 
 ## Consequence
 
-ADR-0001 selects this renderer for the M0/M1 foundation and M2 continues to use
-it behind the project-owned adapter boundary. SVG media support remains the
-selected renderer's clearest fidelity gap and should be investigated before a
-public release claim.
+ADR-0001 selects this renderer for the M0/M1 foundation and M2/M3 continue to
+use it behind the project-owned adapter boundary. SVG media support remains the
+selected renderer's clearest fidelity gap. M3 exposes it as a persistent,
+non-blocking compatibility warning while the external-application fallback
+remains available.

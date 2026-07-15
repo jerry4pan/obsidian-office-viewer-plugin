@@ -61,7 +61,11 @@ describe("PPTX renderer composition root", () => {
     const container = document.createElement("div");
     const signal = new AbortController().signal;
 
-    await expect(adapter.open(buffer, container, signal)).resolves.toBe(session);
+    await expect(adapter.open(buffer, container, signal)).resolves.toMatchObject({
+      slideCount: session.slideCount,
+      capabilities: session.capabilities,
+      compatibilityWarnings: [],
+    });
     expect(createCandidate).toHaveBeenCalledOnce();
     expect(candidate.open).toHaveBeenCalledWith(buffer, container, signal);
   });

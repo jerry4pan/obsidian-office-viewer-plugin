@@ -1,4 +1,5 @@
 import type {
+  PptxCompatibilityWarningCategory,
   PptxRendererAdapter,
   PptxRendererSession,
 } from "./renderer/pptx-renderer-adapter";
@@ -7,6 +8,10 @@ import {
   type MessageKey,
   type MessageTranslator,
 } from "./i18n";
+import {
+  createDiagnosticSummary,
+  type DiagnosticEnvironment,
+} from "./diagnostic-summary";
 import {
   PptxOpenError,
   type PptxOpenErrorCategory,
@@ -60,6 +65,11 @@ export interface PptxViewOptions<FileRef> {
     subscribeWidth?(listener: (width: number) => void): () => void;
   };
   fullscreen?: PptxFullscreenActions;
+  diagnostics?: {
+    readonly environment: DiagnosticEnvironment;
+    rememberReadingPosition(): boolean;
+    copy(summary: string): Promise<void>;
+  };
 }
 
 export interface PptxFullscreenActions {
@@ -88,10 +98,18 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 const errorMessageKeys: Record<PptxOpenErrorCategory, MessageKey> = {
+  "unsupported-legacy": "error.unsupportedLegacy",
   malformed: "error.malformed",
   protected: "error.protected",
   incompatible: "error.incompatible",
+  "resource-exhausted": "error.resourceExhausted",
+  cancelled: "error.cancelled",
   unknown: "error.unknown",
+};
+
+const warningMessageKeys: Record<PptxCompatibilityWarningCategory, MessageKey> = {
+  "unsupported-content": "compatibility.unsupportedContent",
+  "font-substitution": "compatibility.fontSubstitution",
 };
 
 export class PptxViewSession<FileRef> {
@@ -106,6 +124,12 @@ export class PptxViewSession<FileRef> {
   private disposed = false;
   private lifecyclePhase: PptxLifecyclePhase = "idle";
   private readonly messages: MessageTranslator;
+  private diagnosticSourceBytes: number | null = null;
+  private diagnosticSlideCount: number | null = null;
+  private diagnosticWarnings: readonly PptxCompatibilityWarningCategory[] = [];
+  private diagnosticError: PptxOpenErrorCategory | null = null;
+  private diagnosticThumbnails = false;
+  private diagnosticPrefetch = false;
 
   constructor(
     private readonly root: HTMLElement,
@@ -126,6 +150,7 @@ export class PptxViewSession<FileRef> {
   async open(file: FileRef): Promise<void> {
     this.teardownOpenResources();
     this.clearTimings();
+    this.resetDiagnosticState();
     const generation = ++this.generation;
     this.openPending = true;
     this.disposed = false;
@@ -133,7 +158,7 @@ export class PptxViewSession<FileRef> {
     this.abortController = controller;
 
     const status = document.createElement("div");
-    status.className = "pptx-viewer__status";
+    status.className = "pptx-viewer__status-text";
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     status.textContent = this.messages.text("viewer.loading");
@@ -215,21 +240,46 @@ export class PptxViewSession<FileRef> {
       actionStatus,
     );
     if (openExternally) controls.append(openExternally);
+    const diagnosticButton = this.createDiagnosticButton(actionStatus);
+    const header = document.createElement("div");
+    header.className = "pptx-viewer__header pptx-viewer__status";
+    header.append(status);
+    if (diagnosticButton) {
+      diagnosticButton.classList.add("pptx-viewer__diagnostic-shortcut");
+      diagnosticButton.textContent = "⧉";
+      diagnosticButton.setAttribute(
+        "aria-label",
+        this.messages.text("diagnostics.copy"),
+      );
+      diagnosticButton.title = this.messages.text("diagnostics.copy");
+      header.append(diagnosticButton);
+    }
     const slideContainer = document.createElement("div");
     slideContainer.className = "pptx-viewer__slide";
     const thumbnailRoot = document.createElement("div");
     const readingBody = document.createElement("div");
     readingBody.className = "pptx-viewer__reading-body";
     readingBody.append(thumbnailRoot, slideContainer);
-    this.root.replaceChildren(status, controls, actionStatus, readingBody);
+    const compatibility = document.createElement("div");
+    compatibility.className = "pptx-viewer__compatibility";
+    compatibility.setAttribute("role", "note");
+    this.root.replaceChildren(
+      header,
+      compatibility,
+      controls,
+      actionStatus,
+      readingBody,
+    );
     this.root.dataset.state = "loading";
     this.setLifecyclePhase("reading");
     delete this.root.dataset.errorCategory;
+    delete this.root.dataset.warningCategories;
     let phase: "read" | "renderer" = "read";
 
     try {
       const openedAt = performance.now();
       const buffer = await this.reader.readBinary(file);
+      this.diagnosticSourceBytes = buffer.byteLength;
       controller.signal.throwIfAborted();
       this.setLifecyclePhase("adapter-opening");
       phase = "renderer";
@@ -243,6 +293,9 @@ export class PptxViewSession<FileRef> {
         return;
       }
       this.rendererSession = rendererSession;
+      this.diagnosticSlideCount = rendererSession.slideCount;
+      this.diagnosticThumbnails = rendererSession.capabilities.thumbnails;
+      this.diagnosticPrefetch = rendererSession.capabilities.prefetch;
       this.root.dataset.metadataMs = (performance.now() - openedAt).toFixed(3);
       this.setLifecyclePhase("first-slide-rendering");
       const isCurrentRun = () =>
@@ -348,6 +401,41 @@ export class PptxViewSession<FileRef> {
       if (!isCurrentRun()) return;
       if (initialRenderFailed) {
         throw new PptxOpenError("incompatible", "Initial slide render failed");
+      }
+      this.showCompatibilityWarnings(
+        compatibility,
+        rendererSession.compatibilityWarnings ?? [],
+      );
+      if (rendererSession.detectCompatibilityWarnings) {
+        const detectWarnings = () => {
+          if (!isCurrentRun()) return;
+          try {
+            this.showCompatibilityWarnings(
+              compatibility,
+              rendererSession.detectCompatibilityWarnings!(),
+            );
+          } catch {
+            // Optional compatibility inspection must not disrupt reading.
+          }
+        };
+        let removeDeferredFocus = () => {};
+        const warningTimer = window.setTimeout(() => {
+          if (this.root.closest(".workspace-leaf.mod-active")) {
+            detectWarnings();
+            return;
+          }
+          const onFocus = () => {
+            removeDeferredFocus();
+            detectWarnings();
+          };
+          this.root.addEventListener("focusin", onFocus, { once: true });
+          removeDeferredFocus = () =>
+            this.root.removeEventListener("focusin", onFocus);
+        }, 5_000);
+        this.runCleanups.add(() => {
+          window.clearTimeout(warningTimer);
+          removeDeferredFocus();
+        });
       }
 
       let preferredThumbnailRailWidth = DEFAULT_THUMBNAIL_RAIL_WIDTH;
@@ -528,6 +616,13 @@ export class PptxViewSession<FileRef> {
       const openError =
         error instanceof PptxOpenError
           ? error
+          : typeof error === "object" &&
+              error !== null &&
+              "name" in error &&
+              error.name === "AbortError"
+            ? new PptxOpenError("cancelled", "PPTX open was cancelled", {
+                cause: error,
+              })
           : new PptxOpenError(
               phase === "renderer" ? "incompatible" : "unknown",
               "Unexpected PPTX open failure",
@@ -537,6 +632,27 @@ export class PptxViewSession<FileRef> {
     } finally {
       if (generation === this.generation) this.openPending = false;
     }
+  }
+
+  openUnsupportedLegacy(file: FileRef, sourceBytes?: number): void {
+    this.teardownOpenResources();
+    this.clearTimings();
+    this.resetDiagnosticState();
+    if (Number.isSafeInteger(sourceBytes) && sourceBytes! >= 0) {
+      this.diagnosticSourceBytes = sourceBytes!;
+    }
+    const generation = ++this.generation;
+    this.openPending = false;
+    this.disposed = false;
+    this.setLifecyclePhase("error");
+    this.showError(
+      file,
+      new PptxOpenError(
+        "unsupported-legacy",
+        "Legacy PPT is intentionally unsupported",
+      ),
+      generation,
+    );
   }
 
   getPerformanceDiagnostics(): PptxViewSessionDiagnostics {
@@ -565,6 +681,7 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.lifecyclePhase;
     this.clearTimings();
     delete this.root.dataset.errorCategory;
+    delete this.root.dataset.warningCategories;
     delete this.root.dataset.thumbnailsCollapsed;
     delete this.root.dataset.fullscreen;
     delete this.root.dataset.mountedThumbnailCount;
@@ -583,7 +700,11 @@ export class PptxViewSession<FileRef> {
     title.textContent = this.messages.text(errorMessageKeys[error.category]);
     const safety = document.createElement("p");
     safety.className = "pptx-viewer__safety-note";
-    safety.textContent = this.messages.text("error.sourceUnmodified");
+    safety.textContent = this.messages.text(
+      error.category === "unsupported-legacy"
+        ? "error.sourceUnmodifiedLegacy"
+        : "error.sourceUnmodified",
+    );
     const actions = document.createElement("div");
     actions.className = "pptx-viewer__actions";
     const retry = document.createElement("button");
@@ -601,11 +722,15 @@ export class PptxViewSession<FileRef> {
       actionStatus,
     );
     if (openExternally) actions.append(openExternally);
+    const diagnosticButton = this.createDiagnosticButton(actionStatus);
+    if (diagnosticButton) actions.append(diagnosticButton);
 
     panel.append(title, safety, actions, actionStatus);
     this.root.replaceChildren(panel);
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = error.category;
+    this.diagnosticError = error.category;
+    delete this.root.dataset.warningCategories;
   }
 
   private createExternalOpenButton(
@@ -627,6 +752,83 @@ export class PptxViewSession<FileRef> {
       });
     });
     return button;
+  }
+
+  private showCompatibilityWarnings(
+    container: HTMLElement,
+    categories: readonly PptxCompatibilityWarningCategory[],
+  ): void {
+    const unique = [...new Set(categories)].sort();
+    container.replaceChildren();
+    for (const category of unique) {
+      const warning = document.createElement("p");
+      warning.dataset.warningCategory = category;
+      warning.textContent = this.messages.text(warningMessageKeys[category]);
+      container.append(warning);
+    }
+    if (unique.length > 0) {
+      this.root.dataset.warningCategories = unique.join(",");
+    } else {
+      delete this.root.dataset.warningCategories;
+    }
+    this.diagnosticWarnings = unique;
+  }
+
+  private createDiagnosticButton(
+    actionStatus: HTMLElement,
+  ): HTMLButtonElement | null {
+    const diagnostics = this.options.diagnostics;
+    if (!diagnostics) return null;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.action = "copy-diagnostics";
+    button.textContent = this.messages.text("diagnostics.copy");
+    button.addEventListener("click", () => {
+      actionStatus.textContent = "";
+      const summary = createDiagnosticSummary({
+        environment: diagnostics.environment,
+        sourceBytes: this.diagnosticSourceBytes,
+        slideCount: this.diagnosticSlideCount,
+        lifecyclePhase: this.lifecyclePhase,
+        warningCategories: this.diagnosticWarnings,
+        errorCategory: this.diagnosticError,
+        timingsMs: {
+          metadata: this.readTiming("metadataMs"),
+          firstReadable: this.readTiming("firstReadableMs"),
+          lastSlideSwitch: this.readTiming("lastSlideSwitchMs"),
+        },
+        features: {
+          thumbnails: this.diagnosticThumbnails,
+          prefetch: this.diagnosticPrefetch,
+          rememberReadingPosition: diagnostics.rememberReadingPosition(),
+          externalOpen: this.options.openExternally !== undefined,
+        },
+      });
+      void diagnostics.copy(summary).then(
+        () => { actionStatus.textContent = this.messages.text("diagnostics.copied"); },
+        () => {
+          actionStatus.textContent = this.messages.text(
+            "diagnostics.copyFailure",
+          );
+        },
+      );
+    });
+    return button;
+  }
+
+  private readTiming(key: "metadataMs" | "firstReadableMs" | "lastSlideSwitchMs"):
+    number | null {
+    const value = Number(this.root.dataset[key]);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  private resetDiagnosticState(): void {
+    this.diagnosticSourceBytes = null;
+    this.diagnosticSlideCount = null;
+    this.diagnosticWarnings = [];
+    this.diagnosticError = null;
+    this.diagnosticThumbnails = false;
+    this.diagnosticPrefetch = false;
   }
 
   private teardownOpenResources(): void {

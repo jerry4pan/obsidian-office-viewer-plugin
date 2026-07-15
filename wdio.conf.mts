@@ -7,6 +7,7 @@ export const config: WebdriverIO.Config = {
   exclude: [
     "./tests/e2e/pptx-degraded.e2e.ts",
     "./tests/e2e/multilingual.e2e.ts",
+    "./tests/e2e/packaged-release.release.e2e.ts",
   ],
   maxInstances: 1,
   capabilities: [

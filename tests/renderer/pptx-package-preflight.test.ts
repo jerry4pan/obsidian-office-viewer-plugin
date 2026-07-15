@@ -24,7 +24,36 @@ describe("PPTX package preflight", () => {
         await loadFixture("tests/fixtures/minimal.pptx"),
         new AbortController().signal,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      declaredFonts: ["Arial"],
+      warningCategories: [],
+    });
+  });
+
+  it("reports known unsupported media without exposing document content", async () => {
+    await expect(
+      inspectPptxPackage(
+        await loadFixture(
+          "tests/fixtures/compatibility/images-transparency-standard.pptx",
+        ),
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({
+      warningCategories: ["unsupported-content"],
+    });
+  });
+
+  it("reports directly declared slide fonts for local availability checks", async () => {
+    const inspection = await inspectPptxPackage(
+      await loadFixture("tests/fixtures/compatibility/text-theme-wide.pptx"),
+      new AbortController().signal,
+    );
+
+    expect(inspection.declaredFonts).toEqual([
+      "Arial",
+      "Definitely Missing Font",
+      "Times New Roman",
+    ]);
   });
 
   it("accepts inert embedded chart data used by the compatibility corpus", async () => {
@@ -33,7 +62,7 @@ describe("PPTX package preflight", () => {
         await loadFixture("tests/fixtures/compatibility/tables-charts.pptx"),
         new AbortController().signal,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ warningCategories: [] });
   });
 
   it("rejects a single ZIP entry above the shared candidate-neutral limit", async () => {
@@ -48,7 +77,7 @@ describe("PPTX package preflight", () => {
       ),
     ).rejects.toMatchObject({
       name: "PptxOpenError",
-      category: "incompatible",
+      category: "resource-exhausted",
     });
   });
 
@@ -117,7 +146,7 @@ describe("PPTX package preflight", () => {
         await loadFixture(fixturePath(fixture)),
         new AbortController().signal,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ warningCategories: [] });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

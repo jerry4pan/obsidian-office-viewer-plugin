@@ -2,6 +2,7 @@ const errorCategories = new Set([
   "malformed",
   "protected",
   "incompatible",
+  "resource-exhausted",
   "unknown",
 ]);
 

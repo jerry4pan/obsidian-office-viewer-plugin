@@ -51,7 +51,11 @@ const context = await esbuild.context({
   sourcemap: production ? false : "inline",
   minify: production,
   define: {
-    "process.env.NODE_ENV": production ? '"production"' : '"development"'
+    "process.env.NODE_ENV": production ? '"production"' : '"development"',
+    "process.env.PPTX_RENDERER_CANDIDATE": JSON.stringify(rendererCandidate),
+    "process.env.PPTX_RENDERER_VERSION": JSON.stringify(
+      rendererCandidates[rendererCandidate].version,
+    ),
   },
   plugins: [
     {

@@ -1,7 +1,10 @@
 export type PptxOpenErrorCategory =
+  | "unsupported-legacy"
   | "malformed"
   | "protected"
   | "incompatible"
+  | "resource-exhausted"
+  | "cancelled"
   | "unknown";
 
 export class PptxOpenError extends Error {

@@ -31,6 +31,9 @@
     "test:performance:baseline": "npm run build && vitest run tests/performance/performance-baseline.test.ts tests/performance/performance-run-provenance.test.ts",
     "test:performance:baseline:aiden": "node scripts/run-renderer-candidate.mjs aiden test:performance:baseline",
     "test:performance:baseline:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:performance:baseline",
+    "release:check": "node scripts/check-release.mjs",
+    "release:package": "npm run build && node scripts/package-release.mjs",
+    "test:release": "npm run release:package && node scripts/prepare-release-test.mjs && wdio run wdio.release.conf.mts",
     "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:performance && npm run fixtures:failure && npm test"
   },
   "keywords": [

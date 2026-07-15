@@ -3,7 +3,7 @@
 An experimental, desktop-only Obsidian plugin for reading local `.pptx` files
 without converting them to PDF or uploading them to a service.
 
-The M2 development build registers a dedicated PPTX view, reads source bytes
+The M3 development build registers a dedicated PPTX view, reads source bytes
 through the Obsidian Vault API, and renders them locally with the selected
 `@aiden0z/pptx-renderer@1.2.4` adapter. It is not yet a public release.
 
@@ -50,6 +50,18 @@ while retaining the prior size/mtime fingerprint, so a rename combined with
 content changes invalidates the saved page on the next open. Deletion events
 remove entries.
 
+M3 adds persistent compatibility warnings for known unsupported media and
+local font substitution, separates resource-limit rejection from renderer
+incompatibility, and routes legacy `.ppt` files to an explicit explanation
+without reading or parsing them. Every readable or blocking view offers
+**Copy diagnostic summary**. The copied JSON includes versions, source byte
+size, slide count, timings, stable categories, and anonymous feature flags; it
+excludes filenames, paths, presentation text, images, author metadata, URLs,
+raw exceptions, and rendered content.
+
+The complete plugin-owned interface follows Obsidian in English, Simplified
+Chinese, or Traditional Chinese, with English fallback for other languages.
+
 ## Development install
 
 Requirements: desktop Obsidian, Node.js 22, and npm.
@@ -66,6 +78,15 @@ Vault file explorer. Rebuild and copy the same three files after source
 changes. `npm run test:e2e` performs the equivalent build-and-install path in a
 sandboxed test Vault without using a personal Obsidian configuration.
 
+## Packaged install, upgrade, and uninstall
+
+A release ZIP contains exactly `main.js`, `manifest.json`, and `styles.css`.
+Extract those files to `<Vault>/.obsidian/plugins/office-viewer/`, reload
+Obsidian, and enable **Office Viewer**. To upgrade, disable the plugin, replace
+all three files from the new ZIP together, reload Obsidian, and re-enable it.
+To uninstall, disable the plugin and remove the `office-viewer` directory; the
+plugin never writes to source PPTX files.
+
 ## Development
 
 ```bash
@@ -76,6 +97,9 @@ npm run test:e2e
 npm run test:compatibility
 npm run test:performance
 npm run test:performance:baseline
+npm run release:check
+npm run release:package
+npm run test:release
 ```
 
 `npm run test:e2e` downloads and launches a sandboxed Obsidian instance. It
@@ -108,9 +132,19 @@ those two committed files. Run
 `npm run test:performance:baseline` after the copy. A budget miss remains valid
 evidence and must be committed as FAIL rather than tuned away.
 
+`npm run release:check` requires package, manifest, compatibility-version, and
+required documentation consistency. `npm run release:package` creates a
+deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
+installs that extracted ZIP into a clean test Vault, opens a real PPTX,
+rehearses an in-place package upgrade, and verifies disable/removal without
+network access or source mutation. Tag CI additionally requires `v<version>`
+and proves a second package build is byte-identical before uploading the CI
+artifact; public GitHub release creation remains M4.
+
 ## Current boundaries
 
-- `.pptx` only; legacy `.ppt` is not supported.
+- `.pptx` is the only parsed format; legacy `.ppt` receives an explicit local
+  explanation and external-open fallback.
 - Read-only and local; the plugin never writes back to the source file.
 - Desktop Obsidian only; mobile and tablet are not supported.
 - No Office, LibreOffice, PDF conversion, cloud renderer, or document server.
@@ -119,13 +153,15 @@ evidence and must be committed as FAIL rather than tuned away.
 - Rendering is a readable preview, not pixel-perfect PowerPoint fidelity;
   embedded SVG and other advanced content can degrade. Use **Open in default
   application** when the preview is not trustworthy.
-- M3 retains complete compatibility-warning surfaces, privacy/security and
-  compatibility documentation, content-free diagnostic export, CI/release
-  asset generation, and packaged clean-Vault install/upgrade/uninstall proof.
+- Known unsupported media and unavailable fonts produce persistent
+  compatibility warnings. Unknown PowerPoint differences may still exist.
+- Privacy and security details are in `PRIVACY.md` and `SECURITY.md`; reporting
+  and contribution guidance is in `CONTRIBUTING.md`.
 - M4 retains Beta validation, GitHub release publication, and Obsidian
   Community Plugins submission.
-- Editing, saving, animations, legacy `.ppt`, search, page links, embeds,
-  notes, telemetry, accounts, licensing, and cloud services are not M2 work.
+- Editing, saving, animations, legacy `.ppt` parsing, search, page links,
+  embeds, notes, telemetry, accounts, licensing, and cloud services are out of
+  scope.
 
 ## Test fixture
 

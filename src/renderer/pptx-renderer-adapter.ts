@@ -3,6 +3,10 @@ export interface PptxRendererCapabilities {
   readonly prefetch: boolean;
 }
 
+export type PptxCompatibilityWarningCategory =
+  | "unsupported-content"
+  | "font-substitution";
+
 export interface PptxRendererResource {
   readonly ready: Promise<void>;
   dispose(): void;
@@ -13,6 +17,8 @@ export interface PptxRendererSession {
   readonly slideWidth: number;
   readonly slideHeight: number;
   readonly capabilities: PptxRendererCapabilities;
+  readonly compatibilityWarnings?: readonly PptxCompatibilityWarningCategory[];
+  detectCompatibilityWarnings?(): readonly PptxCompatibilityWarningCategory[];
   /** On rejection, the last successfully rendered slide remains visible. */
   renderSlide(index: number): Promise<void>;
   renderThumbnail?(

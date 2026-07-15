@@ -30,16 +30,38 @@ const ENGLISH_MESSAGES = {
   "fullscreen.failure": "Unable to change full-screen mode.",
   "external.open": "Open in default application",
   "external.failure": "Unable to open the default application.",
+  "compatibility.unsupportedContent":
+    "Some presentation content may not render correctly. Compare with the default application when accuracy matters.",
+  "compatibility.fontSubstitution":
+    "One or more presentation fonts are unavailable and may be substituted, which can change the layout.",
+  "diagnostics.copy": "Copy diagnostic summary",
+  "diagnostics.copied": "Diagnostic summary copied.",
+  "diagnostics.copyFailure": "Unable to copy the diagnostic summary.",
+  "error.unsupportedLegacy":
+    "Legacy PPT files are not supported. Open this file in the default application.",
   "error.malformed": "This PPTX is damaged or incomplete.",
   "error.protected": "This PPTX is encrypted or password-protected.",
   "error.incompatible":
     "This PPTX uses content this viewer cannot safely display.",
+  "error.resourceExhausted":
+    "This PPTX is too large or complex to open within the viewer's safety limits.",
+  "error.cancelled": "Loading this PPTX was cancelled.",
   "error.unknown": "An unexpected error prevented this PPTX from opening.",
   "error.sourceUnmodified": "The original PPTX file was not modified.",
+  "error.sourceUnmodifiedLegacy": "The original file was not modified.",
   "error.retry": "Retry",
   "settings.rememberPosition": "Remember reading position",
   "settings.rememberPositionDescription":
     "Store only the last slide number and a local file-change fingerprint.",
+  "settings.localProcessing": "Local processing and privacy",
+  "settings.localProcessingDescription":
+    "Presentation bytes stay on this device. Office Viewer does not upload files or include telemetry.",
+  "settings.compatibility": "Compatibility and safety",
+  "settings.compatibilityDescription":
+    "Rendering is a read-only preview. Unsupported or potentially inaccurate content is identified when known, and the original file is never modified.",
+  "settings.diagnostics": "Diagnostic summary",
+  "settings.diagnosticsDescription":
+    "The copied summary includes versions, file size, slide count, timings, and stable categories. It excludes filenames, paths, slide text, images, and author metadata.",
 } as const;
 
 export type MessageKey = keyof typeof ENGLISH_MESSAGES;
@@ -75,15 +97,36 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "fullscreen.failure": "无法切换全屏模式。",
   "external.open": "在默认应用中打开",
   "external.failure": "无法打开默认应用。",
+  "compatibility.unsupportedContent":
+    "部分演示文稿内容可能无法正确显示。需要确认准确性时，请与默认应用中的效果进行比较。",
+  "compatibility.fontSubstitution":
+    "一个或多个演示文稿字体不可用，可能会被替换并导致版式变化。",
+  "diagnostics.copy": "复制诊断摘要",
+  "diagnostics.copied": "已复制诊断摘要。",
+  "diagnostics.copyFailure": "无法复制诊断摘要。",
+  "error.unsupportedLegacy": "不支持旧版 PPT 文件。请在默认应用中打开此文件。",
   "error.malformed": "此 PPTX 已损坏或不完整。",
   "error.protected": "此 PPTX 已加密或受密码保护。",
   "error.incompatible": "此 PPTX 包含此查看器无法安全显示的内容。",
+  "error.resourceExhausted":
+    "此 PPTX 过大或过于复杂，超出了查看器的安全限制。",
+  "error.cancelled": "已取消加载此 PPTX。",
   "error.unknown": "发生意外错误，无法打开此 PPTX。",
   "error.sourceUnmodified": "原始 PPTX 文件未被修改。",
+  "error.sourceUnmodifiedLegacy": "原始文件未被修改。",
   "error.retry": "重试",
   "settings.rememberPosition": "记住阅读位置",
   "settings.rememberPositionDescription":
     "仅存储上次阅读的幻灯片编号和用于检测本地文件更改的信息。",
+  "settings.localProcessing": "本地处理与隐私",
+  "settings.localProcessingDescription":
+    "演示文稿数据始终保留在此设备上。Office Viewer 不会上传文件，也不包含遥测。",
+  "settings.compatibility": "兼容性与安全",
+  "settings.compatibilityDescription":
+    "渲染结果是只读预览。已知的不支持或可能不准确的内容会显示提示，原始文件始终不会被修改。",
+  "settings.diagnostics": "诊断摘要",
+  "settings.diagnosticsDescription":
+    "复制的摘要包含版本、文件大小、幻灯片数量、耗时和稳定分类，不包含文件名、路径、幻灯片文本、图像或作者元数据。",
 } as const satisfies MessageCatalog;
 
 const TRADITIONAL_CHINESE_MESSAGES = {
@@ -115,15 +158,36 @@ const TRADITIONAL_CHINESE_MESSAGES = {
   "fullscreen.failure": "無法切換全螢幕模式。",
   "external.open": "在預設應用程式中開啟",
   "external.failure": "無法開啟預設應用程式。",
+  "compatibility.unsupportedContent":
+    "部分簡報內容可能無法正確顯示。需要確認準確性時，請與預設應用程式中的效果進行比較。",
+  "compatibility.fontSubstitution":
+    "一個或多個簡報字型無法使用，可能會被替代並導致版面配置變化。",
+  "diagnostics.copy": "複製診斷摘要",
+  "diagnostics.copied": "已複製診斷摘要。",
+  "diagnostics.copyFailure": "無法複製診斷摘要。",
+  "error.unsupportedLegacy": "不支援舊版 PPT 檔案。請在預設應用程式中開啟此檔案。",
   "error.malformed": "此 PPTX 已損毀或不完整。",
   "error.protected": "此 PPTX 已加密或受密碼保護。",
   "error.incompatible": "此 PPTX 包含此檢視器無法安全顯示的內容。",
+  "error.resourceExhausted":
+    "此 PPTX 過大或過於複雜，超出檢視器的安全限制。",
+  "error.cancelled": "已取消載入此 PPTX。",
   "error.unknown": "發生未預期的錯誤，無法開啟此 PPTX。",
   "error.sourceUnmodified": "原始 PPTX 檔案未經修改。",
+  "error.sourceUnmodifiedLegacy": "原始檔案未經修改。",
   "error.retry": "重試",
   "settings.rememberPosition": "記住閱讀位置",
   "settings.rememberPositionDescription":
     "僅儲存上次閱讀的投影片編號，以及用於偵測本機檔案變更的資訊。",
+  "settings.localProcessing": "本機處理與隱私",
+  "settings.localProcessingDescription":
+    "簡報資料始終保留在此裝置上。Office Viewer 不會上傳檔案，也不包含遙測。",
+  "settings.compatibility": "相容性與安全",
+  "settings.compatibilityDescription":
+    "呈現結果是唯讀預覽。已知不支援或可能不準確的內容會顯示提示，原始檔案始終不會被修改。",
+  "settings.diagnostics": "診斷摘要",
+  "settings.diagnosticsDescription":
+    "複製的摘要包含版本、檔案大小、投影片數量、耗時和穩定分類，不包含檔名、路徑、投影片文字、影像或作者中繼資料。",
 } as const satisfies MessageCatalog;
 
 export const MESSAGE_CATALOGS: Readonly<

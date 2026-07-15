@@ -16,6 +16,7 @@ const EXPECTED_UI = {
     firstThumbnail: "Slide 1",
     fullscreen: "Full screen",
     external: "Open in default application",
+    diagnostics: "Copy diagnostic summary",
     pageTotal: "of 12",
     invalidPage: "Enter a slide number from 1 to 12.",
   },
@@ -29,6 +30,7 @@ const EXPECTED_UI = {
     firstThumbnail: "第 1 张幻灯片",
     fullscreen: "全屏",
     external: "在默认应用中打开",
+    diagnostics: "复制诊断摘要",
     pageTotal: "共 12 页",
     invalidPage: "请输入 1 到 12 之间的幻灯片编号。",
   },
@@ -42,6 +44,7 @@ const EXPECTED_UI = {
     firstThumbnail: "第 1 張投影片",
     fullscreen: "全螢幕",
     external: "在預設應用程式中開啟",
+    diagnostics: "複製診斷摘要",
     pageTotal: "共 12 頁",
     invalidPage: "請輸入 1 到 12 之間的投影片編號。",
   },
@@ -55,6 +58,7 @@ const EXPECTED_UI = {
     firstThumbnail: "Slide 1",
     fullscreen: "Full screen",
     external: "Open in default application",
+    diagnostics: "Copy diagnostic summary",
     pageTotal: "of 12",
     invalidPage: "Enter a slide number from 1 to 12.",
   },
@@ -133,6 +137,10 @@ describe("multilingual installed smoke", () => {
     );
     await expect(root.$('[data-action="open-externally"]')).toHaveText(
       expected.external,
+    );
+    await expect(root.$('[data-action="copy-diagnostics"]')).toHaveAttribute(
+      "aria-label",
+      expected.diagnostics,
     );
     await expect(root.$('.pptx-viewer__page-total')).toHaveText(expected.pageTotal);
 

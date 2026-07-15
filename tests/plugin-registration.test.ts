@@ -81,7 +81,34 @@ describe("OfficeViewerPlugin", () => {
     },
   );
 
-  it("registers pptx files with the dedicated view", async () => {
+  it("explains local processing, compatibility limits, and diagnostic contents in settings", async () => {
+    const app = {
+      vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    await plugin.onload();
+    const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+      containerEl: HTMLElement;
+      display(): void;
+    };
+
+    settingTab.display();
+
+    expect(settingTab.containerEl.textContent).toContain("Local processing and privacy");
+    expect(settingTab.containerEl.textContent).toContain(
+      "Presentation bytes stay on this device",
+    );
+    expect(settingTab.containerEl.textContent).toContain("Compatibility and safety");
+    expect(settingTab.containerEl.textContent).toContain(
+      "Rendering is a read-only preview",
+    );
+    expect(settingTab.containerEl.textContent).toContain("Diagnostic summary");
+    expect(settingTab.containerEl.textContent).toContain(
+      "excludes filenames, paths, slide text, images, and author metadata",
+    );
+  });
+
+  it("registers PPTX reading and legacy PPT explanation with the dedicated view", async () => {
     let releaseLoad!: () => void;
     const loadPending = new Promise<void>((resolve) => {
       releaseLoad = resolve;
@@ -103,13 +130,44 @@ describe("OfficeViewerPlugin", () => {
       expect.any(Function),
     );
     expect(plugin.registerExtensions).toHaveBeenCalledWith(
-      ["pptx"],
+      ["pptx", "ppt"],
       "pptx-viewer",
     );
     expect(plugin.addSettingTab).toHaveBeenCalledOnce();
     expect(vault.on).toHaveBeenCalledWith("rename", expect.any(Function));
     expect(vault.on).toHaveBeenCalledWith("delete", expect.any(Function));
     expect(plugin.registerEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("explains legacy PPT without reading or parsing the source", async () => {
+    const readBinary = vi.fn();
+    const app = {
+      vault: {
+        readBinary,
+        on: vi.fn(() => ({ off: vi.fn() })),
+        adapter: { getFullPath: vi.fn(() => "/vault/legacy.ppt") },
+      },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    await plugin.onload();
+    const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+    const view = factory?.({ app } as never) as unknown as {
+      contentEl: HTMLElement;
+      onLoadFile(file: unknown): Promise<void>;
+    };
+    const file = Object.assign(new TFile(), {
+      basename: "legacy",
+      extension: "ppt",
+      path: "legacy.ppt",
+    });
+
+    await view.onLoadFile(file);
+
+    const root = view.contentEl.querySelector<HTMLElement>(".pptx-viewer")!;
+    expect(root.dataset.errorCategory).toBe("unsupported-legacy");
+    expect(root.textContent).toContain("Legacy PPT files are not supported.");
+    expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
+    expect(readBinary).not.toHaveBeenCalled();
   });
 
   it("passes a Vault-relative fingerprint to position restore and recording", async () => {

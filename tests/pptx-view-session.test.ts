@@ -333,9 +333,12 @@ describe("PptxViewSession", () => {
   );
 
   it.each([
+    ["en", "unsupported-legacy", "Legacy PPT files are not supported. Open this file in the default application.", "The original file was not modified.", "Retry"],
     ["en", "malformed", "This PPTX is damaged or incomplete.", "The original PPTX file was not modified.", "Retry"],
     ["en", "protected", "This PPTX is encrypted or password-protected.", "The original PPTX file was not modified.", "Retry"],
     ["en", "incompatible", "This PPTX uses content this viewer cannot safely display.", "The original PPTX file was not modified.", "Retry"],
+    ["en", "resource-exhausted", "This PPTX is too large or complex to open within the viewer's safety limits.", "The original PPTX file was not modified.", "Retry"],
+    ["en", "cancelled", "Loading this PPTX was cancelled.", "The original PPTX file was not modified.", "Retry"],
     ["en", "unknown", "An unexpected error prevented this PPTX from opening.", "The original PPTX file was not modified.", "Retry"],
     ["zh-CN", "malformed", "此 PPTX 已损坏或不完整。", "原始 PPTX 文件未被修改。", "重试"],
     ["zh-CN", "protected", "此 PPTX 已加密或受密码保护。", "原始 PPTX 文件未被修改。", "重试"],
@@ -371,6 +374,86 @@ describe("PptxViewSession", () => {
       expect(root.textContent).not.toContain("private candidate detail");
     },
   );
+
+  it("keeps known compatibility limitations visible while the deck remains readable", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeRenderer(2);
+    Object.defineProperty(rendererSession, "compatibilityWarnings", {
+      value: ["unsupported-content", "font-substitution"],
+    });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      { openExternally: vi.fn(async () => {}) },
+    );
+
+    await session.open("deck.pptx");
+
+    expect(root.dataset.state).toBe("ready");
+    expect(root.querySelector('[data-warning-category="unsupported-content"]')
+      ?.textContent).toContain("Some presentation content may not render correctly");
+    expect(root.querySelector('[data-warning-category="font-substitution"]')
+      ?.textContent).toContain("One or more presentation fonts are unavailable");
+    expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
+  });
+
+  it("copies a content-free diagnostic summary for a readable deck", async () => {
+    const root = document.createElement("div");
+    const copy = vi.fn(async (_summary: string) => {});
+    const { adapter } = makeRenderer(2);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(42)) },
+      adapter,
+      {
+        diagnostics: {
+          environment: {
+            pluginVersion: "0.0.1",
+            obsidianVersion: "1.13.1",
+            rendererVersion: "1.2.4",
+            operatingSystem: "darwin-arm64",
+          },
+          rememberReadingPosition: () => true,
+          copy,
+        },
+      },
+    );
+
+    await session.open("private/customer-roadmap.pptx");
+    root.querySelector<HTMLButtonElement>('[data-action="copy-diagnostics"]')!
+      .click();
+    await vi.waitFor(() => expect(copy).toHaveBeenCalledOnce());
+
+    const copied = copy.mock.calls[0]![0];
+    expect(JSON.parse(copied)).toMatchObject({
+      sourceBytes: 42,
+      slideCount: 2,
+      lifecyclePhase: "ready",
+      errorCategory: null,
+    });
+    expect(copied).not.toContain("customer-roadmap");
+    expect(root.textContent).toContain("Diagnostic summary copied.");
+  });
+
+  it("classifies a current AbortError as a recoverable cancelled load", async () => {
+    const root = document.createElement("div");
+    const adapter: PptxRendererAdapter = {
+      open: vi.fn(async () => {
+        throw new DOMException("cancelled", "AbortError");
+      }),
+    };
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+
+    await session.open("deck.pptx");
+
+    expect(root.dataset.errorCategory).toBe("cancelled");
+    expect(root.textContent).toContain("Loading this PPTX was cancelled.");
+  });
 
   it("keeps fit-to-window automatic and exposes no manual zoom controls", async () => {
     const root = document.createElement("div");
@@ -1497,12 +1580,18 @@ describe("PptxViewSession", () => {
   });
 
   const errorCases = [
+    ["unsupported-legacy", "Legacy PPT files are not supported."],
     ["malformed", "This PPTX is damaged or incomplete."],
     ["protected", "This PPTX is encrypted or password-protected."],
     [
       "incompatible",
       "This PPTX uses content this viewer cannot safely display.",
     ],
+    [
+      "resource-exhausted",
+      "This PPTX is too large or complex to open within the viewer's safety limits.",
+    ],
+    ["cancelled", "Loading this PPTX was cancelled."],
     ["unknown", "An unexpected error prevented this PPTX from opening."],
   ] as const;
 
@@ -1522,7 +1611,11 @@ describe("PptxViewSession", () => {
       expect(root.dataset.state).toBe("error");
       expect(root.dataset.errorCategory).toBe(category);
       expect(root.textContent).toContain(message);
-      expect(root.textContent).toContain("The original PPTX file was not modified.");
+      expect(root.textContent).toContain(
+        category === "unsupported-legacy"
+          ? "The original file was not modified."
+          : "The original PPTX file was not modified.",
+      );
       expect(
         root.querySelector<HTMLButtonElement>('[data-action="retry"]'),
       ).not.toBeNull();

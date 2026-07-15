@@ -35,5 +35,14 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
             });
           }),
       );
+    new Setting(this.containerEl)
+      .setName(this.messages.text("settings.localProcessing"))
+      .setDesc(this.messages.text("settings.localProcessingDescription"));
+    new Setting(this.containerEl)
+      .setName(this.messages.text("settings.compatibility"))
+      .setDesc(this.messages.text("settings.compatibilityDescription"));
+    new Setting(this.containerEl)
+      .setName(this.messages.text("settings.diagnostics"))
+      .setDesc(this.messages.text("settings.diagnosticsDescription"));
   }
 }

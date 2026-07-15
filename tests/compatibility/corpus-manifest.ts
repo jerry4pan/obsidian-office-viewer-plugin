@@ -1,4 +1,5 @@
 import type { CompatibilityClassification } from "../../src/compatibility/compatibility-report";
+import type { PptxCompatibilityWarningCategory } from "../../src/renderer/pptx-renderer-adapter";
 import type { PptxRendererCandidate } from "../../src/renderer/renderer-candidate-config";
 
 export const REQUIRED_CORPUS_FEATURES = [
@@ -52,6 +53,7 @@ export interface CorpusFixture {
   readonly title: string;
   readonly vaultPath: `compatibility/${string}.pptx`;
   readonly features: readonly CorpusFeature[];
+  readonly runtimeWarnings: readonly PptxCompatibilityWarningCategory[];
   readonly mainContentChecks: readonly MainContentCheck[];
   readonly provenance: {
     readonly license: "MIT";
@@ -125,6 +127,7 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Text, fonts, theme and master on 16:9",
     vaultPath: "compatibility/text-theme-wide.pptx",
     features: ["text", "fonts", "theme", "master", "wide-layout"],
+    runtimeWarnings: ["font-substitution"],
     mainContentChecks: [
       font("Quarterly Brief", "Arial", true),
       text("Revenue grew 24%"),
@@ -147,8 +150,8 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "575c0c33f264cc310ed2e9d73abcaf5b4ed958277293a68e6012124f1ce3fb26",
-        reason: "The 2026-07-15 en-US host-language revalidation approved 304 material pixels confined to the missing-font fallback glyph raster; 69 additional raw edge-antialias pixels remain below the fixed comparison threshold, while layout, readable content, and known SVG limitations are unchanged.",
+        sha256: "5a1949c75081d7401d0f3f5b7e6320dd090fac37c9813fccfa8eb764363d4b9a",
+        reason: "The 2026-07-15 M3 review approved the intentional 462 x 484 main-slide capture after the persistent font-substitution warning took a fixed visible row; the slide remains fully fit, all five readable units remain visible, and presentation rendering is unchanged.",
         approvedOn: "2026-07-15",
       },
       "pptx-preview": {
@@ -163,6 +166,7 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Images and transparency on 4:3",
     vaultPath: "compatibility/images-transparency-standard.pptx",
     features: ["images", "transparency", "shapes", "standard-layout"],
+    runtimeWarnings: ["unsupported-content"],
     mainContentChecks: [
       text("Layered Product"),
       text("50% transparency"),
@@ -184,9 +188,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "d1ebeaee8c153627001af8d76c54997e65f07f19d67ce3e22547fc87fb8f7166",
-        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
-        approvedOn: "2026-07-14",
+        sha256: "2b4b94b63e69120116a5dacb72847e80d9473224f9d8b401b461998e260706ad",
+        reason: "The 2026-07-15 M3 review approved the intentional 462 x 484 main-slide capture after the persistent unsupported-content warning took a fixed visible row; the slide remains fully fit and the known SVG degradation is unchanged.",
+        approvedOn: "2026-07-15",
       },
       "pptx-preview": {
         sha256: "f9e445481f1dc10b432e24e087d8752da6cef909175baf5d8aad515d960b664a",
@@ -200,6 +204,7 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Business table and chart",
     vaultPath: "compatibility/tables-charts.pptx",
     features: ["table", "chart", "text"],
+    runtimeWarnings: [],
     mainContentChecks: [
       text("Regional performance"),
       text("North"),
@@ -238,6 +243,7 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Native grouped and rotated shapes",
     vaultPath: "compatibility/grouped-rotated.pptx",
     features: ["group", "rotation", "shapes", "text"],
+    runtimeWarnings: [],
     mainContentChecks: [
       text("Grouped workflow"),
       text("Discover"),
@@ -275,6 +281,7 @@ export const corpusManifest: readonly CorpusFixture[] = [
     title: "Complex vector drawing fallback",
     vaultPath: "compatibility/complex-drawing.pptx",
     features: ["complex-drawing", "images", "text"],
+    runtimeWarnings: ["unsupported-content"],
     mainContentChecks: [text("Architecture map"), image("Architecture diagram")],
     provenance,
     review: {
@@ -291,9 +298,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "9da90cef6b91003b3875ed2d16bc98973c9791b3e5acba189249a51d0ced3aff",
-        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
-        approvedOn: "2026-07-14",
+        sha256: "6cfb3690a7665a6872f295ca569f6302a270fd89b59544b7a0a5986d2fba072d",
+        reason: "The 2026-07-15 M3 review approved the intentional 462 x 484 main-slide capture after the persistent unsupported-content warning took a fixed visible row; the slide remains fully fit and the known broken SVG placeholder is unchanged.",
+        approvedOn: "2026-07-15",
       },
       "pptx-preview": {
         sha256: "cee7216f5a842e43b7d850f912fff010bfd81e47e5788249a88f029ff1943400",
