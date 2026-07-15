@@ -123,15 +123,23 @@ describe("ReadingPositionStore", () => {
     await store.initialize();
     store.record(deck, 4);
 
-    const renamed = { path: "folder/renamed.pptx", size: 42, mtime: 10 };
+    const renamed = { path: "folder/renamed.pptx", size: 99, mtime: 77 };
     store.rename(deck.path, renamed);
     expect(store.resolve(deck, 10)).toBe(0);
-    expect(store.resolve(renamed, 10)).toBe(4);
+    const renamedWithOriginalFingerprint = {
+      path: renamed.path,
+      size: deck.size,
+      mtime: deck.mtime,
+    };
+    expect(store.resolve(renamedWithOriginalFingerprint, 10)).toBe(4);
     await store.flush();
     expect(adapter.saved.at(-1)?.positions[renamed.path]).toMatchObject({
-      ...renamed,
+      ...renamedWithOriginalFingerprint,
       slideIndex: 4,
     });
+    expect(store.resolve(renamed, 10)).toBe(0);
+    await store.flush();
+    expect(adapter.saved.at(-1)?.positions).toEqual({});
   });
 
   it("removes a saved position on deletion", async () => {

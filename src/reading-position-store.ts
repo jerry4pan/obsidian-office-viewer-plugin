@@ -242,8 +242,8 @@ export class ReadingPositionStore {
     delete this.data.positions[oldPath];
     this.setPosition(file.path, {
       path: file.path,
-      size: file.size,
-      mtime: file.mtime,
+      size: entry.size,
+      mtime: entry.mtime,
       slideIndex: entry.slideIndex,
       updatedAt: entry.updatedAt,
     });

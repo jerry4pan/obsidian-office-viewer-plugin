@@ -152,7 +152,11 @@ describe("OfficeViewerPlugin", () => {
       expect(plugin.saveData).toHaveBeenCalledWith(
         expect.objectContaining({
           positions: {
-            "new.pptx": expect.objectContaining({ path: "new.pptx" }),
+            "new.pptx": expect.objectContaining({
+              path: "new.pptx",
+              size: 10,
+              mtime: 20,
+            }),
           },
         }),
       ),

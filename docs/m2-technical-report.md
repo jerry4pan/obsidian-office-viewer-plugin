@@ -64,10 +64,10 @@ Implementation commits after the M2 plan are:
 | Deliverable | Implementation | Focused evidence | Installed/performance evidence | Status |
 | --- | --- | --- | --- | --- |
 | Virtualized thumbnail rail | `src/thumbnail-rail.ts`, `src/thumbnail-virtual-window.ts`, `src/render-task-queue.ts`, `styles.css` | `tests/thumbnail-rail.test.ts` proves bounded/accessibly named windows, scroll replacement, priorities, retry, stale cancellation, ready counts, and cleanup; `tests/thumbnail-virtual-window.test.ts` proves bounded 100/200-slide math | `tests/e2e/pptx-m2.e2e.ts` uses the 200-slide deck and observes a positive mounted count below 200; committed and fresh performance evidence mount 10 of 50 | PASS |
-| Fit, manual zoom, and reset | `src/pptx-viewer-controller.ts`, `src/pptx-view-session.ts`, `styles.css` | `tests/pptx-viewer-controller.test.ts` proves 25-point steps, 25–400% clamps, serialization, failure rollback, and fit at 100%; session tests prove actions and per-view state | Installed M2 test exercises zoom-in and Fit through production controls; multi-leaf case proves zoom isolation | PASS |
-| Keyboard navigation and full screen | `src/pptx-view-session.ts`, `styles.css` | Session tests prove Arrow/Page key mapping, editable-control guard, accessible actions, real state subscription, local rejection handling, and cleanup | Installed M2 test uses Webdriver keyboard input and the real Electron Fullscreen API; source hash is unchanged | PASS |
-| Independent state across leaves | One controller, queue, rail, full-screen subscription, and renderer lifecycle per `PptxViewSession` open generation | Controller/session tests prove view-local page/zoom state and stale-completion suppression | Installed M2 test opens a real split leaf and proves different pages and zooms remain independent | PASS |
-| Optional per-file reading-position persistence | `src/reading-position-store.ts`, `src/office-viewer-setting-tab.ts`, `src/main.ts`, `src/pptx-file-view.ts` | `tests/reading-position-store.test.ts` covers default enablement, exact fingerprint validation, invalidation, rename, delete, disable-and-clear, serialization, retry, last-event-wins, and unload flush; `tests/plugin-registration.test.ts` covers Vault lifecycle and settings | Installed M2 test restores page 9 after Obsidian restart, then disables/clears history and proves page 1 after the next restart | PASS |
+| Fit, manual zoom, and reset | `src/pptx-viewer-controller.ts`, `src/pptx-view-session.ts`, `styles.css` | `tests/pptx-viewer-controller.test.ts` proves 25-point steps, 25–400% clamps, serialization, failure rollback, and fit at 100%; session tests prove actions and per-view state | Installed M2 test changes the real workspace pane width, observes the rendered width recompute while manual `125%` remains active, verifies the 1.25 multiplier against Fit, and proves split-leaf zoom isolation | PASS |
+| Keyboard navigation and full screen | `src/pptx-view-session.ts`, `styles.css` | Session tests prove Arrow/Page key mapping, editable-control guard, accessible actions, real state subscription, local rejection handling, and cleanup | Installed M2 test proves the viewer owns focus immediately after open and uses Webdriver keys without a pointer action; it also uses the real Electron Fullscreen API and preserves the source hash | PASS |
+| Independent state across leaves | One controller, queue, rail, full-screen subscription, and renderer lifecycle per `PptxViewSession` open generation | Controller/session tests prove view-local page/zoom state and stale-completion suppression | Installed M2 test opens a real split leaf and proves page, zoom, thumbnail scroll position, and full-screen state remain independent | PASS |
+| Optional per-file reading-position persistence | `src/reading-position-store.ts`, `src/office-viewer-setting-tab.ts`, `src/main.ts`, `src/pptx-file-view.ts` | `tests/reading-position-store.test.ts` covers default enablement, exact fingerprint validation, invalidation, path-only rename migration, delete, disable-and-clear, serialization, retry, last-event-wins, and unload flush; `tests/plugin-registration.test.ts` proves a rename retains the old size/mtime so simultaneous content changes invalidate on next open | Installed M2 test restores page 9 after Obsidian restart, then disables/clears history and proves page 1 after the next restart | PASS |
 | Progressive rendering, adjacent prefetch, cancellation, and release | Parse-only renderer open in `src/renderer/*`; current page in `src/pptx-viewer-controller.ts`; one-concurrency background work in `src/render-task-queue.ts`; rail/session disposal in `src/thumbnail-rail.ts` and `src/pptx-view-session.ts` | Renderer tests prove disposable thumbnail/prefetch handles and abort; queue tests prove priority, de-duplication, concurrency one, cancellation, stale-result disposal; controller/session tests prove current-first rendering and deterministic/re-entrant cleanup | Installed cleanup case reaches pending/running/mounted `0/0/0`; performance records current-first readiness, warm switches, adapter stop, close/file-switch stop, and full cleanup | PASS |
 | Light/dark theme and basic accessibility | Scoped `.pptx-viewer` rules in `styles.css`; native controls and ARIA/live state in `src/pptx-view-session.ts` and `src/thumbnail-rail.ts` | Session/rail tests prove accessible names, logical DOM actions, `aria-current`, live status, and focusability; all CSS selectors remain scoped | Installed M2 test checks both themes, semantic names, effective opaque control backgrounds, enabled-control contrast, and visible focus/outline contrast of at least 3:1 | PASS |
 
@@ -79,7 +79,7 @@ Implementation commits after the M2 plan are:
 | Large deck does not schedule or mount every page | Virtual-window unit tests cover 100 and 200 slides. Installed stress test observes bounded 200-slide mounting. Committed/fresh 50-slide performance observations mount 10, never 50; the background queue's observed concurrency is one. The 200-slide fixture exceeds the PRD's 100-slide floor. | PASS |
 | Close and file switch stop work and release resources | Committed evidence: close `2.3 ms`, file switch `17.5 ms`, both `0/0/0`; final fresh run: close `1.1 ms`, file switch `17.5 ms`, both `0/0/0`. Adapter-stop p95 is `18.1 ms` committed and `17.2 ms` fresh; committed/fresh full resource completion p95 `1854.9`/`1855.3 ms` is within the unchanged 2000 ms observation window. | PASS |
 | Valid page restores after restart | Installed M2 test captures the first ready transition at page `9 / 12`, survives `browser.reloadObsidian`, and separately proves disable-and-clear starts at `1 / 12`. Store/plugin focused tests cover invalidation and lifecycle. | PASS |
-| Keyboard-only core reading loop works | Installed M2 test focuses the real viewer and uses `ArrowRight`, `PageDown`, and `PageUp`; focused tests cover both Arrow directions, both Page keys, boundaries, and editable controls. | PASS |
+| Keyboard-only core reading loop works | Installed M2 test asserts the real viewer is automatically focused immediately after open, then uses `ArrowRight`, `PageDown`, and `PageUp` without any click or pointer action; focused tests cover both Arrow directions, both Page keys, boundaries, and editable controls. | PASS |
 
 ## Performance and fixture evidence
 
@@ -153,6 +153,30 @@ baseline.
   Product/controller/rail code consumes only the project-owned
   `PptxRendererSession` and `PptxRendererResource` contracts, preserving
   ADR-0001.
+
+## Final dual-axis review
+
+The fixed-range review `10caf4a...HEAD` ran separate standards and spec axes.
+The standards axis found one hard documentation contradiction: the refreshed
+compatibility report still described Aiden as unselected after ADR-0001 had
+selected it. The report now states the accepted decision while retaining the
+known SVG limitation. Its possible `PptxViewSession.open()` Divergent Change
+smell was evaluated as non-blocking: the approved M2 design makes the session
+the product-owned orchestration seam, and extracting it during acceptance
+would add lifecycle risk without changing an unmet requirement.
+
+The spec axis found four gaps, all resolved with direct evidence:
+
+- rename migration now changes only the path/key and retains the old size and
+  mtime, so a content-changing rename cannot bless stale state;
+- the installed zoom test changes pane width and proves adaptive fit plus the
+  preserved manual multiplier; removing the main-wrapper `max-width` clamp
+  fixed a real bug where the label said `125%` but rendered width remained at
+  Fit;
+- the two-leaf installed test now covers thumbnail scroll and full-screen
+  state in addition to page and zoom;
+- installed keyboard navigation now begins from automatic viewer focus and
+  performs no pointer action.
 
 ## Fresh Task 11 verification
 

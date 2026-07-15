@@ -40,7 +40,10 @@ zero-based slide index, and update timestamp. It never stores absolute paths,
 slide text, images, author metadata, or rendered DOM. A changed fingerprint or
 invalid slide index is discarded. Turning the setting off immediately clears
 saved positions and prevents future position loads/saves; turning it back on
-starts with no history. Rename and deletion events migrate or remove entries.
+starts with no history. Rename events migrate only the Vault-relative key
+while retaining the prior size/mtime fingerprint, so a rename combined with
+content changes invalidates the saved page on the next open. Deletion events
+remove entries.
 
 ## Development install
 

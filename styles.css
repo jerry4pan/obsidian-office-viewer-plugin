@@ -89,6 +89,9 @@
   background: var(--background-primary);
   box-shadow: var(--shadow-s);
   flex: 0 0 auto;
+}
+
+.pptx-viewer[data-zoom-mode="fit"] .pptx-viewer__slide > * {
   max-height: 100%;
   max-width: 100%;
 }

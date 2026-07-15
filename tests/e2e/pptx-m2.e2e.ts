@@ -144,7 +144,8 @@ describe("M2 installed PPTX reading experience", () => {
     const root = await activeReadyRoot();
     await waitForPage(root, 1);
 
-    await root.click();
+    expect(await browser.execute((viewer) => document.activeElement === viewer, root))
+      .toBe(true);
     await browser.keys(["ArrowRight"]);
     await waitForPage(root, 2);
     await browser.keys(["PageDown"]);
@@ -161,10 +162,36 @@ describe("M2 installed PPTX reading experience", () => {
     await root.$('[data-action="zoom-in"]').click();
     await expect(root).toHaveAttribute("data-zoom-mode", "manual");
     await expect(root).toHaveAttribute("data-zoom-percent", "125");
-    await root.$('[data-action="zoom-out"]').click();
-    await expect(root).toHaveAttribute("data-zoom-percent", "100");
+    const beforeResizeWidth = await root.$(".pptx-viewer__slide > *").getSize("width");
+    await browser.execute((viewer) => {
+      const leaf = viewer.closest<HTMLElement>(".workspace-leaf");
+      if (!leaf) throw new Error("PPTX workspace leaf unavailable");
+      leaf.dataset.e2eOriginalStyle = leaf.getAttribute("style") ?? "";
+      leaf.style.flex = "0 0 520px";
+      leaf.style.width = "520px";
+    }, root);
+    await browser.waitUntil(async () =>
+      (await root.$(".pptx-viewer__slide > *").getSize("width")) !== beforeResizeWidth,
+    { timeout: 10_000, timeoutMsg: "manual zoom did not adapt to pane resize" });
+    const resizedManualWidth = await root.$(".pptx-viewer__slide > *").getSize("width");
+    await expect(root).toHaveAttribute("data-zoom-percent", "125");
     await root.$('[data-action="fit-slide"]').click();
     await expect(root).toHaveAttribute("data-zoom-mode", "fit");
+    const resizedFitWidth = await root.$(".pptx-viewer__slide > *").getSize("width");
+    const resizedViewportWidth = await root.$(".pptx-viewer__slide").getSize("width");
+    expect(resizedManualWidth / resizedViewportWidth).toBeGreaterThan(1.24);
+    expect(resizedManualWidth / resizedViewportWidth).toBeLessThan(1.26);
+    expect(resizedFitWidth).toBeLessThanOrEqual(resizedViewportWidth);
+    await root.$('[data-action="zoom-out"]').click();
+    await expect(root).toHaveAttribute("data-zoom-percent", "75");
+    await root.$('[data-action="fit-slide"]').click();
+    await browser.execute((viewer) => {
+      const leaf = viewer.closest<HTMLElement>(".workspace-leaf");
+      if (!leaf) return;
+      const original = leaf.dataset.e2eOriginalStyle ?? "";
+      original ? leaf.setAttribute("style", original) : leaf.removeAttribute("style");
+      delete leaf.dataset.e2eOriginalStyle;
+    }, root);
 
     const fullscreen = root.$('[data-action="toggle-fullscreen"]');
     await fullscreen.click();
@@ -190,7 +217,7 @@ describe("M2 installed PPTX reading experience", () => {
     expect(await vaultSha256(STRESS)).toBe(stressBefore);
   });
 
-  it("keeps current page and zoom independent across two real workspace leaves", async () => {
+  it("keeps page, zoom, thumbnail scroll, and full-screen state independent across two real workspace leaves", async () => {
     await obsidianPage.openFile(REPRESENTATIVE);
     const first = await activeReadyRoot();
     await browser.execute(() => {
@@ -222,6 +249,30 @@ describe("M2 installed PPTX reading experience", () => {
     await expect(firstTagged).toHaveAttribute("data-zoom-percent", "125");
     await waitForPage(secondTagged, 8);
     await expect(secondTagged).toHaveAttribute("data-zoom-percent", "75");
+
+    const firstRail = firstTagged.$('[aria-label="Slide thumbnails"]');
+    const secondRail = secondTagged.$('[aria-label="Slide thumbnails"]');
+    const secondScrollBefore = Number(await secondRail.getProperty("scrollTop"));
+    await browser.execute(() => {
+      const rail = document.querySelector<HTMLElement>(
+        '[data-e2e-leaf="first"] [aria-label="Slide thumbnails"]',
+      );
+      if (!rail) throw new Error("First thumbnail rail unavailable");
+      rail.scrollTop = 500;
+      rail.dispatchEvent(new Event("scroll"));
+    });
+    await browser.waitUntil(async () => Number(await firstRail.getProperty("scrollTop")) > 0, {
+      timeout: 10_000,
+      timeoutMsg: "first thumbnail rail did not scroll",
+    });
+    expect(Number(await secondRail.getProperty("scrollTop"))).toBe(secondScrollBefore);
+
+    const firstFullscreen = firstTagged.$('[data-action="toggle-fullscreen"]');
+    await firstFullscreen.click();
+    await expect(firstTagged).toHaveAttribute("data-fullscreen", "true");
+    await expect(secondTagged).toHaveAttribute("data-fullscreen", "false");
+    await firstFullscreen.click();
+    await expect(firstTagged).toHaveAttribute("data-fullscreen", "false");
   });
 
   it("restores a page after restart, then disable-and-clear resets to page 1", async () => {

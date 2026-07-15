@@ -2,7 +2,7 @@
 
 Date: 2026-07-14
 Ticket: #4  
-Decision status: first candidate meets the M0 readability gate with SVG gaps
+Decision status: selected by ADR-0001; the M2 revalidation retains the known SVG gaps
 
 ## Result
 
@@ -87,7 +87,7 @@ UPDATE_COMPATIBILITY_BASELINES=1 npm run test:compatibility
 
 ## Consequence
 
-The renderer remains a viable M0 candidate, but it is not selected until Ticket
-#6 runs a second candidate through the same acceptance path and Ticket #7 makes
-the decision. SVG media support is the first candidate's clearest fidelity gap
-and should be investigated before a public release claim.
+ADR-0001 selects this renderer for the M0/M1 foundation and M2 continues to use
+it behind the project-owned adapter boundary. SVG media support remains the
+selected renderer's clearest fidelity gap and should be investigated before a
+public release claim.
