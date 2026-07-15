@@ -1,6 +1,6 @@
 {
   "name": "obsidian-office-viewer-plugin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local, read-only PPTX viewing for Obsidian.",
   "main": "main.js",
   "type": "module",
