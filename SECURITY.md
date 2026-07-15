@@ -25,7 +25,8 @@ safe to open in another application.
 ## Reporting a vulnerability
 
 Do not attach confidential presentations or paste presentation content into a
-public issue. Use GitHub's private vulnerability reporting for this repository
-when available. Include the Office Viewer version, Obsidian version, operating
-system, stable error category, reproducible steps using a non-confidential
-fixture, and the content-free diagnostic summary if relevant.
+public issue. Use [GitHub's private vulnerability reporting](
+https://github.com/jerry4pan/obsidian-office-viewer-plugin/security/advisories/new)
+for this repository. Include the Office Viewer version, Obsidian version,
+operating system, stable error category, reproducible steps using a
+non-confidential fixture, and the content-free diagnostic summary if relevant.
