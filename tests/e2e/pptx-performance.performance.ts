@@ -1,4 +1,5 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { browser, expect } from "@wdio/globals";
@@ -41,10 +42,17 @@ import { renderInstalledPerformanceMarkdown } from "../performance/installed-per
 import { writePerformanceProgressAtomic } from "../performance/performance-progress";
 import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 import { synchronizeMemoryAttemptSelection } from "../performance/memory-attempt-evidence";
+import {
+  appendPerformanceRunAttempt,
+  assertPerformanceRunProvenance,
+  emptyPerformanceRunProvenance,
+  type PerformanceRunProvenance,
+} from "../performance/performance-run-provenance";
 
 const renderer = activeRendererAcceptanceConfig();
 const ARTIFACT_DIR = renderer.paths.performanceArtifactDir;
 const PROGRESS_PATH = path.join(ARTIFACT_DIR, "progress.json");
+const RUN_HISTORY_PATH = path.join(ARTIFACT_DIR, "run-history.json");
 const ACTIVE_ROOT = ".workspace-leaf.mod-active .pptx-viewer";
 const OBSERVATION_WINDOW_MS = 2_000;
 const POST_CLOSE_SAMPLE_TARGET_MS = 1_850;
@@ -67,6 +75,10 @@ interface SessionDiagnostics {
   rendererActive: boolean;
   disposed: boolean;
   lifecyclePhase: string;
+  backgroundPending: number;
+  backgroundRunning: number;
+  mountedThumbnails: number;
+  readyThumbnails: number;
 }
 
 interface RendererMemorySnapshot {
@@ -104,6 +116,7 @@ interface RegisteredRun {
   cleanupSatisfiedAt: number | null;
   postCloseSnapshot: RendererMemorySnapshot | null;
   beginClose: (postCloseTargetMs: number) => void;
+  beginFileSwitch: (targetPath: string) => Promise<void>;
   sample: (label: string) => RendererMemorySnapshot | null;
   refreshCleanup: () => void;
 }
@@ -127,6 +140,7 @@ interface RunStatus {
   closeElapsedMs: number | null;
   cleanupElapsedMs: number | null;
   postCloseSnapshot: RendererMemorySnapshot | null;
+  openElapsedMs: number | null;
 }
 
 interface RawSlideSwitch {
@@ -134,6 +148,30 @@ interface RawSlideSwitch {
   from: string;
   to: string;
   elapsedMs: number;
+  targetSlideIndex: number;
+  warmupVisitOrdinal: number;
+}
+
+interface RawSwitchWarmupVisit {
+  action: "next" | "previous";
+  from: string;
+  to: string;
+  targetSlideIndex: number;
+}
+
+interface RawThumbnailReadiness {
+  signal: "data-ready-thumbnail-count";
+  elapsedMs: number;
+  readyCount: number;
+  mountedCount: number;
+}
+
+interface BackgroundStopObservation {
+  reason: "close" | "file-switch";
+  elapsedMs: number;
+  pending: number;
+  running: number;
+  mounted: number;
 }
 
 interface RawOpenAttempt {
@@ -144,6 +182,8 @@ interface RawOpenAttempt {
   timedOut: boolean;
   metadataMs: number | null;
   firstReadableMs: number | null;
+  thumbnailReadiness: RawThumbnailReadiness | null;
+  switchWarmup: RawSwitchWarmupVisit[];
   slideSwitches: RawSlideSwitch[];
   error: string | null;
 }
@@ -240,6 +280,39 @@ function parseTiming(value: string | null, label: string): number {
     throw new Error(`${label} was not a finite non-negative measurement: ${value}`);
   }
   return parsed;
+}
+
+function parsePageIndex(value: string): number {
+  const match = /^(\d+) \/ (\d+)$/.exec(value);
+  const page = Number(match?.[1]);
+  const total = Number(match?.[2]);
+  if (
+    match === null ||
+    !Number.isInteger(page) ||
+    !Number.isInteger(total) ||
+    page < 1 ||
+    page > total
+  ) {
+    throw new Error(`page counter was not valid rendered-page evidence: ${value}`);
+  }
+  return page - 1;
+}
+
+async function sha256File(filePath: string): Promise<string> {
+  return createHash("sha256").update(await readFile(filePath)).digest("hex");
+}
+
+async function loadRunHistory(): Promise<PerformanceRunProvenance> {
+  try {
+    const value: unknown = JSON.parse(await readFile(RUN_HISTORY_PATH, "utf8"));
+    assertPerformanceRunProvenance(value);
+    return value;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return emptyPerformanceRunProvenance();
+    }
+    throw error;
+  }
 }
 
 function remainingAttemptMs(deadline: AttemptDeadline): number {
@@ -389,9 +462,24 @@ async function startInstalledRun(
           refreshCleanup();
         }, postCloseTargetMs);
       };
+      const beginFileSwitch = async (targetPath: string) => {
+        if (run.closeStartedAt !== null) return;
+        const target = app.vault.getAbstractFileByPath(targetPath);
+        if (!(target instanceof obsidian.TFile)) {
+          throw new Error(`Performance switch target not found: ${targetPath}`);
+        }
+        run.view = leaf.view as RegisteredRun["view"];
+        sample("pre-file-switch");
+        run.closeStartedAt = performance.now();
+        if (interval !== null) clearInterval(interval);
+        observer?.disconnect();
+        await leaf.openFile(target);
+        refreshCleanup();
+      };
       run.sample = sample;
       run.refreshCleanup = refreshCleanup;
       run.beginClose = beginClose;
+      run.beginFileSwitch = beginFileSwitch;
       registry[runToken] = run;
       sample("pre-open");
       if (runOptions.sampleMemory) {
@@ -473,6 +561,13 @@ async function beginClose(token: string, postCloseTargetMs: number) {
   }, token, postCloseTargetMs);
 }
 
+async function beginFileSwitch(token: string, targetPath: string) {
+  await browser.executeObsidian(async (_context, runToken, filePath) => {
+    await (window as unknown as RunRegistryWindow)
+      .__pptxPerformanceRuns?.[runToken]?.beginFileSwitch(filePath);
+  }, token, targetPath);
+}
+
 async function getRunStatus(token: string): Promise<RunStatus> {
   return browser.executeObsidian((_context, runToken) => {
     const run = (window as unknown as RunRegistryWindow)
@@ -507,6 +602,8 @@ async function getRunStatus(token: string): Promise<RunStatus> {
       postCloseSnapshot: run?.postCloseSnapshot
         ? { ...run.postCloseSnapshot }
         : null,
+      openElapsedMs:
+        run === undefined ? null : now - run.openStartedAt,
     };
   }, token);
 }
@@ -538,8 +635,18 @@ async function waitForStatus(
 describe("installed PPTX performance collector", () => {
   it("collects synchronized installed Electron evidence without hiding attempts", async () => {
     await mkdir(ARTIFACT_DIR, { recursive: true });
-    const representative = performanceFixtureManifest[0]!;
-    const stress = performanceFixtureManifest[1]!;
+    const representative = performanceFixtureManifest.find(
+      ({ id }) => id === "m2-representative-50-slides",
+    )!;
+    const stress = performanceFixtureManifest.find(
+      ({ id }) => id === "stress-200-slides",
+    )!;
+    const runId = randomUUID();
+    const runStartedAtUtc = new Date().toISOString();
+    const previousRunProvenance = await loadRunHistory();
+    const representativeFixtureSha256 = await sha256File(
+      representative.fixturePath,
+    );
     const memoryBrowser = browser as unknown as ElectronMemoryBrowser;
     const runtimeVersions = (await browser.execute(() => ({
       electron: globalThis.process?.versions.electron ?? "unavailable",
@@ -556,8 +663,8 @@ describe("installed PPTX performance collector", () => {
       chromiumVersion: runtimeVersions.chromium,
       nodeVersion: runtimeVersions.node,
       renderer: renderer.candidate.label,
-      coldDefinition: "First representative open after installed Obsidian launch; excluded from gates.",
-      warmDefinition: "Same-process opens after closing the prior leaf; two warmups excluded, ten measured.",
+      coldDefinition: "First 50-slide representative open after installed Obsidian launch; excluded from gates.",
+      warmDefinition: "Same-process 50-slide opens after closing the prior leaf; two warmups excluded, ten measured.",
       warmupRuns: WARMUP_RUNS,
       measuredRuns: MEASURED_RUNS,
       slideSwitchesPerRun: SWITCH_SEQUENCE.length,
@@ -577,6 +684,9 @@ describe("installed PPTX performance collector", () => {
     const metadataMs: number[] = [];
     const firstReadableMs: number[] = [];
     const slideSwitchMs: number[] = [];
+    const thumbnailReadinessMs: number[] = [];
+    const mountedThumbnailCounts: number[] = [];
+    const backgroundStopObservations: BackgroundStopObservation[] = [];
     const memoryRuns: MemoryRunInput[] = [];
     const cancellation: CancellationObservation[] = [];
     const cleanup: CleanupObservation[] = [];
@@ -598,6 +708,9 @@ describe("installed PPTX performance collector", () => {
           rawOpens,
           rawMemoryAttempts,
           rawCancellationAttempts,
+          thumbnailReadinessMs,
+          mountedThumbnailCounts,
+          backgroundStopObservations,
           failures,
         });
       } catch (error) {
@@ -619,6 +732,8 @@ describe("installed PPTX performance collector", () => {
         timedOut: false,
         metadataMs: null,
         firstReadableMs: null,
+        thumbnailReadiness: null,
+        switchWarmup: [],
         slideSwitches: [],
         error: null,
       };
@@ -683,9 +798,87 @@ describe("installed PPTX performance collector", () => {
         if (measured) {
           metadataMs.push(openAttempt.metadataMs);
           firstReadableMs.push(openAttempt.firstReadableMs);
+          await run(() =>
+            browser.waitUntil(
+              async () =>
+                await withAttemptDeadline(deadline, async () =>
+                  Number(
+                    await root.getAttribute("data-ready-thumbnail-count"),
+                  ) > 0),
+              {
+                timeout: remainingAttemptMs(deadline),
+                timeoutMsg: `${token} exceeded its attempt deadline waiting for the first visible thumbnail resource`,
+              },
+            ),
+          );
+          const thumbnailStatus = await run(() => getRunStatus(token));
+          if (
+            thumbnailStatus.openElapsedMs === null ||
+            !Number.isFinite(thumbnailStatus.openElapsedMs) ||
+            thumbnailStatus.openElapsedMs < 0
+          ) {
+            throw new Error("thumbnail readiness timing unavailable");
+          }
+          const mounted = thumbnailStatus.diagnostics?.mountedThumbnails;
+          const readyCount = Number(
+            await run(() => root.getAttribute("data-ready-thumbnail-count")),
+          );
+          if (
+            mounted === undefined ||
+            !Number.isInteger(mounted) ||
+            mounted <= 0 ||
+            mounted >= representative.slideCount
+          ) {
+            throw new Error(
+              `mounted thumbnail count was not bounded below ${representative.slideCount}: ${mounted}`,
+            );
+          }
+          if (
+            !Number.isInteger(readyCount) ||
+            readyCount <= 0 ||
+            readyCount > mounted ||
+            thumbnailStatus.diagnostics?.readyThumbnails !== readyCount
+          ) {
+            throw new Error(
+              `project thumbnail-ready signal was inconsistent: ready=${readyCount}, mounted=${mounted}`,
+            );
+          }
+          openAttempt.thumbnailReadiness = {
+            signal: "data-ready-thumbnail-count",
+            elapsedMs: thumbnailStatus.openElapsedMs,
+            readyCount,
+            mountedCount: mounted,
+          };
+          thumbnailReadinessMs.push(openAttempt.thumbnailReadiness.elapsedMs);
+          mountedThumbnailCounts.push(mounted);
           const counter = await run(
             async () => await root.$(".pptx-viewer__page-counter"),
           );
+          for (const action of SWITCH_SEQUENCE) {
+            const from = await run(() => counter.getText());
+            const button = await run(
+              async () => await root.$(`[data-action="${action}-slide"]`),
+            );
+            await run(() => button.click());
+            await run(() =>
+              browser.waitUntil(
+                async () =>
+                  (await withAttemptDeadline(deadline, () => counter.getText())) !==
+                  from,
+                {
+                  timeout: remainingAttemptMs(deadline),
+                  timeoutMsg: `${token} exceeded its attempt deadline warming ${action}`,
+                },
+              ),
+            );
+            const to = await run(() => counter.getText());
+            openAttempt.switchWarmup.push({
+              action,
+              from,
+              to,
+              targetSlideIndex: parsePageIndex(to),
+            });
+          }
           for (const action of SWITCH_SEQUENCE) {
             const from = await run(() => counter.getText());
             const button = await run(
@@ -709,7 +902,24 @@ describe("installed PPTX performance collector", () => {
               await run(() => root.getAttribute("data-last-slide-switch-ms")),
               "slide switch",
             );
-            openAttempt.slideSwitches.push({ action, from, to, elapsedMs });
+            const targetSlideIndex = parsePageIndex(to);
+            const warmupVisitOrdinal =
+              openAttempt.switchWarmup.findIndex(
+                (visit) => visit.targetSlideIndex === targetSlideIndex,
+              ) + 1;
+            if (warmupVisitOrdinal < 1) {
+              throw new Error(
+                `slide ${targetSlideIndex + 1} lacked rendered warmup proof`,
+              );
+            }
+            openAttempt.slideSwitches.push({
+              action,
+              from,
+              to,
+              elapsedMs,
+              targetSlideIndex,
+              warmupVisitOrdinal,
+            });
             slideSwitchMs.push(elapsedMs);
           }
           if (remainingAttemptMs(deadline) < 250) {
@@ -778,6 +988,39 @@ describe("installed PPTX performance collector", () => {
               status = waited.value;
             }
             synchronizeMemoryAttempt(memoryAttempt!, status);
+            if (
+              sampleIndex === 1 &&
+              !backgroundStopObservations.some(({ reason }) => reason === "close")
+            ) {
+              const diagnostics = status.diagnostics;
+              if (status.cleanupElapsedMs === null || diagnostics === null) {
+                recordFailure(
+                  "background-close",
+                  "close cleanup diagnostics unavailable",
+                  sampleIndex,
+                );
+              } else {
+                const observation: BackgroundStopObservation = {
+                  reason: "close",
+                  elapsedMs: status.cleanupElapsedMs,
+                  pending: diagnostics.backgroundPending,
+                  running: diagnostics.backgroundRunning,
+                  mounted: diagnostics.mountedThumbnails,
+                };
+                backgroundStopObservations.push(observation);
+                if (
+                  observation.pending !== 0 ||
+                  observation.running !== 0 ||
+                  observation.mounted !== 0
+                ) {
+                  recordFailure(
+                    "background-close",
+                    `close retained pending=${observation.pending}, running=${observation.running}, mounted=${observation.mounted}`,
+                    sampleIndex,
+                  );
+                }
+              }
+            }
             const preOpen = memoryAttempt!.preOpen;
             const peak = memoryAttempt!.peak;
             const steady = memoryAttempt!.steady;
@@ -908,6 +1151,84 @@ describe("installed PPTX performance collector", () => {
     await collectOpen("cold", 1, false);
     for (let index = 1; index <= WARMUP_RUNS; index += 1) await collectOpen("warmup", index, false);
     for (let index = 1; index <= MEASURED_RUNS; index += 1) await collectOpen("measured", index, true);
+
+    const switchTargetPath = "performance/m2-performance-switch-target.md";
+    const switchToken = `file-switch-${Date.now()}`;
+    try {
+      await browser.executeObsidian(async ({ app }, targetPath) => {
+        if (app.vault.getAbstractFileByPath(targetPath) === null) {
+          await app.vault.create(
+            targetPath,
+            "Temporary local target for M2 performance file-switch cleanup evidence.\n",
+          );
+        }
+      }, switchTargetPath);
+      const switchStartedAtMs = performance.now();
+      const switchDeadline = attemptDeadline(switchStartedAtMs);
+      const switchRun = <T>(operation: () => Promise<T>) =>
+        withAttemptDeadline(switchDeadline, operation);
+      await switchRun(() =>
+        startInstalledRun(representative.vaultPath, switchToken, {
+          sampleMemory: false,
+          cancelOnInFlight: false,
+          postCloseTargetMs: 0,
+        }),
+      );
+      const switchRoot = await switchRun(async () => await browser.$(ACTIVE_ROOT));
+      await switchRun(() =>
+        browser.waitUntil(
+          async () =>
+            (await withAttemptDeadline(switchDeadline, () =>
+              switchRoot.getAttribute("data-state"),
+            )) === "ready",
+          {
+            timeout: remainingAttemptMs(switchDeadline),
+            timeoutMsg: "file-switch evidence source did not become readable",
+          },
+        ),
+      );
+      await switchRun(() => beginFileSwitch(switchToken, switchTargetPath));
+      const switched = await switchRun(() =>
+        waitForStatus(
+          switchToken,
+          (status) => status.cleanupElapsedMs !== null,
+          switchDeadline.startedAtMs,
+          switchDeadline.timeoutMs,
+        ),
+      );
+      const diagnostics = switched.value.diagnostics;
+      if (switched.value.cleanupElapsedMs === null || diagnostics === null) {
+        throw new Error("file-switch cleanup diagnostics unavailable");
+      }
+      const observation: BackgroundStopObservation = {
+        reason: "file-switch",
+        elapsedMs: switched.value.cleanupElapsedMs,
+        pending: diagnostics.backgroundPending,
+        running: diagnostics.backgroundRunning,
+        mounted: diagnostics.mountedThumbnails,
+      };
+      backgroundStopObservations.push(observation);
+      if (
+        observation.pending !== 0 ||
+        observation.running !== 0 ||
+        observation.mounted !== 0
+      ) {
+        throw new Error(
+          `file switch retained pending=${observation.pending}, running=${observation.running}, mounted=${observation.mounted}`,
+        );
+      }
+    } catch (error) {
+      recordFailure("background-file-switch", message(error));
+    } finally {
+      for (const error of await cleanupRunEvidence(switchToken)) {
+        recordFailure("collector-cleanup", error);
+      }
+      await browser.executeObsidian(async ({ app }, targetPath) => {
+        const target = app.vault.getAbstractFileByPath(targetPath);
+        if (target !== null) await app.vault.delete(target, true);
+      }, switchTargetPath);
+      await checkpointProgress();
+    }
 
     for (let index = 1; index <= CANCELLATION_RUNS; index += 1) {
       const attemptStartedAtMs = performance.now();
@@ -1115,6 +1436,25 @@ describe("installed PPTX performance collector", () => {
     if (rawCancellationAttempts.length !== CANCELLATION_RUNS) {
       recordFailure("collector", `expected ${CANCELLATION_RUNS} cancellation attempts, received ${rawCancellationAttempts.length}`);
     }
+    if (thumbnailReadinessMs.length !== MEASURED_RUNS) {
+      recordFailure("collector", `expected ${MEASURED_RUNS} thumbnail readiness observations, received ${thumbnailReadinessMs.length}`);
+    }
+    if (
+      mountedThumbnailCounts.length !== MEASURED_RUNS ||
+      mountedThumbnailCounts.some((count) => count <= 0 || count >= 50)
+    ) {
+      recordFailure("collector", `expected ${MEASURED_RUNS} bounded mounted-thumbnail observations strictly below 50`);
+    }
+    for (const reason of ["close", "file-switch"] as const) {
+      if (!backgroundStopObservations.some((observation) =>
+        observation.reason === reason &&
+        observation.pending === 0 &&
+        observation.running === 0 &&
+        observation.mounted === 0
+      )) {
+        recordFailure("collector", `missing successful ${reason} background-stop observation`);
+      }
+    }
     const bundleBytes = (await stat(path.resolve("main.js"))).size;
     const input: PerformanceInput = {
       environment,
@@ -1138,6 +1478,25 @@ describe("installed PPTX performance collector", () => {
       failures,
     };
     const summary = summarizePerformance(input);
+    const measurementPassed =
+      summary.gates.overallPassed && invariantFailures.length === 0;
+    const recordedFailureCount =
+      summary.failures.length + (summary.gates.overallPassed ? 0 : 1);
+    const runProvenance = appendPerformanceRunAttempt(
+      previousRunProvenance,
+      {
+        runId,
+        startedAtUtc: runStartedAtUtc,
+        completedAtUtc: new Date().toISOString(),
+        outcome: measurementPassed ? "passed" : "failed",
+        failureCount: measurementPassed ? 0 : Math.max(1, recordedFailureCount),
+        firstReadableP95Ms: summary.firstReadable.p95,
+        slideSwitchP95Ms: summary.slideSwitch.p95,
+        bundleBytes,
+        representativeFixtureSha256,
+      },
+    );
+    await writePerformanceProgressAtomic(RUN_HISTORY_PATH, runProvenance);
     const analysis = summarizeInstalledPerformance({
       expectedMeasuredRuns: MEASURED_RUNS,
       expectedCancellationRuns: CANCELLATION_RUNS,
@@ -1146,6 +1505,11 @@ describe("installed PPTX performance collector", () => {
       metadataMs,
       firstReadableMs,
       slideSwitchMs,
+      thumbnailReadinessMs,
+      mountedThumbnailCounts,
+      runOutcomes: runProvenance.attempts.map(({ outcome }) => outcome),
+      requiredConsecutiveCleanRuns:
+        runProvenance.policy.requiredConsecutiveCleanRuns,
       memory: memoryRuns,
       cancellationElapsedMs: rawCancellationAttempts.flatMap(
         ({ cancellationElapsedMs }) =>
@@ -1173,6 +1537,10 @@ describe("installed PPTX performance collector", () => {
       rawOpens,
       rawMemoryAttempts,
       rawCancellationAttempts,
+      thumbnailReadinessMs,
+      mountedThumbnailCounts,
+      backgroundStopObservations,
+      runProvenance,
       analysis,
       ...summary,
     };

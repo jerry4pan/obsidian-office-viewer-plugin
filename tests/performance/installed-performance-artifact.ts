@@ -14,6 +14,12 @@ import {
   summarizeInstalledPerformance,
 } from "./installed-performance-analysis";
 import type { InstalledMarkdownArtifact } from "./installed-performance-markdown";
+import {
+  assertPerformanceRunProvenance,
+  assertPerformanceRunProvenanceMatchesLock,
+  PERFORMANCE_RUN_SELECTION_POLICY,
+  type PerformanceRunProvenance,
+} from "./performance-run-provenance";
 
 type AttemptStatus = "pending" | "passed" | "failed";
 type Analysis = ReturnType<typeof summarizeInstalledPerformance>;
@@ -52,6 +58,12 @@ interface Diagnostics {
   readonly rendererActive: boolean;
   readonly disposed: boolean;
   readonly lifecyclePhase: string;
+  readonly backgroundPending: number;
+  readonly backgroundRunning: number;
+  readonly mountedThumbnails: number;
+  readonly readyThumbnails: number;
+  readonly zoomMode: "fit" | "manual";
+  readonly zoomPercent: number;
 }
 
 export interface InstalledOpenAttempt {
@@ -62,11 +74,25 @@ export interface InstalledOpenAttempt {
   readonly timedOut: boolean;
   readonly metadataMs: number | null;
   readonly firstReadableMs: number | null;
+  readonly thumbnailReadiness: {
+    readonly signal: "data-ready-thumbnail-count";
+    readonly elapsedMs: number;
+    readonly readyCount: number;
+    readonly mountedCount: number;
+  } | null;
+  readonly switchWarmup: readonly {
+    readonly action: "next" | "previous";
+    readonly from: string;
+    readonly to: string;
+    readonly targetSlideIndex: number;
+  }[];
   readonly slideSwitches: readonly {
     readonly action: "next" | "previous";
     readonly from: string;
     readonly to: string;
     readonly elapsedMs: number;
+    readonly targetSlideIndex: number;
+    readonly warmupVisitOrdinal: number;
   }[];
   readonly error: string | null;
 }
@@ -121,6 +147,14 @@ export interface InstalledCancellationAttempt {
   readonly error: string | null;
 }
 
+export interface BackgroundStopObservation {
+  readonly reason: "close" | "file-switch";
+  readonly elapsedMs: number;
+  readonly pending: number;
+  readonly running: number;
+  readonly mounted: number;
+}
+
 export interface InstalledPerformanceArtifact
   extends PerformanceSummary, InstalledMarkdownArtifact {
   readonly protocol: InstalledMarkdownArtifact["protocol"] & {
@@ -136,6 +170,10 @@ export interface InstalledPerformanceArtifact
   readonly rawOpens: readonly InstalledOpenAttempt[];
   readonly rawMemoryAttempts: readonly InstalledMemoryAttempt[];
   readonly rawCancellationAttempts: readonly InstalledCancellationAttempt[];
+  readonly thumbnailReadinessMs: readonly number[];
+  readonly mountedThumbnailCounts: readonly number[];
+  readonly backgroundStopObservations: readonly BackgroundStopObservation[];
+  readonly runProvenance: PerformanceRunProvenance;
   readonly analysis: Analysis;
 }
 
@@ -275,12 +313,24 @@ function assertDiagnostics(value: unknown, path: string): void {
     "rendererActive",
     "disposed",
     "lifecyclePhase",
+    "backgroundPending",
+    "backgroundRunning",
+    "mountedThumbnails",
+    "readyThumbnails",
+    "zoomMode",
+    "zoomPercent",
   ]);
   integer(diagnostics.generation, `${path}.generation`);
   boolean(diagnostics.openPending, `${path}.openPending`);
   boolean(diagnostics.rendererActive, `${path}.rendererActive`);
   boolean(diagnostics.disposed, `${path}.disposed`);
   string(diagnostics.lifecyclePhase, `${path}.lifecyclePhase`);
+  integer(diagnostics.backgroundPending, `${path}.backgroundPending`);
+  integer(diagnostics.backgroundRunning, `${path}.backgroundRunning`);
+  integer(diagnostics.mountedThumbnails, `${path}.mountedThumbnails`);
+  integer(diagnostics.readyThumbnails, `${path}.readyThumbnails`);
+  enumeration(diagnostics.zoomMode, `${path}.zoomMode`, ["fit", "manual"]);
+  nonNegative(diagnostics.zoomPercent, `${path}.zoomPercent`);
 }
 
 function assertResourceReturn(value: unknown, path: string): void {
@@ -400,6 +450,42 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
+interface PageCounter {
+  readonly index: number;
+  readonly total: number;
+}
+
+function parsePageCounter(value: string, path: string): PageCounter {
+  const match = /^(\d+) \/ (\d+)$/.exec(value);
+  if (match === null) {
+    throw new Error(`${path} must be a valid page counter`);
+  }
+  const page = Number(match[1]);
+  const total = Number(match[2]);
+  if (!Number.isInteger(total) || total !== 50) {
+    throw new Error(`${path} must use the M2 total 50`);
+  }
+  if (!Number.isInteger(page) || page < 1 || page > total) {
+    throw new Error(`${path} page must be within 1..50`);
+  }
+  return { index: page - 1, total };
+}
+
+function assertOneSlideTransition(
+  fromValue: string,
+  toValue: string,
+  action: "next" | "previous",
+  path: string,
+): PageCounter {
+  const from = parsePageCounter(fromValue, `${path}.from`);
+  const to = parsePageCounter(toValue, `${path}.to`);
+  const expectedDelta = action === "next" ? 1 : -1;
+  if (to.index - from.index !== expectedDelta) {
+    throw new Error(`${path} must have the action's one-slide delta`);
+  }
+  return to;
+}
+
 function assertEqual(actual: unknown, expected: unknown, path: string): void {
   if (
     stringifyJsonEvidence(canonical(actual)) !==
@@ -443,6 +529,8 @@ function validateExpectedOpenFailureArtifact(
         timedOut,
         metadataMs,
         firstReadableMs,
+        thumbnailReadiness,
+        switchWarmup,
         slideSwitches,
         error,
       }) =>
@@ -450,6 +538,8 @@ function validateExpectedOpenFailureArtifact(
         timedOut ||
         metadataMs !== null ||
         firstReadableMs !== null ||
+        thumbnailReadiness !== null ||
+        switchWarmup.length !== 0 ||
         slideSwitches.length !== 0 ||
         error === null ||
         error !== expectedOpenError,
@@ -629,6 +719,11 @@ function validateExpectedOpenFailureArtifact(
     metadataMs: [],
     firstReadableMs: [],
     slideSwitchMs: [],
+    thumbnailReadinessMs: [],
+    mountedThumbnailCounts: [],
+    runOutcomes: artifact.runProvenance.attempts.map(({ outcome }) => outcome),
+    requiredConsecutiveCleanRuns:
+      artifact.runProvenance.policy.requiredConsecutiveCleanRuns,
     memory: [],
     cancellationElapsedMs: artifact.rawCancellationAttempts.map(
       ({ cancellationElapsedMs }) => cancellationElapsedMs!,
@@ -646,6 +741,7 @@ export function validateInstalledPerformanceArtifact(
   expectedBundleBytes: number,
   expectedOutcome: InstalledPerformanceExpectedOutcome,
   expectedRendererLabel: string,
+  provenanceLockValue?: unknown,
 ): InstalledPerformanceArtifact {
   assertJsonSafe(value);
   nonNegative(expectedBundleBytes, "expectedBundleBytes");
@@ -657,6 +753,10 @@ export function validateInstalledPerformanceArtifact(
     "rawOpens",
     "rawMemoryAttempts",
     "rawCancellationAttempts",
+    "thumbnailReadinessMs",
+    "mountedThumbnailCounts",
+    "backgroundStopObservations",
+    "runProvenance",
     "analysis",
     "environment",
     "firstReadable",
@@ -665,6 +765,13 @@ export function validateInstalledPerformanceArtifact(
     "failures",
     "gates",
   ]);
+  assertPerformanceRunProvenance(top.runProvenance);
+  if (provenanceLockValue !== undefined) {
+    assertPerformanceRunProvenanceMatchesLock(
+      top.runProvenance,
+      provenanceLockValue,
+    );
+  }
   const protocol = record(top.protocol, "artifact.protocol");
   assertExactKeys(protocol, "artifact.protocol", [
     "coldRuns",
@@ -825,6 +932,40 @@ export function validateInstalledPerformanceArtifact(
     top.rawCancellationAttempts,
     "artifact.rawCancellationAttempts",
   );
+  const thumbnailReadiness = array(
+    top.thumbnailReadinessMs,
+    "artifact.thumbnailReadinessMs",
+  );
+  thumbnailReadiness.forEach((value, index) =>
+    nonNegative(value, `artifact.thumbnailReadinessMs[${index}]`),
+  );
+  const mountedThumbnailCounts = array(
+    top.mountedThumbnailCounts,
+    "artifact.mountedThumbnailCounts",
+  );
+  mountedThumbnailCounts.forEach((value, index) =>
+    integer(value, `artifact.mountedThumbnailCounts[${index}]`),
+  );
+  const backgroundStops = array(
+    top.backgroundStopObservations,
+    "artifact.backgroundStopObservations",
+  );
+  backgroundStops.forEach((value, index) => {
+    const path = `artifact.backgroundStopObservations[${index}]`;
+    const observation = record(value, path);
+    assertExactKeys(observation, path, [
+      "reason",
+      "elapsedMs",
+      "pending",
+      "running",
+      "mounted",
+    ]);
+    enumeration(observation.reason, `${path}.reason`, ["close", "file-switch"]);
+    nonNegative(observation.elapsedMs, `${path}.elapsedMs`);
+    integer(observation.pending, `${path}.pending`);
+    integer(observation.running, `${path}.running`);
+    integer(observation.mounted, `${path}.mounted`);
+  });
   const expectedOpenCount =
     (protocol.coldRuns as number) +
     (protocol.warmupRuns as number) +
@@ -856,6 +997,8 @@ export function validateInstalledPerformanceArtifact(
       "metadataMs",
       "timedOut",
       "firstReadableMs",
+      "thumbnailReadiness",
+      "switchWarmup",
       "slideSwitches",
       "error",
     ]);
@@ -864,10 +1007,49 @@ export function validateInstalledPerformanceArtifact(
     enumeration(attempt.kind, `${path}.kind`, ["cold", "warmup", "measured"]);
     nullable(attempt.metadataMs, `${path}.metadataMs`, nonNegative);
     nullable(attempt.firstReadableMs, `${path}.firstReadableMs`, nonNegative);
+    if (attempt.thumbnailReadiness !== null) {
+      const readinessPath = `${path}.thumbnailReadiness`;
+      const readiness = record(attempt.thumbnailReadiness, readinessPath);
+      assertExactKeys(readiness, readinessPath, [
+        "signal",
+        "elapsedMs",
+        "readyCount",
+        "mountedCount",
+      ]);
+      enumeration(readiness.signal, `${readinessPath}.signal`, [
+        "data-ready-thumbnail-count",
+      ]);
+      nonNegative(readiness.elapsedMs, `${readinessPath}.elapsedMs`);
+      integer(readiness.readyCount, `${readinessPath}.readyCount`);
+      integer(readiness.mountedCount, `${readinessPath}.mountedCount`);
+    }
+    const warmup = array(attempt.switchWarmup, `${path}.switchWarmup`);
+    warmup.forEach((value, warmupIndex) => {
+      const warmupPath = `${path}.switchWarmup[${warmupIndex}]`;
+      const visit = record(value, warmupPath);
+      assertExactKeys(visit, warmupPath, [
+        "action",
+        "from",
+        "to",
+        "targetSlideIndex",
+      ]);
+      enumeration(visit.action, `${warmupPath}.action`, ["next", "previous"]);
+      string(visit.from, `${warmupPath}.from`);
+      string(visit.to, `${warmupPath}.to`);
+      integer(visit.targetSlideIndex, `${warmupPath}.targetSlideIndex`);
+    });
     const switches = array(attempt.slideSwitches, `${path}.slideSwitches`);
     switches.forEach((value, switchIndex) => {
       const switchPath = `${path}.slideSwitches[${switchIndex}]`;
       const slideSwitch = record(value, switchPath);
+      assertExactKeys(slideSwitch, switchPath, [
+        "action",
+        "from",
+        "to",
+        "elapsedMs",
+        "targetSlideIndex",
+        "warmupVisitOrdinal",
+      ]);
       enumeration(slideSwitch.action, `${switchPath}.action`, [
         "next",
         "previous",
@@ -875,6 +1057,8 @@ export function validateInstalledPerformanceArtifact(
       string(slideSwitch.from, `${switchPath}.from`);
       string(slideSwitch.to, `${switchPath}.to`);
       nonNegative(slideSwitch.elapsedMs, `${switchPath}.elapsedMs`);
+      integer(slideSwitch.targetSlideIndex, `${switchPath}.targetSlideIndex`);
+      integer(slideSwitch.warmupVisitOrdinal, `${switchPath}.warmupVisitOrdinal`);
     });
   });
 
@@ -1095,6 +1279,67 @@ export function validateInstalledPerformanceArtifact(
   if (expectedOutcome === "expected-open-failure") {
     return validateExpectedOpenFailureArtifact(artifact);
   }
+  const finalRun = artifact.runProvenance.attempts.at(-1);
+  const generatedRunPassed =
+    artifact.failures.length === 0 && artifact.gates.overallPassed;
+  const generatedFailureCount = generatedRunPassed
+    ? 0
+    : Math.max(
+        1,
+        artifact.failures.length + (artifact.gates.overallPassed ? 0 : 1),
+      );
+  if (
+    finalRun === undefined ||
+    finalRun.outcome !== (generatedRunPassed ? "passed" : "failed") ||
+    finalRun.failureCount !== generatedFailureCount ||
+    finalRun.firstReadableP95Ms !== artifact.firstReadable.p95 ||
+    finalRun.slideSwitchP95Ms !== artifact.slideSwitch.p95 ||
+    finalRun.bundleBytes !== artifact.resources.bundleBytes
+  ) {
+    throw new Error(
+      "artifact final run provenance must match the generated raw evidence and summaries",
+    );
+  }
+  if (
+    artifact.runProvenance.policy.id !== PERFORMANCE_RUN_SELECTION_POLICY.id ||
+    !artifact.runProvenance.eligibleForPromotion ||
+    artifact.runProvenance.acceptedRunIds.length !==
+      PERFORMANCE_RUN_SELECTION_POLICY.requiredConsecutiveCleanRuns
+  ) {
+    throw new Error(
+      "artifact promotion requires the fixed two-consecutive-clean-runs policy",
+    );
+  }
+  if (artifact.thumbnailReadinessMs.length < artifact.protocol.measuredRuns) {
+    throw new Error(
+      `artifact.thumbnailReadinessMs must contain at least ${artifact.protocol.measuredRuns} observations`,
+    );
+  }
+  if (
+    artifact.mountedThumbnailCounts.length < artifact.protocol.measuredRuns ||
+    artifact.mountedThumbnailCounts.some((count) => count <= 0 || count >= 50)
+  ) {
+    throw new Error(
+      `artifact.mountedThumbnailCounts must contain at least ${artifact.protocol.measuredRuns} positive observations strictly below 50`,
+    );
+  }
+  if (
+    artifact.backgroundStopObservations.length < 2 ||
+    !(["close", "file-switch"] as const).every((reason) =>
+      artifact.backgroundStopObservations.some(
+        (observation) =>
+          observation.reason === reason &&
+          observation.elapsedMs <= artifact.protocol.observationWindowMs &&
+          observation.pending === 0 &&
+          observation.running === 0 &&
+          observation.mounted === 0,
+      ),
+    )
+  ) {
+    throw new Error(
+      "artifact.backgroundStopObservations must prove close and file-switch cleanup at zero pending/running/mounted within the observation window",
+    );
+  }
   if (
     artifact.rawOpens.some(
       ({ status, timedOut }) => status !== "passed" || timedOut,
@@ -1110,10 +1355,20 @@ export function validateInstalledPerformanceArtifact(
   if (
     measuredOpens.length !== artifact.protocol.measuredRuns ||
     measuredOpens.some(
-      ({ status, metadataMs, firstReadableMs, slideSwitches, error }) =>
+      ({
+        status,
+        metadataMs,
+        firstReadableMs,
+        thumbnailReadiness,
+        switchWarmup,
+        slideSwitches,
+        error,
+      }) =>
         status !== "passed" ||
         metadataMs === null ||
         firstReadableMs === null ||
+        thumbnailReadiness === null ||
+        switchWarmup.length !== artifact.protocol.slideSwitchesPerMeasuredRun ||
         slideSwitches.length !==
           artifact.protocol.slideSwitchesPerMeasuredRun ||
         error !== null,
@@ -1123,6 +1378,86 @@ export function validateInstalledPerformanceArtifact(
       "artifact measured opens must be complete passed attempts with exact switch counts",
     );
   }
+  const expectedActions = ["next", "next", "previous", "previous"] as const;
+  for (const attempt of measuredOpens) {
+    const readiness = attempt.thumbnailReadiness!;
+    if (
+      readiness.signal !== "data-ready-thumbnail-count" ||
+      readiness.readyCount <= 0 ||
+      readiness.readyCount > readiness.mountedCount ||
+      readiness.mountedCount >= 50
+    ) {
+      throw new Error(
+        `artifact measured open ${attempt.sampleIndex} must prove thumbnail readiness after resource.ready`,
+      );
+    }
+    attempt.switchWarmup.forEach((visit, index) => {
+      if (visit.action !== expectedActions[index]) {
+        throw new Error(
+          `artifact measured open ${attempt.sampleIndex} switch warmup is not a deterministic rendered path`,
+        );
+      }
+      const to = assertOneSlideTransition(
+        visit.from,
+        visit.to,
+        visit.action,
+        `artifact measured open ${attempt.sampleIndex} switch warmup[${index}]`,
+      );
+      if (
+        to.index !== visit.targetSlideIndex ||
+        (index > 0 && visit.from !== attempt.switchWarmup[index - 1]!.to)
+      ) {
+        throw new Error(
+          `artifact measured open ${attempt.sampleIndex} switch warmup is not a deterministic rendered path`,
+        );
+      }
+    });
+    attempt.slideSwitches.forEach((slideSwitch, index) => {
+      parsePageCounter(
+        slideSwitch.from,
+        `artifact measured open ${attempt.sampleIndex} slideSwitches[${index}].from`,
+      );
+      parsePageCounter(
+        slideSwitch.to,
+        `artifact measured open ${attempt.sampleIndex} slideSwitches[${index}].to`,
+      );
+      if (
+        index === 0 &&
+        slideSwitch.from !== attempt.switchWarmup.at(-1)!.to
+      ) {
+        throw new Error(
+          `artifact measured open ${attempt.sampleIndex} first timed switch must link to the final warmup state`,
+        );
+      }
+      const to = assertOneSlideTransition(
+        slideSwitch.from,
+        slideSwitch.to,
+        slideSwitch.action,
+        `artifact measured open ${attempt.sampleIndex} slideSwitches[${index}]`,
+      );
+      const warmupVisit = attempt.switchWarmup[slideSwitch.warmupVisitOrdinal - 1];
+      if (
+        slideSwitch.action !== expectedActions[index] ||
+        to.index !== slideSwitch.targetSlideIndex ||
+        warmupVisit?.targetSlideIndex !== slideSwitch.targetSlideIndex ||
+        (index > 0 && slideSwitch.from !== attempt.slideSwitches[index - 1]!.to)
+      ) {
+        throw new Error(
+          `artifact measured open ${attempt.sampleIndex} contains a timing-only switch without prior rendered-page proof`,
+        );
+      }
+    });
+  }
+  assertEqual(
+    artifact.thumbnailReadinessMs,
+    measuredOpens.map(({ thumbnailReadiness }) => thumbnailReadiness!.elapsedMs),
+    "artifact.thumbnailReadinessMs",
+  );
+  assertEqual(
+    artifact.mountedThumbnailCounts,
+    measuredOpens.map(({ thumbnailReadiness }) => thumbnailReadiness!.mountedCount),
+    "artifact.mountedThumbnailCounts",
+  );
   if (
     artifact.rawMemoryAttempts.some(
       (attempt, index) =>
@@ -1347,6 +1682,11 @@ export function validateInstalledPerformanceArtifact(
     metadataMs,
     firstReadableMs,
     slideSwitchMs,
+    thumbnailReadinessMs: artifact.thumbnailReadinessMs,
+    mountedThumbnailCounts: artifact.mountedThumbnailCounts,
+    runOutcomes: artifact.runProvenance.attempts.map(({ outcome }) => outcome),
+    requiredConsecutiveCleanRuns:
+      artifact.runProvenance.policy.requiredConsecutiveCleanRuns,
     memory: artifact.rawMemoryAttempts.map(({ peak, steady, postClose }) => ({
       peak: peak!,
       steady: steady!,

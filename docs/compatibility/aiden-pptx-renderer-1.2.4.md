@@ -1,8 +1,8 @@
 # @aiden0z/pptx-renderer 1.2.4 compatibility result
 
-Date: 2026-07-13  
+Date: 2026-07-14
 Ticket: #4  
-Decision status: first candidate meets the M0 readability gate with SVG gaps
+Decision status: selected by ADR-0001; the M2 revalidation retains the known SVG gaps
 
 ## Result
 
@@ -58,6 +58,18 @@ five PNGs as a capture-height normalization with unchanged rendered content
 and layout. Their manifest reasons and SHA-256 hashes record that approval;
 the visual drift limit remains 0 changed pixels.
 
+The 2026-07-14 M2 revalidation adds the default toolbar and 168 px virtualized
+thumbnail rail. At the same fixed 1024 × 800 application viewport, those
+intentional product controls reduce the captured main-slide surface from
+632 × 589 to 462 × 549. All five refreshed Aiden PNGs were inspected: text,
+fonts, theme/footer, transparency, table/chart, grouping, rotation, and layout
+remain readable, while the two previously documented embedded-SVG gaps remain
+unchanged. The inspection walker, image search, and contained-element search
+are now restricted to `.pptx-viewer__slide`, preventing duplicate thumbnail
+DOM from being mistaken for main-slide evidence. The refreshed hashes and
+2026-07-14 approval reasons are recorded per fixture; ordinary runs still
+require 18 / 20 readable units and zero changed pixels.
+
 ## Reproduce
 
 ```bash
@@ -75,7 +87,7 @@ UPDATE_COMPATIBILITY_BASELINES=1 npm run test:compatibility
 
 ## Consequence
 
-The renderer remains a viable M0 candidate, but it is not selected until Ticket
-#6 runs a second candidate through the same acceptance path and Ticket #7 makes
-the decision. SVG media support is the first candidate's clearest fidelity gap
-and should be investigated before a public release claim.
+ADR-0001 selects this renderer for the M0/M1 foundation and M2 continues to use
+it behind the project-owned adapter boundary. SVG media support remains the
+selected renderer's clearest fidelity gap and should be investigated before a
+public release claim.

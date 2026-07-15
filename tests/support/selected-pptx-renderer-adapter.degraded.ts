@@ -20,6 +20,15 @@ class DegradedNavigationTestAdapter implements PptxRendererAdapter {
       get slideCount() {
         return session.slideCount;
       },
+      get slideWidth() {
+        return session.slideWidth;
+      },
+      get slideHeight() {
+        return session.slideHeight;
+      },
+      get capabilities() {
+        return session.capabilities;
+      },
       renderSlide(index: number): Promise<void> {
         if (index === 1) {
           return Promise.reject(
@@ -27,6 +36,19 @@ class DegradedNavigationTestAdapter implements PptxRendererAdapter {
           );
         }
         return session.renderSlide(index);
+      },
+      renderThumbnail(index, thumbnailContainer, thumbnailSignal) {
+        return session.renderThumbnail!(
+          index,
+          thumbnailContainer,
+          thumbnailSignal,
+        );
+      },
+      prefetchSlide(index, prefetchSignal): Promise<void> {
+        return session.prefetchSlide!(index, prefetchSignal);
+      },
+      setZoomPercent(percent): Promise<void> {
+        return session.setZoomPercent!(percent);
       },
       dispose(): void {
         session.dispose();

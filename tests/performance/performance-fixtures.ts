@@ -41,6 +41,19 @@ export const performanceFixtureManifest: readonly PerformanceFixture[] = [
     provenance,
   },
   {
+    id: "m2-representative-50-slides",
+    title: "M2 representative 50-slide benchmark deck",
+    role: "representative",
+    fixturePath:
+      "tests/fixtures/performance/m2-representative-50-slides.pptx",
+    vaultPath: "performance/m2-representative-50-slides.pptx",
+    slideCount: 50,
+    features: ["text", "shapes", "table", "image"],
+    maxSlideCount: 50,
+    maxBytes: 20 * 1024 * 1024,
+    provenance,
+  },
+  {
     id: "stress-200-slides",
     title: "200-slide cancellation and memory stress deck",
     role: "stress",

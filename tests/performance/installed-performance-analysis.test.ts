@@ -17,6 +17,10 @@ function analysisInput(
     metadataMs: [10, 20],
     firstReadableMs: [30, 50],
     slideSwitchMs: [1, 2, 3, 4, 5, 6],
+    thumbnailReadinessMs: [25, 35],
+    mountedThumbnailCounts: [6, 8],
+    runOutcomes: ["failed", "passed", "passed"],
+    requiredConsecutiveCleanRuns: 2,
     memory: [
       {
         peak: { heapUsedBytes: 200, rssBytes: 2_000 },
@@ -56,6 +60,25 @@ describe("installed performance analysis", () => {
       p95: 6,
       sampleCount: 6,
       expectedSampleCount: 6,
+    });
+    expect(summary.thumbnailReadiness).toMatchObject({
+      p50: 25,
+      p95: 35,
+      sampleCount: 2,
+      expectedSampleCount: 2,
+    });
+    expect(summary.mountedThumbnails).toMatchObject({
+      p50: 6,
+      p95: 8,
+      sampleCount: 2,
+      expectedSampleCount: 2,
+    });
+    expect(summary.runSelection).toEqual({
+      attemptCount: 3,
+      failedAttemptCount: 1,
+      consecutiveCleanRuns: 2,
+      requiredConsecutiveCleanRuns: 2,
+      eligibleForPromotion: true,
     });
     expect(summary.memory.peak.heapUsedBytes).toMatchObject({ p50: 200, p95: 300 });
     expect(summary.memory.steady.rssBytes).toMatchObject({ p50: 1_800, p95: 2_800 });

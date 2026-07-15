@@ -34,6 +34,16 @@ describe("PptxPreviewRendererAdapter", () => {
     );
 
     expect(session.slideCount).toBe(3);
+    expect(session.slideWidth).toBe(960);
+    expect(session.slideHeight).toBe(540);
+    expect(session.capabilities).toEqual({
+      thumbnails: false,
+      prefetch: false,
+      zoom: false,
+    });
+    expect(session.renderThumbnail).toBeUndefined();
+    expect(session.prefetchSlide).toBeUndefined();
+    expect(session.setZoomPercent).toBeUndefined();
     expect(createPreviewer).toHaveBeenCalledWith(container, {
       width: 960,
       height: 540,
@@ -56,7 +66,7 @@ describe("PptxPreviewRendererAdapter", () => {
       clientHeight: { value: 589 },
     });
 
-    await new PptxPreviewRendererAdapter(createPreviewer).open(
+    const session = await new PptxPreviewRendererAdapter(createPreviewer).open(
       new ArrayBuffer(8),
       container,
       new AbortController().signal,
@@ -67,6 +77,8 @@ describe("PptxPreviewRendererAdapter", () => {
       height: 474,
       mode: "slide",
     });
+    expect(session.slideWidth).toBe(632);
+    expect(session.slideHeight).toBe(474);
   });
 
   it("passes zero-based slide indexes to the candidate", async () => {

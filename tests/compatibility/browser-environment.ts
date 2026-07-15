@@ -67,7 +67,7 @@ export async function installNetworkGuard(): Promise<void> {
       }
     ).electron.remote;
     const electron = remote.require("electron");
-    electron.app.__pptxNetworkRequests = [];
+    electron.app.__pptxNetworkRequests ??= [];
     electron.session.defaultSession.webRequest.onBeforeRequest(
       { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
       (details, callback) => {
@@ -76,7 +76,7 @@ export async function installNetworkGuard(): Promise<void> {
       },
     );
     const guarded = window as typeof window & { __pptxNetworkRequests?: string[] };
-    guarded.__pptxNetworkRequests = [];
+    guarded.__pptxNetworkRequests ??= [];
     guarded.fetch = ((input: RequestInfo | URL) => {
       guarded.__pptxNetworkRequests?.push(String(input));
       return Promise.reject(new Error("network disabled during PPTX acceptance"));
@@ -91,8 +91,10 @@ export async function installNetworkGuard(): Promise<void> {
   });
 }
 
-export async function assertNoNetworkRequests(): Promise<void> {
-  const requests = await browser.execute(() => {
+export async function assertNoNetworkRequests(
+  options: { readonly keepGuard?: boolean } = {},
+): Promise<void> {
+  const requests = await browser.execute((keepGuard) => {
     type ElectronApi = {
       app: { __pptxNetworkRequests?: string[] };
       session: {
@@ -111,9 +113,11 @@ export async function assertNoNetworkRequests(): Promise<void> {
       (window as typeof window & { __pptxNetworkRequests?: string[] })
         .__pptxNetworkRequests ?? [];
     const sessionRequests = electron.app.__pptxNetworkRequests ?? [];
-    electron.session.defaultSession.webRequest.onBeforeRequest(null);
+    if (!keepGuard) {
+      electron.session.defaultSession.webRequest.onBeforeRequest(null);
+    }
     return [...rendererRequests, ...sessionRequests];
-  });
+  }, options.keepGuard === true);
   if (requests.length > 0) {
     throw new Error(`PPTX acceptance attempted network access: ${requests.join(", ")}`);
   }

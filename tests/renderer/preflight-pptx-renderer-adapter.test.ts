@@ -15,6 +15,43 @@ async function loadFixture(id: string): Promise<ArrayBuffer> {
 }
 
 describe("PreflightPptxRendererAdapter", () => {
+  it("forwards candidate-neutral M2 session capabilities unchanged", async () => {
+    const renderThumbnail = vi.fn();
+    const prefetchSlide = vi.fn(async () => {});
+    const setZoomPercent = vi.fn(async () => {});
+    const session = {
+      slideCount: 2,
+      slideWidth: 960,
+      slideHeight: 540,
+      capabilities: { thumbnails: true, prefetch: true, zoom: true },
+      renderSlide: vi.fn(async () => {}),
+      renderThumbnail,
+      prefetchSlide,
+      setZoomPercent,
+      dispose: vi.fn(),
+    };
+    const candidate: PptxRendererAdapter = {
+      open: vi.fn(async () => session),
+    };
+    const safeBuffer = Uint8Array.from(
+      await readFile(path.resolve("tests/fixtures/minimal.pptx")),
+    ).buffer;
+
+    const result = await new PreflightPptxRendererAdapter(candidate).open(
+      safeBuffer,
+      document.createElement("div"),
+      new AbortController().signal,
+    );
+
+    expect(result).toBe(session);
+    expect(result.slideWidth).toBe(960);
+    expect(result.slideHeight).toBe(540);
+    expect(result.capabilities).toEqual(session.capabilities);
+    expect(result.renderThumbnail).toBe(renderThumbnail);
+    expect(result.prefetchSlide).toBe(prefetchSlide);
+    expect(result.setZoomPercent).toBe(setZoomPercent);
+  });
+
   it("blocks active content before invoking a candidate renderer", async () => {
     const candidate: PptxRendererAdapter = { open: vi.fn() };
 

@@ -35,9 +35,9 @@ export async function inspectActiveFixture(
       );
     };
     const textNodes: Text[] = [];
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
-    const images = Array.from(root.querySelectorAll("img"));
+    const images = Array.from(surface.querySelectorAll("img"));
     const fontAvailable = (family: string) => {
       const context = document.createElement("canvas").getContext("2d");
       if (!context) return false;
@@ -83,7 +83,7 @@ export async function inspectActiveFixture(
           ? [check.label]
           : [];
       }
-      const elements = Array.from(root.querySelectorAll(check.selector));
+      const elements = Array.from(surface.querySelectorAll(check.selector));
       return elements.length > 0 && elements.every(withinClip)
         ? [check.label]
         : [];

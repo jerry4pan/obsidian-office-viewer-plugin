@@ -3,7 +3,7 @@
 An experimental, desktop-only Obsidian plugin for reading local `.pptx` files
 without converting them to PDF or uploading them to a service.
 
-The M1 development build registers a dedicated PPTX view, reads source bytes
+The M2 development build registers a dedicated PPTX view, reads source bytes
 through the Obsidian Vault API, and renders them locally with the selected
 `@aiden0z/pptx-renderer@1.2.4` adapter. It is not yet a public release.
 
@@ -13,6 +13,37 @@ application fallback. Empty, loading, recoverable navigation, and blocking
 open failures have explicit states. Malformed, incomplete, protected, and
 renderer-incompatible inputs reach stable read-only error states with retry;
 see `docs/compatibility/pptx-failure-handling.md`.
+
+The M2 reading experience adds a scrollable, virtualized thumbnail rail,
+keyboard navigation, zoom, full screen, independent state in each workspace
+leaf, and optional reading-position recovery. Thumbnails render progressively:
+the current slide is rendered first, adjacent slides are prefetched next, and
+visible/overscan thumbnails use a single-concurrency background queue. Closing
+a view or switching files cancels that work and releases mounted resources.
+
+Keyboard reading uses `ArrowLeft` or `PageUp` for the previous slide and
+`ArrowRight` or `PageDown` for the next slide. These shortcuts are ignored
+while a button, input, select, textarea, or editable element has focus. Full
+screen uses the desktop Fullscreen API and keeps the toolbar and thumbnail rail
+available; use the Full screen control to enter or exit, or the platform Escape
+behavior to leave full screen.
+
+Zoom starts in fit-to-window mode at `100%`. Zoom in/out enters view-local
+manual mode in 25-point steps, clamped to `25%`–`400%`. Pane resize recomputes
+the fitted scale while retaining the manual multiplier; **Fit** returns to
+fit-to-window at `100%`. Navigation, zoom, thumbnail scroll, and full-screen
+state are independent for every open workspace leaf.
+
+**Remember reading position** is enabled by default in the Office Viewer
+settings. It stores only a Vault-relative path, file size, modification time,
+zero-based slide index, and update timestamp. It never stores absolute paths,
+slide text, images, author metadata, or rendered DOM. A changed fingerprint or
+invalid slide index is discarded. Turning the setting off immediately clears
+saved positions and prevents future position loads/saves; turning it back on
+starts with no history. Rename events migrate only the Vault-relative key
+while retaining the prior size/mtime fingerprint, so a rename combined with
+content changes invalidates the saved page on the next open. Deletion events
+remove entries.
 
 ## Development install
 
@@ -76,11 +107,20 @@ evidence and must be committed as FAIL rather than tuned away.
 
 - `.pptx` only; legacy `.ppt` is not supported.
 - Read-only and local; the plugin never writes back to the source file.
+- Desktop Obsidian only; mobile and tablet are not supported.
 - No Office, LibreOffice, PDF conversion, cloud renderer, or document server.
-- Thumbnails, zoom, keyboard navigation, full-screen mode, and reading-position
-  persistence remain M2 work.
-- General compatibility warnings, diagnostics, release packaging, and public
-  submission remain M3/M4 work.
+- Normal viewing does not upload presentation content, follow external
+  relationships, execute macros/scripts, or make a network request.
+- Rendering is a readable preview, not pixel-perfect PowerPoint fidelity;
+  embedded SVG and other advanced content can degrade. Use **Open in default
+  application** when the preview is not trustworthy.
+- M3 retains complete compatibility-warning surfaces, privacy/security and
+  compatibility documentation, content-free diagnostic export, CI/release
+  asset generation, and packaged clean-Vault install/upgrade/uninstall proof.
+- M4 retains Beta validation, GitHub release publication, and Obsidian
+  Community Plugins submission.
+- Editing, saving, animations, legacy `.ppt`, search, page links, embeds,
+  notes, telemetry, accounts, licensing, and cloud services are not M2 work.
 
 ## Test fixture
 
