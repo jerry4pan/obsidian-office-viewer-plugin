@@ -711,7 +711,16 @@ export class PptxViewSession<FileRef> {
     retry.type = "button";
     retry.dataset.action = "retry";
     retry.textContent = this.messages.text("error.retry");
-    retry.addEventListener("click", () => void this.open(file));
+    retry.addEventListener("click", () => {
+      if (error.category === "unsupported-legacy") {
+        this.openUnsupportedLegacy(
+          file,
+          this.diagnosticSourceBytes ?? undefined,
+        );
+        return;
+      }
+      void this.open(file);
+    });
     actions.append(retry);
 
     const actionStatus = document.createElement("div");

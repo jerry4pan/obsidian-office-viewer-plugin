@@ -168,6 +168,11 @@ describe("OfficeViewerPlugin", () => {
     expect(root.textContent).toContain("Legacy PPT files are not supported.");
     expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
     expect(readBinary).not.toHaveBeenCalled();
+
+    root.querySelector<HTMLButtonElement>('[data-action="retry"]')?.click();
+
+    expect(root.dataset.errorCategory).toBe("unsupported-legacy");
+    expect(readBinary).not.toHaveBeenCalled();
   });
 
   it("passes a Vault-relative fingerprint to position restore and recording", async () => {
