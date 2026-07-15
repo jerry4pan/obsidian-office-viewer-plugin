@@ -179,6 +179,12 @@ the packaged plugin follows the Obsidian language, opens a local PPTX, renders
 the expected translated controls, navigates, and retains the existing
 read-only and offline behavior.
 
+The installed matrix launches Obsidian with host languages `en-US`, `zh-CN`,
+and `zh-TW`. It also launches once with unsupported `fr` to verify English
+fallback at the same installed seam. Run it with
+`npm run test:e2e:multilingual`; the standard `npm run test:e2e` gate includes
+this matrix without multiplying the complete behavior suite by locale.
+
 The complete installed behavior, compatibility, and performance suites do not
 need to be duplicated for every locale. They remain authoritative for product
 behavior and run once through their existing default configuration.
