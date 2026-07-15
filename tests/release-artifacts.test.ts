@@ -43,10 +43,16 @@ describe("release artifacts", () => {
 
     const zip = await JSZip.loadAsync(first.bytes);
     expect(Object.keys(zip.files).sort()).toEqual([
+      "AIDEN-PPTX-RENDERER-LICENSE",
+      "LICENSE",
+      "NOTICE",
       "main.js",
       "manifest.json",
       "styles.css",
     ]);
+    await expect(
+      zip.file("AIDEN-PPTX-RENDERER-LICENSE")!.async("text"),
+    ).resolves.toContain("Apache License");
     const packagedManifest = JSON.parse(
       await zip.file("manifest.json")!.async("text"),
     ) as { version: string };

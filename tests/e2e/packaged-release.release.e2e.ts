@@ -43,7 +43,7 @@ describe("packaged release lifecycle", () => {
           getBasePath(): string;
         }).getBasePath();
         const target = nodePath.join(vaultRoot, app.vault.configDir, "plugins", "office-viewer");
-        for (const name of ["main.js", "manifest.json", "styles.css"]) {
+        for (const name of await fs.readdir(stagedPlugin)) {
           await fs.copyFile(nodePath.join(stagedPlugin, name), nodePath.join(target, name));
         }
         await plugins.enablePlugin("office-viewer");

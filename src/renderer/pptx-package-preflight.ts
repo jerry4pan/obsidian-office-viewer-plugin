@@ -22,11 +22,20 @@ export const PPTX_ZIP_LIMITS = Object.freeze({
 });
 const maxPreflightXmlPartBytes = 8 * 1024 * 1024;
 const maxPreflightXmlBytes = 32 * 1024 * 1024;
+const renderedFontPartPrefixes = [
+  "ppt/slides/",
+  "ppt/slideLayouts/",
+  "ppt/slideMasters/",
+  "ppt/theme/",
+  "ppt/charts/",
+] as const;
 const compoundFileStreamEntryType = 2;
 const hyperlinkRelationshipType =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 const officeRelationshipNamespace =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const drawingMainNamespace =
+  "http://schemas.openxmlformats.org/drawingml/2006/main";
 
 interface RelationshipReferences {
   readonly hyperlinkIds: Set<string>;
@@ -318,11 +327,25 @@ async function inspectXmlParts(
     if (part.name === "ppt/presentation.xml") presentation = document;
     else if (part.name === "[Content_Types].xml") contentTypes = document;
     referencesByOwner.set(part.name, collectRelationshipReferences(document));
-    if (part.name.startsWith("ppt/slides/")) {
-      for (const element of document.getElementsByTagName("*")) {
-        if (!["latin", "ea", "cs"].includes(element.localName)) continue;
-        const typeface = element.getAttribute("typeface")?.trim();
-        if (typeface && !typeface.startsWith("+")) declaredFonts.add(typeface);
+    const canDeclareRenderedFont = renderedFontPartPrefixes.some((prefix) =>
+      part.name.startsWith(prefix)
+    );
+    if (canDeclareRenderedFont) {
+      const walker = document.createTreeWalker(document.documentElement, 1);
+      let element = walker.nextNode() as Element | null;
+      while (element) {
+        if (
+          element.namespaceURI === drawingMainNamespace &&
+          (element.localName === "latin" ||
+            element.localName === "ea" ||
+            element.localName === "cs")
+        ) {
+          const typeface = element.getAttribute("typeface")?.trim();
+          if (typeface && !typeface.startsWith("+")) {
+            declaredFonts.add(typeface);
+          }
+        }
+        element = walker.nextNode() as Element | null;
       }
     }
   }

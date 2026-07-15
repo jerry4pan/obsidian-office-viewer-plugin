@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { releaseFileSources } from "./release-files.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const requiredFiles = [
@@ -14,6 +15,7 @@ const requiredFiles = [
   "PRIVACY.md",
   "SECURITY.md",
   "CONTRIBUTING.md",
+  "release-contract.json",
 ];
 
 async function readJson(relativePath) {
@@ -21,10 +23,11 @@ async function readJson(relativePath) {
 }
 
 export async function checkRelease({ releaseTag = process.env.RELEASE_TAG } = {}) {
-  const [packageJson, manifest, versions] = await Promise.all([
+  const [packageJson, manifest, versions, releaseContract] = await Promise.all([
     readJson("package.json"),
     readJson("manifest.json"),
     readJson("versions.json"),
+    readJson("release-contract.json"),
   ]);
   const errors = [];
   if (packageJson.version !== manifest.version) {
@@ -35,6 +38,12 @@ export async function checkRelease({ releaseTag = process.env.RELEASE_TAG } = {}
   }
   if (manifest.id !== "office-viewer") errors.push("manifest id must be office-viewer");
   if (manifest.isDesktopOnly !== true) errors.push("manifest must remain desktop-only");
+  if (
+    JSON.stringify(releaseContract.supportedExtensions) !==
+    JSON.stringify(["pptx", "ppt"])
+  ) {
+    errors.push("release contract must declare pptx and legacy ppt routing");
+  }
   if (releaseTag && releaseTag !== `v${manifest.version}`) {
     errors.push(`release tag ${releaseTag} does not match v${manifest.version}`);
   }
@@ -43,6 +52,13 @@ export async function checkRelease({ releaseTag = process.env.RELEASE_TAG } = {}
       await access(path.join(root, relativePath));
     } catch {
       errors.push(`required release file is missing: ${relativePath}`);
+    }
+  }
+  for (const { sourcePath } of releaseFileSources) {
+    try {
+      await access(path.join(root, sourcePath));
+    } catch {
+      errors.push(`release package source is missing: ${sourcePath}`);
     }
   }
   if (errors.length > 0) throw new Error(errors.join("\n"));

@@ -341,12 +341,18 @@ describe("PptxViewSession", () => {
     ["en", "cancelled", "Loading this PPTX was cancelled.", "The original PPTX file was not modified.", "Retry"],
     ["en", "unknown", "An unexpected error prevented this PPTX from opening.", "The original PPTX file was not modified.", "Retry"],
     ["zh-CN", "malformed", "此 PPTX 已损坏或不完整。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-CN", "unsupported-legacy", "不支持旧版 PPT 文件。请在默认应用中打开此文件。", "原始文件未被修改。", "重试"],
     ["zh-CN", "protected", "此 PPTX 已加密或受密码保护。", "原始 PPTX 文件未被修改。", "重试"],
     ["zh-CN", "incompatible", "此 PPTX 包含此查看器无法安全显示的内容。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-CN", "resource-exhausted", "此 PPTX 过大或过于复杂，超出了查看器的安全限制。", "原始 PPTX 文件未被修改。", "重试"],
+    ["zh-CN", "cancelled", "已取消加载此 PPTX。", "原始 PPTX 文件未被修改。", "重试"],
     ["zh-CN", "unknown", "发生意外错误，无法打开此 PPTX。", "原始 PPTX 文件未被修改。", "重试"],
     ["zh-TW", "malformed", "此 PPTX 已損毀或不完整。", "原始 PPTX 檔案未經修改。", "重試"],
+    ["zh-TW", "unsupported-legacy", "不支援舊版 PPT 檔案。請在預設應用程式中開啟此檔案。", "原始檔案未經修改。", "重試"],
     ["zh-TW", "protected", "此 PPTX 已加密或受密碼保護。", "原始 PPTX 檔案未經修改。", "重試"],
     ["zh-TW", "incompatible", "此 PPTX 包含此檢視器無法安全顯示的內容。", "原始 PPTX 檔案未經修改。", "重試"],
+    ["zh-TW", "resource-exhausted", "此 PPTX 過大或過於複雜，超出檢視器的安全限制。", "原始 PPTX 檔案未經修改。", "重試"],
+    ["zh-TW", "cancelled", "已取消載入此 PPTX。", "原始 PPTX 檔案未經修改。", "重試"],
     ["zh-TW", "unknown", "發生未預期的錯誤，無法開啟此 PPTX。", "原始 PPTX 檔案未經修改。", "重試"],
   ] as const)(
     "renders the %s %s blocking error surface",
@@ -375,30 +381,48 @@ describe("PptxViewSession", () => {
     },
   );
 
-  it("keeps known compatibility limitations visible while the deck remains readable", async () => {
-    const root = document.createElement("div");
-    const { adapter, rendererSession } = makeRenderer(2);
-    Object.defineProperty(rendererSession, "compatibilityWarnings", {
-      value: ["unsupported-content", "font-substitution"],
-    });
-    const session = new PptxViewSession(
-      root,
-      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
-      adapter,
-      { openExternally: vi.fn(async () => {}) },
-    );
+  it.each([
+    ["en", "Some presentation content may not render correctly", "One or more presentation fonts are unavailable"],
+    ["zh-CN", "部分演示文稿内容可能无法正确显示", "一个或多个演示文稿字体不可用"],
+    ["zh-TW", "部分簡報內容可能無法正確顯示", "一個或多個簡報字型無法使用"],
+  ] as const)(
+    "keeps known compatibility limitations visible in %s",
+    async (language, unsupported, fontSubstitution) => {
+      const root = document.createElement("div");
+      const { adapter, rendererSession } = makeRenderer(2);
+      Object.defineProperty(rendererSession, "compatibilityWarnings", {
+        value: ["unsupported-content", "font-substitution"],
+      });
+      const session = new PptxViewSession(
+        root,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        adapter,
+        {
+          messages: createMessageTranslator(language),
+          openExternally: vi.fn(async () => {}),
+        },
+      );
 
-    await session.open("deck.pptx");
+      await session.open("deck.pptx");
 
-    expect(root.dataset.state).toBe("ready");
-    expect(root.querySelector('[data-warning-category="unsupported-content"]')
-      ?.textContent).toContain("Some presentation content may not render correctly");
-    expect(root.querySelector('[data-warning-category="font-substitution"]')
-      ?.textContent).toContain("One or more presentation fonts are unavailable");
-    expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
-  });
+      expect(root.dataset.state).toBe("ready");
+      expect(root.querySelector('[data-warning-category="unsupported-content"]')
+        ?.textContent).toContain(unsupported);
+      expect(root.querySelector('[data-warning-category="font-substitution"]')
+        ?.textContent).toContain(fontSubstitution);
+      expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
+    },
+  );
 
-  it("copies a content-free diagnostic summary for a readable deck", async () => {
+  it.each([
+    ["en", "Copy diagnostic summary", "Diagnostic summary copied."],
+    ["zh-CN", "复制诊断摘要", "已复制诊断摘要。"],
+    ["zh-TW", "複製診斷摘要", "已複製診斷摘要。"],
+  ] as const)("copies a content-free diagnostic summary in %s", async (
+    language,
+    copyLabel,
+    copiedStatus,
+  ) => {
     const root = document.createElement("div");
     const copy = vi.fn(async (_summary: string) => {});
     const { adapter } = makeRenderer(2);
@@ -407,6 +431,7 @@ describe("PptxViewSession", () => {
       { readBinary: vi.fn(async () => new ArrayBuffer(42)) },
       adapter,
       {
+        messages: createMessageTranslator(language),
         diagnostics: {
           environment: {
             pluginVersion: "0.0.1",
@@ -421,8 +446,11 @@ describe("PptxViewSession", () => {
     );
 
     await session.open("private/customer-roadmap.pptx");
-    root.querySelector<HTMLButtonElement>('[data-action="copy-diagnostics"]')!
-      .click();
+    const copyButton = root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-diagnostics"]',
+    )!;
+    expect(copyButton.getAttribute("aria-label")).toBe(copyLabel);
+    copyButton.click();
     await vi.waitFor(() => expect(copy).toHaveBeenCalledOnce());
 
     const copied = copy.mock.calls[0]![0];
@@ -433,7 +461,7 @@ describe("PptxViewSession", () => {
       errorCategory: null,
     });
     expect(copied).not.toContain("customer-roadmap");
-    expect(root.textContent).toContain("Diagnostic summary copied.");
+    expect(root.textContent).toContain(copiedStatus);
   });
 
   it("classifies a current AbortError as a recoverable cancelled load", async () => {

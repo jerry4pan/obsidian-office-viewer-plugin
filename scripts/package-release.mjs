@@ -3,16 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { checkRelease } from "./check-release.mjs";
+import { releaseFileSources } from "./release-files.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const packageFiles = ["main.js", "manifest.json", "styles.css"];
 const fixedZipDate = new Date("1980-01-01T00:00:00.000Z");
 
 export async function packageRelease() {
   const { version } = await checkRelease();
   const zip = new JSZip();
-  for (const relativePath of packageFiles) {
-    zip.file(relativePath, await readFile(path.join(root, relativePath)), {
+  for (const { archivePath, sourcePath } of releaseFileSources) {
+    zip.file(archivePath, await readFile(path.join(root, sourcePath)), {
       date: fixedZipDate,
       createFolders: false,
       unixPermissions: 0o100644,

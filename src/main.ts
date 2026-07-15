@@ -1,5 +1,6 @@
 import { apiVersion, getLanguage, Plugin, TFile } from "obsidian";
 import manifest from "../manifest.json" with { type: "json" };
+import releaseContract from "../release-contract.json" with { type: "json" };
 import { createMessageTranslator } from "./i18n";
 import { OfficeViewerSettingTab } from "./office-viewer-setting-tab";
 import { PptxFileView, PPTX_VIEW_TYPE } from "./pptx-file-view";
@@ -87,7 +88,7 @@ export default class OfficeViewerPlugin extends Plugin {
       this.views.add(view);
       return view;
     });
-    this.registerExtensions(["pptx", "ppt"], PPTX_VIEW_TYPE);
+    this.registerExtensions([...releaseContract.supportedExtensions], PPTX_VIEW_TYPE);
   }
 
   override onunload(): void {

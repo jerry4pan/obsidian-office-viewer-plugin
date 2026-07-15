@@ -4,8 +4,11 @@ Date: 2026-07-15
 
 ## Outcome
 
-M3 compatibility, diagnostics, and release-quality work is implemented. The
-existing M2 preflight and installed-test seams were extended instead of adding
+M3 compatibility, diagnostics, and release-quality code is implemented. Human
+approval of the new Simplified and Traditional Chinese messages remains a
+release-readiness requirement; its checklist is in
+`docs/globalization/m3-message-review.md`. The existing M2 preflight and
+installed-test seams were extended instead of adding
 a parallel inspection path. Public release creation, beta recruitment, and
 Community Plugins submission remain M4 work.
 
@@ -51,14 +54,14 @@ Updated baseline SHA-256 values:
 
 ## Performance evidence
 
-The final production bundle is 1,198,398 bytes. Two consecutive clean installed
+The final production bundle is 1,198,789 bytes. Two consecutive clean installed
 Electron runs of the same bundle and representative fixture were retained and
 accepted:
 
 | Run | First readable p95 | Slide switch p95 | Result |
 | --- | ---: | ---: | --- |
-| `d81a82f5-c10a-4f48-a1ed-dee542848ab5` | 92.6 ms | 1.9 ms | Pass |
-| `6043bbe0-f719-4c8e-b7db-24dce50db125` | 91.9 ms | 1.9 ms | Pass |
+| `1a9744a2-cc53-41dd-8f9f-3f3ff82ae0cc` | 90.1 ms | 1.8 ms | Pass |
+| `1f54c57e-a1ed-4b88-9e97-b9d54821db8d` | 91.2 ms | 1.9 ms | Pass |
 
 Budgets remain 3,000 ms for first readable and 100 ms for rendered page
 switching. Cancellation, resource completion, bounded thumbnail mounting, and
@@ -66,10 +69,11 @@ post-close memory evidence also pass the existing M2 gates.
 
 ## Release evidence
 
-`release:check` validates package, manifest, `versions.json`, required public
-documents, desktop-only declarations, and optional `vX.Y.Z` tag consistency.
-`release:package` emits a deterministic ZIP containing exactly `main.js`,
-`manifest.json`, and `styles.css`. The release lifecycle suite installs that
+`release:check` validates package, manifest, `versions.json`, supported
+extensions, required public documents and licenses, desktop-only declarations,
+and optional `vX.Y.Z` tag consistency. `release:package` emits a deterministic
+ZIP containing `main.js`, `manifest.json`, `styles.css`, the project license and
+notice, and the bundled renderer's Apache-2.0 license. The lifecycle suite installs that
 exact ZIP into an empty Vault, opens a PPTX without network or source mutation,
 rehearses an overwrite upgrade, and removes the plugin cleanly.
 
@@ -90,3 +94,6 @@ M3 does not claim real-user beta evidence, a public v0.1.0 GitHub Release,
 Community Plugins submission, seven-day release-candidate monitoring, or the
 v0.2 continue/stop decision. Those require external coordination and remain
 assigned to M4.
+
+The pending M3 language approvals are not M4 scope and must be recorded before
+M3 is declared release-ready.

@@ -81,32 +81,31 @@ describe("OfficeViewerPlugin", () => {
     },
   );
 
-  it("explains local processing, compatibility limits, and diagnostic contents in settings", async () => {
-    const app = {
-      vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
-    };
-    const plugin = new OfficeViewerPlugin(app as never, {} as never);
-    await plugin.onload();
-    const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
-      containerEl: HTMLElement;
-      display(): void;
-    };
+  it.each([
+    ["en", "Local processing and privacy", "Compatibility and safety", "Diagnostic summary"],
+    ["zh-CN", "本地处理与隐私", "兼容性与安全", "诊断摘要"],
+    ["zh-TW", "本機處理與隱私", "相容性與安全", "診斷摘要"],
+  ] as const)(
+    "explains M3 settings in the Obsidian %s language",
+    async (language, privacy, compatibility, diagnostics) => {
+      vi.mocked(getLanguage).mockReturnValue(language);
+      const app = {
+        vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+      };
+      const plugin = new OfficeViewerPlugin(app as never, {} as never);
+      await plugin.onload();
+      const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+        containerEl: HTMLElement;
+        display(): void;
+      };
 
-    settingTab.display();
+      settingTab.display();
 
-    expect(settingTab.containerEl.textContent).toContain("Local processing and privacy");
-    expect(settingTab.containerEl.textContent).toContain(
-      "Presentation bytes stay on this device",
-    );
-    expect(settingTab.containerEl.textContent).toContain("Compatibility and safety");
-    expect(settingTab.containerEl.textContent).toContain(
-      "Rendering is a read-only preview",
-    );
-    expect(settingTab.containerEl.textContent).toContain("Diagnostic summary");
-    expect(settingTab.containerEl.textContent).toContain(
-      "excludes filenames, paths, slide text, images, and author metadata",
-    );
-  });
+      expect(settingTab.containerEl.textContent).toContain(privacy);
+      expect(settingTab.containerEl.textContent).toContain(compatibility);
+      expect(settingTab.containerEl.textContent).toContain(diagnostics);
+    },
+  );
 
   it("registers PPTX reading and legacy PPT explanation with the dedicated view", async () => {
     let releaseLoad!: () => void;

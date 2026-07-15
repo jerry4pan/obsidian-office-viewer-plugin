@@ -1,6 +1,6 @@
 # M3 Compatibility, Diagnostics, and Release Quality Design
 
-- Status: Implemented
+- Status: Implemented; human language approval pending
 - Date: 2026-07-15
 - Source: `docs/prd/v0.1-first-public-release.md`, M3
 - Baseline: M2 plus the approved English/Simplified Chinese/Traditional Chinese UI
@@ -82,8 +82,9 @@ multilingual UI scope.
   required files, supported extension declarations, and an optional `vX.Y.Z`
   tag supplied by CI.
 - `npm run release:package` performs a production build and creates a
-  deterministic `dist/office-viewer-X.Y.Z.zip` containing exactly
-  `main.js`, `manifest.json`, and `styles.css` with fixed entry metadata.
+  deterministic `dist/office-viewer-X.Y.Z.zip` containing the three Obsidian
+  runtime files plus the project license, attribution notice, and bundled
+  renderer license, all with fixed entry metadata.
 - CI runs the fast/full verification and release checks on pushes and pull
   requests. A tag workflow rebuilds, verifies the tag/version match, creates
   the asset, proves a second build is byte-identical, and uploads the artifact

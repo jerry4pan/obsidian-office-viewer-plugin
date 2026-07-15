@@ -80,8 +80,10 @@ sandboxed test Vault without using a personal Obsidian configuration.
 
 ## Packaged install, upgrade, and uninstall
 
-A release ZIP contains exactly `main.js`, `manifest.json`, and `styles.css`.
-Extract those files to `<Vault>/.obsidian/plugins/office-viewer/`, reload
+A release ZIP contains the three runtime files (`main.js`, `manifest.json`,
+and `styles.css`) plus the project license, attribution notice, and bundled
+renderer license. Extract all files to
+`<Vault>/.obsidian/plugins/office-viewer/`, reload
 Obsidian, and enable **Office Viewer**. To upgrade, disable the plugin, replace
 all three files from the new ZIP together, reload Obsidian, and re-enable it.
 To uninstall, disable the plugin and remove the `office-viewer` directory; the
@@ -132,8 +134,9 @@ those two committed files. Run
 `npm run test:performance:baseline` after the copy. A budget miss remains valid
 evidence and must be committed as FAIL rather than tuned away.
 
-`npm run release:check` requires package, manifest, compatibility-version, and
-required documentation consistency. `npm run release:package` creates a
+`npm run release:check` requires package, manifest, compatibility-version,
+supported-extension, license, and required-documentation consistency.
+`npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
 installs that extracted ZIP into a clean test Vault, opens a real PPTX,
 rehearses an in-place package upgrade, and verifies disable/removal without
