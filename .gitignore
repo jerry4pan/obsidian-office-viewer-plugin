@@ -8,5 +8,4 @@ coverage/
 dist/
 artifacts/release/
 .VSCodeCounter/
-dist/
 .scratch/
