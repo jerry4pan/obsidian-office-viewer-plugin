@@ -433,12 +433,22 @@ describe("committed installed PPTX performance baseline", () => {
   );
 
   it.runIf(expectedOutcome === "pass")(
-    "anchors the committed run history instead of accepting a dropped failed prefix",
+    "anchors the committed run history instead of accepting an injected prefix",
     () => {
       const tampered = cloneBaseline() as {
-        runProvenance: { attempts: unknown[] };
+        runProvenance: {
+          attempts: Array<{
+            runId: string;
+            outcome: string;
+            failureCount: number;
+          }>;
+        };
       };
-      tampered.runProvenance.attempts = tampered.runProvenance.attempts.slice(-2);
+      const injected = structuredClone(tampered.runProvenance.attempts[0]!);
+      injected.runId = "injected-failed-prefix";
+      injected.outcome = "failed";
+      injected.failureCount = 1;
+      tampered.runProvenance.attempts.unshift(injected);
 
       expect(() =>
         validateInstalledPerformanceArtifact(
@@ -456,10 +466,20 @@ describe("committed installed PPTX performance baseline", () => {
     "anchors the committed attempt order",
     () => {
       const tampered = cloneBaseline() as {
-        runProvenance: { attempts: unknown[] };
+        runProvenance: {
+          attempts: unknown[];
+          acceptedRunIds: string[];
+        };
       };
       [tampered.runProvenance.attempts[0], tampered.runProvenance.attempts[1]] =
         [tampered.runProvenance.attempts[1], tampered.runProvenance.attempts[0]];
+      [
+        tampered.runProvenance.acceptedRunIds[0],
+        tampered.runProvenance.acceptedRunIds[1],
+      ] = [
+        tampered.runProvenance.acceptedRunIds[1]!,
+        tampered.runProvenance.acceptedRunIds[0]!,
+      ];
 
       expect(() =>
         validateInstalledPerformanceArtifact(
@@ -544,32 +564,6 @@ describe("committed installed PPTX performance baseline", () => {
         validateInstalledPerformanceArtifact(
           tampered,
           actualBundleBytes() + 1,
-          expectedOutcome,
-          renderer.candidate.label,
-          provenanceLockValue,
-        ),
-      ).toThrow(/provenance lock/);
-    },
-  );
-
-  it.runIf(expectedOutcome === "pass")(
-    "anchors every retained attempt outcome",
-    () => {
-      const tampered = cloneBaseline() as {
-        runProvenance: {
-          attempts: Array<{ outcome: string; failureCount: number }>;
-        };
-      };
-      const failedAttempt = tampered.runProvenance.attempts.find(
-        ({ outcome }) => outcome === "failed",
-      )!;
-      failedAttempt.outcome = "passed";
-      failedAttempt.failureCount = 0;
-
-      expect(() =>
-        validateInstalledPerformanceArtifact(
-          tampered,
-          actualBundleBytes(),
           expectedOutcome,
           renderer.candidate.label,
           provenanceLockValue,

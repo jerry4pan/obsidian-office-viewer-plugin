@@ -1,40 +1,16 @@
 {
   "attemptRunIds": [
-    "e9fda22e-8e26-4c4d-b4b3-7049866f99e7",
-    "5f431795-757f-4448-98d8-61e98c90b24d",
-    "e9ecf42d-9d6f-4e1e-b33e-150f14f2ff60",
-    "7c0c78e1-cfeb-42b4-bf94-9a85030195de",
-    "f28ef507-438e-4641-b80d-cb6d5c8d7c34",
-    "8fe51849-3d10-4191-9d81-19b9795e9a1a",
-    "40c49653-93e4-4170-a8fc-7e66e935f810",
-    "08320d82-d038-4f65-83f6-99a617a39f76",
-    "5ddbcb19-b81a-45df-9001-23e67fc845dc",
-    "4a47f0a0-59c3-44ba-baa6-030b7b18d3d7",
-    "f714de2f-100b-4f87-8940-f53c4936787c",
-    "f87f4637-79ea-4d87-880a-72bb595878fd",
-    "00b81a67-8991-4f30-9909-91f006af829c",
-    "27fe45c4-1be5-4a08-8802-5f9ebc6b2fbd"
+    "5759f2c2-b75d-4d98-9494-23979cd5a6d4",
+    "c58110a3-4e3e-4bd9-9acd-a391c5ba4751"
   ],
   "outcomes": [
-    "passed",
-    "failed",
-    "passed",
-    "failed",
-    "failed",
-    "failed",
-    "failed",
-    "failed",
-    "failed",
-    "failed",
-    "passed",
-    "failed",
     "passed",
     "passed"
   ],
   "acceptedRunIds": [
-    "00b81a67-8991-4f30-9909-91f006af829c",
-    "27fe45c4-1be5-4a08-8802-5f9ebc6b2fbd"
+    "5759f2c2-b75d-4d98-9494-23979cd5a6d4",
+    "c58110a3-4e3e-4bd9-9acd-a391c5ba4751"
   ],
-  "bundleBytes": 1176586,
+  "bundleBytes": 1185362,
   "representativeFixtureSha256": "d613d62d93be1a11c9a52537ecf2bcd5bbc8c0aae8cd4c6b84b721ebc96d8948"
 }

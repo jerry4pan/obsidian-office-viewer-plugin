@@ -78,4 +78,26 @@ describe("performance run provenance", () => {
       assertPerformanceRunProvenanceMatchesLock(uniformlyReplaced, lock),
     ).toThrow(/provenance lock/);
   });
+
+  it("anchors every retained attempt outcome in the baseline lock", () => {
+    let provenance = emptyPerformanceRunProvenance();
+    provenance = appendPerformanceRunAttempt(provenance, attempt("1", "failed"));
+    provenance = appendPerformanceRunAttempt(provenance, attempt("2", "passed"));
+    provenance = appendPerformanceRunAttempt(provenance, attempt("3", "passed"));
+    const lockWithChangedOutcome: PerformanceBaselineProvenanceLock = {
+      attemptRunIds: ["1", "2", "3"],
+      outcomes: ["passed", "passed", "passed"],
+      acceptedRunIds: ["2", "3"],
+      bundleBytes: provenance.attempts[0]!.bundleBytes,
+      representativeFixtureSha256:
+        provenance.attempts[0]!.representativeFixtureSha256,
+    };
+
+    expect(() =>
+      assertPerformanceRunProvenanceMatchesLock(
+        provenance,
+        lockWithChangedOutcome,
+      ),
+    ).toThrow(/provenance lock/);
+  });
 });

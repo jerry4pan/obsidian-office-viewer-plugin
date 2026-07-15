@@ -28,7 +28,7 @@
     "test:performance": "npm run fixtures:performance && npm run build && wdio run wdio.performance.conf.mts",
     "test:performance:aiden": "node scripts/run-renderer-candidate.mjs aiden test:performance",
     "test:performance:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:performance",
-    "test:performance:baseline": "npm run build && vitest run tests/performance/performance-baseline.test.ts",
+    "test:performance:baseline": "npm run build && vitest run tests/performance/performance-baseline.test.ts tests/performance/performance-run-provenance.test.ts",
     "test:performance:baseline:aiden": "node scripts/run-renderer-candidate.mjs aiden test:performance:baseline",
     "test:performance:baseline:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:performance:baseline",
     "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:performance && npm run fixtures:failure && npm test"
