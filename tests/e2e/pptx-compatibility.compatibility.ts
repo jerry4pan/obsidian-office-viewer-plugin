@@ -98,6 +98,16 @@ describe("installed PPTX compatibility corpus", () => {
         if ((await root.getAttribute("data-state")) !== "ready") {
           throw new Error("view reached error state");
         }
+        await browser.waitUntil(async () => {
+          const observedWarnings = (await root.getAttribute(
+            "data-warning-categories",
+          ))?.split(",").filter(Boolean) ?? [];
+          return JSON.stringify(observedWarnings) ===
+            JSON.stringify([...fixture.runtimeWarnings].sort());
+        }, {
+          timeout: 7_000,
+          timeoutMsg: `${fixture.id} did not expose its compatibility warnings`,
+        });
 
         // Candidate chart renderers may finish an internal animation after the
         // view becomes readable. Capture only after that fixed settling window

@@ -1,6 +1,7 @@
 import JSZip, { type JSZipObject } from "jszip";
 import CFB from "cfb";
 import { PptxOpenError } from "../pptx-open-error";
+import type { PptxCompatibilityWarningCategory } from "./pptx-renderer-adapter";
 
 const oleCompoundFileSignature = [
   0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
@@ -21,11 +22,20 @@ export const PPTX_ZIP_LIMITS = Object.freeze({
 });
 const maxPreflightXmlPartBytes = 8 * 1024 * 1024;
 const maxPreflightXmlBytes = 32 * 1024 * 1024;
+const renderedFontPartPrefixes = [
+  "ppt/slides/",
+  "ppt/slideLayouts/",
+  "ppt/slideMasters/",
+  "ppt/theme/",
+  "ppt/charts/",
+] as const;
 const compoundFileStreamEntryType = 2;
 const hyperlinkRelationshipType =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 const officeRelationshipNamespace =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const drawingMainNamespace =
+  "http://schemas.openxmlformats.org/drawingml/2006/main";
 
 interface RelationshipReferences {
   readonly hyperlinkIds: Set<string>;
@@ -46,6 +56,15 @@ function malformed(message: string, cause?: unknown): PptxOpenError {
 
 function incompatible(message: string, cause?: unknown): PptxOpenError {
   return new PptxOpenError("incompatible", message, { cause });
+}
+
+function resourceExhausted(message: string): PptxOpenError {
+  return new PptxOpenError("resource-exhausted", message);
+}
+
+export interface PptxPackageInspection {
+  readonly declaredFonts: readonly string[];
+  readonly warningCategories: readonly PptxCompatibilityWarningCategory[];
 }
 
 function compoundStreamBytes(
@@ -107,7 +126,7 @@ function uncompressedSize(part: JSZipObject): number {
 function enforceZipLimits(zip: JSZip): void {
   const entries = Object.values(zip.files).filter((part) => !part.dir);
   if (entries.length > PPTX_ZIP_LIMITS.maxEntries) {
-    throw incompatible("The PPTX package contains too many ZIP entries");
+    throw resourceExhausted("The PPTX package contains too many ZIP entries");
   }
 
   let totalBytes = 0;
@@ -116,25 +135,25 @@ function enforceZipLimits(zip: JSZip): void {
   for (const part of entries) {
     const size = uncompressedSize(part);
     if (size > PPTX_ZIP_LIMITS.maxEntryUncompressedBytes) {
-      throw incompatible(`OOXML part ${part.name} exceeds the safe size limit`);
+      throw resourceExhausted(`OOXML part ${part.name} exceeds the safe size limit`);
     }
     totalBytes += size;
     if (part.name.startsWith("ppt/media/")) mediaBytes += size;
     if (part.name.endsWith(".xml") || part.name.endsWith(".rels")) {
       if (size > maxPreflightXmlPartBytes) {
-        throw incompatible(`OOXML part ${part.name} exceeds the safe size limit`);
+        throw resourceExhausted(`OOXML part ${part.name} exceeds the safe size limit`);
       }
       preflightXmlBytes += size;
     }
   }
   if (totalBytes > PPTX_ZIP_LIMITS.maxTotalUncompressedBytes) {
-    throw incompatible("The PPTX package exceeds the safe expanded-size limit");
+    throw resourceExhausted("The PPTX package exceeds the safe expanded-size limit");
   }
   if (mediaBytes > PPTX_ZIP_LIMITS.maxMediaBytes) {
-    throw incompatible("The PPTX package exceeds the safe media-size limit");
+    throw resourceExhausted("The PPTX package exceeds the safe media-size limit");
   }
   if (preflightXmlBytes > maxPreflightXmlBytes) {
-    throw incompatible("The PPTX package contains too much XML to inspect safely");
+    throw resourceExhausted("The PPTX package contains too much XML to inspect safely");
   }
 }
 
@@ -291,10 +310,15 @@ function rejectUnsafeActiveContent(
 async function inspectXmlParts(
   zip: JSZip,
   signal: AbortSignal,
-): Promise<{ presentation: Document; contentTypes: Document }> {
+): Promise<{
+  presentation: Document;
+  contentTypes: Document;
+  declaredFonts: readonly string[];
+}> {
   let presentation: Document | undefined;
   let contentTypes: Document | undefined;
   const referencesByOwner = new Map<string, RelationshipReferences>();
+  const declaredFonts = new Set<string>();
   const documentParts = Object.values(zip.files).filter(
     (part) => !part.dir && part.name.endsWith(".xml"),
   );
@@ -303,6 +327,27 @@ async function inspectXmlParts(
     if (part.name === "ppt/presentation.xml") presentation = document;
     else if (part.name === "[Content_Types].xml") contentTypes = document;
     referencesByOwner.set(part.name, collectRelationshipReferences(document));
+    const canDeclareRenderedFont = renderedFontPartPrefixes.some((prefix) =>
+      part.name.startsWith(prefix)
+    );
+    if (canDeclareRenderedFont) {
+      const walker = document.createTreeWalker(document.documentElement, 1);
+      let element = walker.nextNode() as Element | null;
+      while (element) {
+        if (
+          element.namespaceURI === drawingMainNamespace &&
+          (element.localName === "latin" ||
+            element.localName === "ea" ||
+            element.localName === "cs")
+        ) {
+          const typeface = element.getAttribute("typeface")?.trim();
+          if (typeface && !typeface.startsWith("+")) {
+            declaredFonts.add(typeface);
+          }
+        }
+        element = walker.nextNode() as Element | null;
+      }
+    }
   }
   const relationshipParts = Object.values(zip.files).filter(
     (part) => !part.dir && part.name.endsWith(".rels"),
@@ -313,13 +358,18 @@ async function inspectXmlParts(
   }
   if (!presentation) throw malformed("Missing presentation XML");
   if (!contentTypes) throw malformed("Missing content types XML");
-  return { presentation, contentTypes };
+  return {
+    presentation,
+    contentTypes,
+    declaredFonts: [...declaredFonts].sort((left, right) =>
+      left.localeCompare(right, "en")),
+  };
 }
 
 export async function inspectPptxPackage(
   buffer: ArrayBuffer,
   signal: AbortSignal,
-): Promise<void> {
+): Promise<PptxPackageInspection> {
   signal.throwIfAborted();
   const bytes = new Uint8Array(buffer);
   if (hasSignature(bytes, oleCompoundFileSignature)) {
@@ -348,7 +398,10 @@ export async function inspectPptxPackage(
     if (!zip.file(partPath)) throw malformed(`Missing required OOXML part ${partPath}`);
   }
 
-  const { presentation, contentTypes } = await inspectXmlParts(zip, signal);
+  const { presentation, contentTypes, declaredFonts } = await inspectXmlParts(
+    zip,
+    signal,
+  );
   rejectUnsafeActiveContent(zip, contentTypes);
   signal.throwIfAborted();
 
@@ -358,4 +411,13 @@ export async function inspectPptxPackage(
       "The renderer cannot display a PPTX package with no usable slides",
     );
   }
+
+  const unsupportedMediaPattern = /\.(?:svg|emf|wmf|pdf)$/i;
+  const hasUnsupportedMedia = Object.values(zip.files).some(
+    (part) => !part.dir && unsupportedMediaPattern.test(part.name),
+  );
+  return {
+    declaredFonts,
+    warningCategories: hasUnsupportedMedia ? ["unsupported-content"] : [],
+  };
 }

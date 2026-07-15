@@ -2,10 +2,15 @@ import type {
   PptxRendererResource,
   PptxRendererSession,
 } from "./renderer/pptx-renderer-adapter";
+import {
+  ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageTranslator,
+} from "./i18n";
 import { RenderTaskQueue } from "./render-task-queue";
 import { computeThumbnailWindow } from "./thumbnail-virtual-window";
 
 export interface ThumbnailRailOptions {
+  readonly messages?: MessageTranslator;
   readonly onNavigate: (index: number) => void;
   readonly onMountedCountChange?: (count: number) => void;
   readonly onReadyCountChange?: (count: number) => void;
@@ -83,6 +88,7 @@ export class ThumbnailRail {
   private started = false;
   private lastReportedMountedCount: number | undefined;
   private lastReportedReadyCount: number | undefined;
+  private readonly messages: MessageTranslator;
 
   constructor(
     private readonly root: HTMLElement,
@@ -90,6 +96,7 @@ export class ThumbnailRail {
     private readonly queue: RenderTaskQueue,
     private readonly options: ThumbnailRailOptions,
   ) {
+    this.messages = options.messages ?? ENGLISH_MESSAGE_TRANSLATOR;
     this.thumbnailWidth = finitePositive(
       options.thumbnailWidth,
       DEFAULT_THUMBNAIL_WIDTH,
@@ -130,7 +137,10 @@ export class ThumbnailRail {
 
     this.root.replaceChildren();
     this.root.setAttribute("role", "navigation");
-    this.root.setAttribute("aria-label", "Slide thumbnails");
+    this.root.setAttribute(
+      "aria-label",
+      this.messages.text("thumbnails.railLabel"),
+    );
     this.root.classList.add("pptx-viewer__thumbnail-rail");
     this.spacer.dataset.thumbnailSpacer = "true";
     this.spacer.className = "pptx-viewer__thumbnail-spacer";
@@ -294,7 +304,10 @@ export class ThumbnailRail {
     button.className = "pptx-viewer__thumbnail";
     button.dataset.action = "thumbnail-slide";
     button.dataset.slideIndex = String(index);
-    button.setAttribute("aria-label", `Slide ${index + 1}`);
+    button.setAttribute(
+      "aria-label",
+      this.messages.text("thumbnails.slideLabel", { slide: index + 1 }),
+    );
     button.style.height = `${this.itemHeight}px`;
     button.style.top = `${(index - windowStart) * this.itemHeight}px`;
 
@@ -416,7 +429,10 @@ export class ThumbnailRail {
 
   private showUnavailable(item: MountedThumbnail): void {
     item.preview.replaceChildren();
-    item.preview.textContent = `Slide ${item.index + 1} preview unavailable`;
+    item.preview.textContent = this.messages.text(
+      "thumbnails.previewUnavailable",
+      { slide: item.index + 1 },
+    );
   }
 
   private unmount(item: MountedThumbnail): void {

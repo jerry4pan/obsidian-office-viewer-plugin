@@ -8,14 +8,18 @@
 
 | Category | Trigger | User-visible behavior |
 | --- | --- | --- |
+| `unsupported-legacy` | A legacy `.ppt` file is routed to Office Viewer | Explicit unsupported-format explanation without reading or parsing the source, original-file safety note, external-open fallback |
 | `malformed` | Invalid/truncated ZIP, invalid OOXML XML, missing required package part or missing internal relationship target | Damaged/incomplete explanation, retry, original-file safety note, external-open fallback |
 | `protected` | Compound File Binary container with the standard `EncryptionInfo` and `EncryptedPackage` streams | Encrypted/password-protected explanation and the same safe actions |
 | `incompatible` | Structurally readable package that contains active/embedded content or that the renderer cannot safely display | Compatibility explanation and the same safe actions |
+| `resource-exhausted` | Entry count, individual entry, XML, media, or total expanded package exceeds a fixed safety limit | Resource-limit explanation and the same safe actions |
+| `cancelled` | The current open rejects with an abort outside normal replacement/close lifecycle | Cancelled-load explanation and safe retry |
 | `unknown` | Unexpected Vault read or host failure before a stable package/renderer classification exists | Generic explanation without leaking filesystem or candidate-library details |
 
-Cancellation is not shown as an error. Reopening, closing the view, or unloading
-the plugin aborts the current run; a renderer session that resolves after
-cancellation is disposed rather than mounted.
+Normal lifecycle cancellation is not shown as an error. Reopening, closing the
+view, or unloading the plugin makes the generation stale; a renderer session
+that resolves afterward is disposed rather than mounted. `cancelled` is only a
+stable current-generation failure category.
 
 ## Repository-authored corpus
 
@@ -29,9 +33,9 @@ presentation content:
 | `missing-media.pptx` | `malformed` | Internal image relationship whose target part was removed |
 | `protected-encrypted.pptx` | `protected` | Repository-authored PPTX encrypted with ECMA-376 Agile Encryption and a test-only password |
 | `active-content.pptx` | `incompatible` | Usable-slide package containing inert VBA bytes that preflight must reject before the renderer |
-| `renderer-resource-limit.pptx` | `incompatible` | Usable-slide package that passes preflight and exceeds the candidate renderer's per-entry limit |
-| `preflight-xml-limit.pptx` | `incompatible` | Usable-slide package with an XML entry too large to inspect safely |
-| `preflight-entry-limit.pptx` | `incompatible` | Usable-slide package with more ZIP entries than the shared safety limit |
+| `renderer-resource-limit.pptx` | `resource-exhausted` | Usable-slide package that exceeds the shared per-entry limit |
+| `preflight-xml-limit.pptx` | `resource-exhausted` | Usable-slide package with an XML entry too large to inspect safely |
+| `preflight-entry-limit.pptx` | `resource-exhausted` | Usable-slide package with more ZIP entries than the shared safety limit |
 | `external-relationship-safe.pptx` | renders normally | Usable-slide package with a slide-referenced standard external hyperlink that must not cause a network request |
 | `external-image-blocked.pptx` | `incompatible` | Usable-slide package with a standard external image relationship rejected before the renderer can fetch it |
 | `external-image-type-spoof-blocked.pptx` | `incompatible` | External image reference disguised with a hyperlink relationship type; rejected by owner-XML reference-context validation |

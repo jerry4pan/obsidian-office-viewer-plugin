@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PreflightPptxRendererAdapter } from "../../src/renderer/preflight-pptx-renderer-adapter";
 import type { PptxRendererAdapter } from "../../src/renderer/pptx-renderer-adapter";
 import {
@@ -15,6 +15,56 @@ async function loadFixture(id: string): Promise<ArrayBuffer> {
 }
 
 describe("PreflightPptxRendererAdapter", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+  it("caches local font measurements across repeated opens", async () => {
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get")
+      .mockImplementation(function (this: HTMLElement) {
+        return this.style.fontFamily.startsWith('"') &&
+            !this.style.fontFamily.includes("Definitely Missing Font")
+          ? 120
+          : 100;
+      });
+    const bytes = Uint8Array.from(await readFile(path.resolve(
+      "tests/fixtures/compatibility/text-theme-wide.pptx",
+    ))).buffer;
+    const session = {
+      slideCount: 1,
+      slideWidth: 960,
+      slideHeight: 540,
+      capabilities: { thumbnails: false, prefetch: false },
+      renderSlide: vi.fn(async () => {}),
+      dispose: vi.fn(),
+    };
+    const adapter = new PreflightPptxRendererAdapter({
+      open: vi.fn(async () => session),
+    });
+
+    const first = await adapter.open(
+      bytes,
+      document.createElement("div"),
+      new AbortController().signal,
+    );
+    const second = await adapter.open(
+      bytes,
+      document.createElement("div"),
+      new AbortController().signal,
+    );
+
+    expect(first.compatibilityWarnings).toEqual([]);
+    expect(first.detectCompatibilityWarnings?.()).toEqual([
+      "font-substitution",
+    ]);
+    const firstMeasurementCount = width.mock.calls.length;
+    expect(second.detectCompatibilityWarnings?.()).toEqual([
+      "font-substitution",
+    ]);
+    expect(firstMeasurementCount).toBeGreaterThan(0);
+    expect(width).toHaveBeenCalledTimes(firstMeasurementCount);
+  });
+
   it("forwards candidate-neutral M2 session capabilities unchanged", async () => {
     const renderThumbnail = vi.fn();
     const prefetchSlide = vi.fn(async () => {});
@@ -41,12 +91,14 @@ describe("PreflightPptxRendererAdapter", () => {
       new AbortController().signal,
     );
 
-    expect(result).toBe(session);
     expect(result.slideWidth).toBe(960);
     expect(result.slideHeight).toBe(540);
     expect(result.capabilities).toEqual(session.capabilities);
-    expect(result.renderThumbnail).toBe(renderThumbnail);
-    expect(result.prefetchSlide).toBe(prefetchSlide);
+    result.renderThumbnail?.(0, document.createElement("div"), new AbortController().signal);
+    await result.prefetchSlide?.(1, new AbortController().signal);
+    expect(renderThumbnail).toHaveBeenCalledOnce();
+    expect(prefetchSlide).toHaveBeenCalledOnce();
+    expect(result.compatibilityWarnings).toEqual([]);
   });
 
   it("blocks active content before invoking a candidate renderer", async () => {
@@ -73,7 +125,7 @@ describe("PreflightPptxRendererAdapter", () => {
         document.createElement("div"),
         new AbortController().signal,
       ),
-    ).rejects.toMatchObject({ category: "incompatible" });
+    ).rejects.toMatchObject({ category: "resource-exhausted" });
     expect(candidate.open).not.toHaveBeenCalled();
   });
 });

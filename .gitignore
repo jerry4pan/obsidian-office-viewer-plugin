@@ -5,6 +5,8 @@ main.js
 *.js.map
 .obsidian-cache*/
 coverage/
+dist/
+artifacts/release/
 .VSCodeCounter/
 dist/
 .scratch/

@@ -1,7 +1,9 @@
+import { describe, expect, it, vi } from "vitest";
 import type {
   PptxRendererResource,
   PptxRendererSession,
 } from "../src/renderer/pptx-renderer-adapter";
+import { createMessageTranslator } from "../src/i18n";
 import { RenderTaskQueue } from "../src/render-task-queue";
 import { ThumbnailRail } from "../src/thumbnail-rail";
 
@@ -69,6 +71,40 @@ afterEach(() => {
 });
 
 describe("ThumbnailRail", () => {
+  it.each([
+    ["en", "Slide thumbnails", "Slide 1", "Slide 1 preview unavailable"],
+    ["zh-CN", "幻灯片缩略图", "第 1 张幻灯片", "第 1 张幻灯片的预览不可用"],
+    ["zh-TW", "投影片縮圖", "第 1 張投影片", "第 1 張投影片的預覽無法使用"],
+  ] as const)(
+    "renders accessible and unavailable-preview text for %s",
+    (language, railLabel, slideLabel, unavailable) => {
+      const root = createRoot();
+      const renderer = {
+        ...createRenderer(),
+        capabilities: { thumbnails: false, prefetch: true },
+        renderThumbnail: undefined,
+      } satisfies PptxRendererSession;
+      const queue = new RenderTaskQueue();
+      const rail = new ThumbnailRail(root, renderer, queue, {
+        messages: createMessageTranslator(language),
+        onNavigate: vi.fn(),
+      });
+
+      rail.start(0);
+
+      expect(root.getAttribute("aria-label")).toBe(railLabel);
+      expect(root.querySelector('[aria-current="page"]')?.getAttribute(
+        "aria-label",
+      )).toBe(slideLabel);
+      expect(
+        root.querySelector('[data-slide-index="0"]')?.textContent,
+      ).toContain(unavailable);
+
+      rail.dispose();
+      queue.dispose();
+    },
+  );
+
   it("reports readiness only after the resource resolves and clears it on unmount and dispose", async () => {
     const root = createRoot(1);
     const firstReady = deferred<void>();

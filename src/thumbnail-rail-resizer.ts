@@ -1,5 +1,9 @@
 import type { ThumbnailRail } from "./thumbnail-rail";
 import {
+  ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageTranslator,
+} from "./i18n";
+import {
   DEFAULT_THUMBNAIL_RAIL_WIDTH,
   MIN_THUMBNAIL_RAIL_WIDTH,
   maximumThumbnailRailWidth,
@@ -9,6 +13,7 @@ import {
 } from "./thumbnail-rail-sizing";
 
 export interface ThumbnailRailResizerOptions {
+  readonly messages?: MessageTranslator;
   readonly preferredWidth: number;
   readonly onCommit?: (width: number) => void;
   readonly createResizeObserver?: (
@@ -28,6 +33,7 @@ export class ThumbnailRailResizer {
   private readonly resizeObserver:
     | Pick<ResizeObserver, "observe" | "disconnect">
     | undefined;
+  private readonly messages: MessageTranslator;
 
   constructor(
     private readonly host: HTMLElement,
@@ -35,6 +41,7 @@ export class ThumbnailRailResizer {
     private readonly rail: ThumbnailRail,
     private readonly options: ThumbnailRailResizerOptions,
   ) {
+    this.messages = options.messages ?? ENGLISH_MESSAGE_TRANSLATOR;
     this.preferredWidth = normalizeThumbnailRailWidth(options.preferredWidth);
     this.actualWidth = this.preferredWidth;
     this.element.className = "pptx-viewer__thumbnail-resizer";
@@ -42,8 +49,11 @@ export class ThumbnailRailResizer {
     this.element.tabIndex = 0;
     this.element.setAttribute("role", "separator");
     this.element.setAttribute("aria-orientation", "vertical");
-    this.element.setAttribute("aria-label", "Resize slide thumbnails");
-    this.element.title = "Drag to resize thumbnails; double-click to reset";
+    this.element.setAttribute(
+      "aria-label",
+      this.messages.text("thumbnails.resizeLabel"),
+    );
+    this.element.title = this.messages.text("thumbnails.resizeTitle");
     this.element.addEventListener("keydown", this.onKeyDown);
     this.element.addEventListener("dblclick", this.onDoubleClick);
     this.element.addEventListener("pointerdown", this.onPointerDown);
@@ -164,7 +174,10 @@ export class ThumbnailRailResizer {
     this.element.setAttribute("aria-valuemin", String(minimum));
     this.element.setAttribute("aria-valuemax", String(maximum));
     this.element.setAttribute("aria-valuenow", String(actualWidth));
-    this.element.setAttribute("aria-valuetext", `${actualWidth} pixels`);
+    this.element.setAttribute(
+      "aria-valuetext",
+      this.messages.text("thumbnails.resizeValue", { pixels: actualWidth }),
+    );
     this.rail.setThumbnailWidth(thumbnailPreviewWidth(actualWidth), {
       rerender: rerender && (actualWidthChanged || forceRerender),
     });

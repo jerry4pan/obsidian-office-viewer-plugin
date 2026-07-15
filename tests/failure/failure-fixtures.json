@@ -36,21 +36,21 @@
   },
   {
     "id": "renderer-resource-limit",
-    "category": "incompatible",
+    "category": "resource-exhausted",
     "provenance": "repository-authored PPTX exceeding the candidate entry limit",
     "fixturePath": "tests/fixtures/failure/renderer-resource-limit.pptx",
     "vaultPath": "tests/vault/failure/renderer-resource-limit.pptx"
   },
   {
     "id": "preflight-xml-limit",
-    "category": "incompatible",
+    "category": "resource-exhausted",
     "provenance": "repository-authored PPTX exceeding the preflight XML entry limit",
     "fixturePath": "tests/fixtures/failure/preflight-xml-limit.pptx",
     "vaultPath": "tests/vault/failure/preflight-xml-limit.pptx"
   },
   {
     "id": "preflight-entry-limit",
-    "category": "incompatible",
+    "category": "resource-exhausted",
     "provenance": "repository-authored PPTX exceeding the preflight ZIP entry-count limit",
     "fixturePath": "tests/fixtures/failure/preflight-entry-limit.pptx",
     "vaultPath": "tests/vault/failure/preflight-entry-limit.pptx"

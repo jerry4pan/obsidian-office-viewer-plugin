@@ -1,6 +1,11 @@
 import { FileView, type App, type TFile, type WorkspaceLeaf } from "obsidian";
+import {
+  ENGLISH_MESSAGE_TRANSLATOR,
+  type MessageTranslator,
+} from "./i18n";
 import { PptxViewSession } from "./pptx-view-session";
 import type { PptxViewSessionDiagnostics } from "./pptx-view-session";
+import type { DiagnosticEnvironment } from "./diagnostic-summary";
 import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
 
 export const PPTX_VIEW_TYPE = "pptx-viewer";
@@ -11,6 +16,7 @@ export interface PptxFileViewState {
   initialThumbnailRailWidth(): number;
   recordThumbnailRailWidth(width: number): void;
   subscribeThumbnailRailWidth(listener: (width: number) => void): () => void;
+  rememberReadingPosition(): boolean;
 }
 
 type DesktopVaultAdapter = {
@@ -39,6 +45,8 @@ export class PptxFileView extends FileView {
     leaf: WorkspaceLeaf,
     private readonly onDisposed: () => void = () => {},
     state?: PptxFileViewState,
+    private readonly messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
+    diagnosticEnvironment?: DiagnosticEnvironment,
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
@@ -49,6 +57,7 @@ export class PptxFileView extends FileView {
       { readBinary: (file) => this.app.vault.readBinary(file) },
       createPptxRendererAdapter(),
       {
+        messages: this.messages,
         openExternally: createExternalOpenAction(this.app),
         positions: state,
         thumbnailRail: state === undefined
@@ -59,6 +68,14 @@ export class PptxFileView extends FileView {
               subscribeWidth: (listener) =>
                 state.subscribeThumbnailRailWidth(listener),
             },
+        diagnostics: diagnosticEnvironment === undefined
+          ? undefined
+          : {
+              environment: diagnosticEnvironment,
+              rememberReadingPosition: () =>
+                state?.rememberReadingPosition() ?? false,
+              copy: async (summary) => navigator.clipboard.writeText(summary),
+            },
       },
     );
   }
@@ -68,7 +85,7 @@ export class PptxFileView extends FileView {
   }
 
   override getDisplayText(): string {
-    return this.file?.basename ?? "PPTX viewer";
+    return this.file?.basename ?? this.messages.text("viewer.fallbackTitle");
   }
 
   getPerformanceDiagnostics(): PptxViewSessionDiagnostics {
@@ -76,6 +93,10 @@ export class PptxFileView extends FileView {
   }
 
   override async onLoadFile(file: TFile): Promise<void> {
+    if (file.extension.toLowerCase() === "ppt") {
+      this.session.openUnsupportedLegacy(file, file.stat.size);
+      return;
+    }
     await this.session.open(file);
   }
 

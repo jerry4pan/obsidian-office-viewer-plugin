@@ -1,5 +1,8 @@
 import { vi } from "vitest";
 
+export const getLanguage = vi.fn(() => "en");
+export const apiVersion = "1.13.1";
+
 export class Plugin {
   app: unknown;
   registerView = vi.fn();

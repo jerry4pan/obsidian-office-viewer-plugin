@@ -1,4 +1,7 @@
-import { Plugin, TFile } from "obsidian";
+import { apiVersion, getLanguage, Plugin, TFile } from "obsidian";
+import manifest from "../manifest.json" with { type: "json" };
+import releaseContract from "../release-contract.json" with { type: "json" };
+import { createMessageTranslator } from "./i18n";
 import { OfficeViewerSettingTab } from "./office-viewer-setting-tab";
 import { PptxFileView, PPTX_VIEW_TYPE } from "./pptx-file-view";
 import {
@@ -22,6 +25,13 @@ export default class OfficeViewerPlugin extends Plugin {
 
   override async onload(): Promise<void> {
     this.unloading = false;
+    const messages = createMessageTranslator(getLanguage());
+    const diagnosticEnvironment = {
+      pluginVersion: manifest.version,
+      obsidianVersion: apiVersion,
+      rendererVersion: process.env.PPTX_RENDERER_VERSION ?? "unknown",
+      operatingSystem: `${process.platform}-${process.arch}`,
+    };
     const store = new ReadingPositionStore({
       loadData: () => this.loadData(),
       saveData: (data) => this.saveData(data),
@@ -41,7 +51,9 @@ export default class OfficeViewerPlugin extends Plugin {
       return;
     }
 
-    this.addSettingTab(new OfficeViewerSettingTab(this.app, this, store));
+    this.addSettingTab(
+      new OfficeViewerSettingTab(this.app, this, store, messages),
+    );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         if (file instanceof TFile) store.rename(oldPath, fingerprint(file));
@@ -67,12 +79,16 @@ export default class OfficeViewerPlugin extends Plugin {
             store.setThumbnailRailWidth(width),
           subscribeThumbnailRailWidth: (listener) =>
             store.subscribeThumbnailRailWidth(listener),
+          rememberReadingPosition: () =>
+            store.settings.rememberReadingPosition,
         },
+        messages,
+        diagnosticEnvironment,
       );
       this.views.add(view);
       return view;
     });
-    this.registerExtensions(["pptx"], PPTX_VIEW_TYPE);
+    this.registerExtensions([...releaseContract.supportedExtensions], PPTX_VIEW_TYPE);
   }
 
   override onunload(): void {

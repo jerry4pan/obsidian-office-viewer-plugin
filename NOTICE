@@ -5,6 +5,10 @@ This product includes @aiden0z/pptx-renderer 1.2.4, licensed under the
 Apache License 2.0. Source and license:
 https://github.com/aiden0z/pptx-renderer
 
+The distributed main.js contains a bundled and minified object-code form of
+that library produced by the Office Viewer build; the upstream source package
+is otherwise unmodified.
+
 The test fixture is generated with PptxGenJS 4.0.1, licensed under the
 MIT License. Source and license:
 https://github.com/gitbrent/PptxGenJS

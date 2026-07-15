@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TFile, type ToggleComponent } from "obsidian";
+import { getLanguage, TFile, type ToggleComponent } from "obsidian";
 
 import OfficeViewerPlugin from "../src/main";
 
@@ -25,9 +25,104 @@ async function representativeFixtureBuffer(): Promise<ArrayBuffer> {
 }
 
 describe("OfficeViewerPlugin", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getLanguage).mockReturnValue("en");
+  });
 
-  it("registers pptx files with the dedicated view", async () => {
+  it("selects the message locale from Obsidian when the plugin loads", async () => {
+    vi.mocked(getLanguage).mockReturnValue("zh-TW");
+    const app = {
+      vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+
+    await plugin.onload();
+    const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+    const view = factory?.({ app } as never) as unknown as {
+      contentEl: HTMLElement;
+      getDisplayText(): string;
+    };
+
+    expect(getLanguage).toHaveBeenCalledOnce();
+    expect(view.contentEl.textContent).toContain(
+      "從儲存庫開啟 PPTX 檔案即可開始閱讀。",
+    );
+    expect(view.getDisplayText()).toBe("PPTX 檢視器");
+  });
+
+  it.each([
+    ["en", "Remember reading position", "Store only the last slide number and a local file-change fingerprint.", "PPTX viewer"],
+    ["zh-CN", "记住阅读位置", "仅存储上次阅读的幻灯片编号和用于检测本地文件更改的信息。", "PPTX 查看器"],
+    ["zh-TW", "記住閱讀位置", "僅儲存上次閱讀的投影片編號，以及用於偵測本機檔案變更的資訊。", "PPTX 檢視器"],
+  ] as const)(
+    "renders settings with the Obsidian %s language",
+    async (language, name, description, fallbackTitle) => {
+      vi.mocked(getLanguage).mockReturnValue(language);
+      const app = {
+        vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+      };
+      const plugin = new OfficeViewerPlugin(app as never, {} as never);
+
+      await plugin.onload();
+      const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+        containerEl: HTMLElement;
+        display(): void;
+      };
+      settingTab.display();
+
+      expect(settingTab.containerEl.textContent).toContain(name);
+      expect(settingTab.containerEl.textContent).toContain(description);
+      const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+      const view = factory?.({ app } as never) as unknown as {
+        getDisplayText(): string;
+      };
+      expect(view.getDisplayText()).toBe(fallbackTitle);
+    },
+  );
+
+  it.each([
+    ["en", "Local processing and privacy", "Presentation bytes stay on this device", "Compatibility and safety", "Rendering is a read-only preview", "Diagnostic summary", "excludes filenames, paths, slide text, images, and author metadata"],
+    ["zh-CN", "本地处理与隐私", "演示文稿数据始终保留在此设备上", "兼容性与安全", "渲染结果是只读预览", "诊断摘要", "不包含文件名、路径、幻灯片文本、图像或作者元数据"],
+    ["zh-TW", "本機處理與隱私", "簡報資料始終保留在此裝置上", "相容性與安全", "呈現結果是唯讀預覽", "診斷摘要", "不包含檔名、路徑、投影片文字、影像或作者中繼資料"],
+  ] as const)(
+    "explains M3 settings in the Obsidian %s language",
+    async (
+      language,
+      privacy,
+      privacyDescription,
+      compatibility,
+      compatibilityDescription,
+      diagnostics,
+      diagnosticsDescription,
+    ) => {
+      vi.mocked(getLanguage).mockReturnValue(language);
+      const app = {
+        vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+      };
+      const plugin = new OfficeViewerPlugin(app as never, {} as never);
+      await plugin.onload();
+      const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+        containerEl: HTMLElement;
+        display(): void;
+      };
+
+      settingTab.display();
+
+      expect(settingTab.containerEl.textContent).toContain(privacy);
+      expect(settingTab.containerEl.textContent).toContain(privacyDescription);
+      expect(settingTab.containerEl.textContent).toContain(compatibility);
+      expect(settingTab.containerEl.textContent).toContain(
+        compatibilityDescription,
+      );
+      expect(settingTab.containerEl.textContent).toContain(diagnostics);
+      expect(settingTab.containerEl.textContent).toContain(
+        diagnosticsDescription,
+      );
+    },
+  );
+
+  it("registers PPTX reading and legacy PPT explanation with the dedicated view", async () => {
     let releaseLoad!: () => void;
     const loadPending = new Promise<void>((resolve) => {
       releaseLoad = resolve;
@@ -49,13 +144,49 @@ describe("OfficeViewerPlugin", () => {
       expect.any(Function),
     );
     expect(plugin.registerExtensions).toHaveBeenCalledWith(
-      ["pptx"],
+      ["pptx", "ppt"],
       "pptx-viewer",
     );
     expect(plugin.addSettingTab).toHaveBeenCalledOnce();
     expect(vault.on).toHaveBeenCalledWith("rename", expect.any(Function));
     expect(vault.on).toHaveBeenCalledWith("delete", expect.any(Function));
     expect(plugin.registerEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("explains legacy PPT without reading or parsing the source", async () => {
+    const readBinary = vi.fn();
+    const app = {
+      vault: {
+        readBinary,
+        on: vi.fn(() => ({ off: vi.fn() })),
+        adapter: { getFullPath: vi.fn(() => "/vault/legacy.ppt") },
+      },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    await plugin.onload();
+    const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+    const view = factory?.({ app } as never) as unknown as {
+      contentEl: HTMLElement;
+      onLoadFile(file: unknown): Promise<void>;
+    };
+    const file = Object.assign(new TFile(), {
+      basename: "legacy",
+      extension: "ppt",
+      path: "legacy.ppt",
+    });
+
+    await view.onLoadFile(file);
+
+    const root = view.contentEl.querySelector<HTMLElement>(".pptx-viewer")!;
+    expect(root.dataset.errorCategory).toBe("unsupported-legacy");
+    expect(root.textContent).toContain("Legacy PPT files are not supported.");
+    expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
+    expect(readBinary).not.toHaveBeenCalled();
+
+    root.querySelector<HTMLButtonElement>('[data-action="retry"]')?.click();
+
+    expect(root.dataset.errorCategory).toBe("unsupported-legacy");
+    expect(readBinary).not.toHaveBeenCalled();
   });
 
   it("passes a Vault-relative fingerprint to position restore and recording", async () => {

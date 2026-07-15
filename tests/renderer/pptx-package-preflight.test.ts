@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CFB from "cfb";
+import JSZip from "jszip";
 import { inspectPptxPackage } from "../../src/renderer/pptx-package-preflight";
 import type { PptxOpenErrorCategory } from "../../src/pptx-open-error";
 import {
@@ -24,7 +25,61 @@ describe("PPTX package preflight", () => {
         await loadFixture("tests/fixtures/minimal.pptx"),
         new AbortController().signal,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      declaredFonts: ["Arial"],
+      warningCategories: [],
+    });
+  });
+
+  it("reports known unsupported media without exposing document content", async () => {
+    await expect(
+      inspectPptxPackage(
+        await loadFixture(
+          "tests/fixtures/compatibility/images-transparency-standard.pptx",
+        ),
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({
+      warningCategories: ["unsupported-content"],
+    });
+  });
+
+  it("reports directly declared slide fonts for local availability checks", async () => {
+    const inspection = await inspectPptxPackage(
+      await loadFixture("tests/fixtures/compatibility/text-theme-wide.pptx"),
+      new AbortController().signal,
+    );
+
+    expect(inspection.declaredFonts).toEqual([
+      "Arial",
+      "Definitely Missing Font",
+      "Times New Roman",
+    ]);
+  });
+
+  it("reports concrete theme fonts used through presentation font references", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/minimal.pptx"),
+    );
+    const theme = zip.file("ppt/theme/theme1.xml")!;
+    const themeXml = await theme.async("text");
+    zip.file(
+      "ppt/theme/theme1.xml",
+      themeXml.replace(
+        '<a:latin typeface="Arial"/>',
+        '<a:latin typeface="Theme Only Missing Font"/>',
+      ),
+    );
+
+    const inspection = await inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    );
+
+    expect(inspection.declaredFonts).toEqual([
+      "Arial",
+      "Theme Only Missing Font",
+    ]);
   });
 
   it("accepts inert embedded chart data used by the compatibility corpus", async () => {
@@ -33,7 +88,18 @@ describe("PPTX package preflight", () => {
         await loadFixture("tests/fixtures/compatibility/tables-charts.pptx"),
         new AbortController().signal,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ warningCategories: [] });
+  });
+
+  it("keeps the performance fixture font set bounded", async () => {
+    await expect(
+      inspectPptxPackage(
+        await loadFixture(
+          "tests/fixtures/performance/m2-representative-50-slides.pptx",
+        ),
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ declaredFonts: ["Arial"] });
   });
 
   it("rejects a single ZIP entry above the shared candidate-neutral limit", async () => {
@@ -48,7 +114,7 @@ describe("PPTX package preflight", () => {
       ),
     ).rejects.toMatchObject({
       name: "PptxOpenError",
-      category: "incompatible",
+      category: "resource-exhausted",
     });
   });
 
@@ -117,7 +183,7 @@ describe("PPTX package preflight", () => {
         await loadFixture(fixturePath(fixture)),
         new AbortController().signal,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ warningCategories: [] });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
