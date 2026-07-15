@@ -1,12 +1,8 @@
 import type { PptxRendererSession } from "./renderer/pptx-renderer-adapter";
 import { RenderTaskQueue } from "./render-task-queue";
 
-export type PptxZoomMode = "fit" | "manual";
-
 export interface PptxViewerControllerState {
   readonly currentSlideIndex: number;
-  readonly zoomMode: PptxZoomMode;
-  readonly zoomPercent: number;
   readonly navigationPending: boolean;
   readonly disposed: boolean;
 }
@@ -15,21 +11,13 @@ export interface PptxViewerControllerSink {
   setNavigationPending(pending: boolean): void;
   commitSlide(index: number): void;
   reportNavigationFailure(index: number): void;
-  commitZoom(mode: PptxZoomMode, percent: number): void;
-  reportActionFailure(message: string): void;
 }
 
 export interface PptxViewerControllerOptions {
   readonly initialSlideIndex: number;
 }
 
-const FIT_ZOOM_PERCENT = 100;
-const MIN_ZOOM_PERCENT = 25;
-const MAX_ZOOM_PERCENT = 400;
-const ZOOM_STEP = 25;
 const PREFETCH_KEY_PREFIX = "prefetch:";
-const ZOOM_UNAVAILABLE_MESSAGE = "Zoom is not supported by this renderer.";
-const ZOOM_FAILURE_MESSAGE = "Unable to change zoom.";
 
 export class PptxViewerController {
   private currentState: PptxViewerControllerState;
@@ -37,7 +25,6 @@ export class PptxViewerController {
   private navigationTail: Promise<void> = Promise.resolve();
   private pendingNavigations = 0;
   private startPromise: Promise<void> | undefined;
-  private zoomTail: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly renderer: PptxRendererSession,
@@ -49,8 +36,6 @@ export class PptxViewerController {
       currentSlideIndex: this.clampSlideIndex(options.initialSlideIndex),
       disposed: false,
       navigationPending: false,
-      zoomMode: "fit",
-      zoomPercent: FIT_ZOOM_PERCENT,
     };
   }
 
@@ -82,22 +67,6 @@ export class PptxViewerController {
     const operation = this.navigationTail.then(() => this.renderNavigation(index));
     this.navigationTail = operation.catch(() => undefined);
     return operation.finally(() => this.endNavigation());
-  }
-
-  zoomIn(): Promise<void> {
-    return this.enqueueZoom((percent) =>
-      Math.min(MAX_ZOOM_PERCENT, percent + ZOOM_STEP),
-    );
-  }
-
-  zoomOut(): Promise<void> {
-    return this.enqueueZoom((percent) =>
-      Math.max(MIN_ZOOM_PERCENT, percent - ZOOM_STEP),
-    );
-  }
-
-  resetToFit(): Promise<void> {
-    return this.enqueueZoom(() => FIT_ZOOM_PERCENT, "fit");
   }
 
   dispose(): void {
@@ -172,50 +141,6 @@ export class PptxViewerController {
     }
     this.currentState = { ...this.currentState, navigationPending: false };
     this.notify(() => this.sink.setNavigationPending(false));
-  }
-
-  private enqueueZoom(
-    nextPercent: (currentPercent: number) => number,
-    mode: PptxZoomMode = "manual",
-  ): Promise<void> {
-    if (this.currentState.disposed) return Promise.resolve();
-    const operation = this.zoomTail.then(() => this.applyZoom(nextPercent, mode));
-    this.zoomTail = operation.catch(() => undefined);
-    return operation;
-  }
-
-  private async applyZoom(
-    nextPercent: (currentPercent: number) => number,
-    mode: PptxZoomMode,
-  ): Promise<void> {
-    if (this.currentState.disposed) return;
-    if (!this.renderer.capabilities.zoom || this.renderer.setZoomPercent === undefined) {
-      this.notify(() => this.sink.reportActionFailure(ZOOM_UNAVAILABLE_MESSAGE));
-      return;
-    }
-
-    const percent = nextPercent(this.currentState.zoomPercent);
-    if (
-      percent === this.currentState.zoomPercent &&
-      mode === this.currentState.zoomMode
-    ) {
-      return;
-    }
-    const generation = this.generation;
-    try {
-      await this.renderer.setZoomPercent(percent);
-      if (!this.isCurrent(generation)) return;
-      this.currentState = {
-        ...this.currentState,
-        zoomMode: mode,
-        zoomPercent: percent,
-      };
-      this.notify(() => this.sink.commitZoom(mode, percent));
-    } catch {
-      if (this.isCurrent(generation)) {
-        this.notify(() => this.sink.reportActionFailure(ZOOM_FAILURE_MESSAGE));
-      }
-    }
   }
 
   private cancelObsoletePrefetch(): void {

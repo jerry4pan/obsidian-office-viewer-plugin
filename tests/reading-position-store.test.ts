@@ -33,7 +33,10 @@ describe("ReadingPositionStore", () => {
     const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
-    expect(store.settings).toEqual({ rememberReadingPosition: true });
+    expect(store.settings).toEqual({
+      rememberReadingPosition: true,
+      thumbnailRailWidth: 168,
+    });
     store.record(deck, 7);
     await store.flush();
 
@@ -42,6 +45,42 @@ describe("ReadingPositionStore", () => {
     expect(JSON.stringify(adapter.saved.at(-1))).not.toMatch(
       /filename|text|image|author/i,
     );
+  });
+
+  it("loads and persists the Vault-wide thumbnail rail width", async () => {
+    const adapter = makeDataAdapter({
+      schemaVersion: 1,
+      settings: {
+        rememberReadingPosition: true,
+        thumbnailRailWidth: 300,
+      },
+      positions: {},
+    });
+    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+
+    expect(store.settings.thumbnailRailWidth).toBe(300);
+
+    store.setThumbnailRailWidth(360);
+    await store.flush();
+
+    expect(adapter.saved.at(-1)?.settings.thumbnailRailWidth).toBe(360);
+  });
+
+  it("notifies open viewers when the Vault-wide rail width changes", async () => {
+    const adapter = makeDataAdapter();
+    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+    const listener = vi.fn();
+    const unsubscribe = store.subscribeThumbnailRailWidth(listener);
+
+    store.setThumbnailRailWidth(320);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(320);
+
+    unsubscribe();
+    store.setThumbnailRailWidth(360);
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("copies only approved fields from record and rename inputs", async () => {
@@ -98,7 +137,10 @@ describe("ReadingPositionStore", () => {
     expect(
       store.resolve({ path: "invalid.pptx", size: 1, mtime: 2 }, 10),
     ).toBe(0);
-    expect(store.settings).toEqual({ rememberReadingPosition: true });
+    expect(store.settings).toEqual({
+      rememberReadingPosition: true,
+      thumbnailRailWidth: 168,
+    });
   });
 
   it("removes an entry whose index is beyond the current slide count", async () => {
@@ -181,7 +223,10 @@ describe("ReadingPositionStore", () => {
     await store.initialize();
 
     expect(adapter.loadCalls).toBe(1);
-    expect(store.settings).toEqual({ rememberReadingPosition: false });
+    expect(store.settings).toEqual({
+      rememberReadingPosition: false,
+      thumbnailRailWidth: 168,
+    });
     expect(store.resolve(deck, 10)).toBe(0);
     store.record(deck, 3);
     store.rename(deck.path, { ...deck, path: "renamed.pptx" });
@@ -230,13 +275,19 @@ describe("ReadingPositionStore", () => {
     await store.setRememberReadingPosition(false);
     expect(adapter.saved.at(-1)).toEqual({
       schemaVersion: 1,
-      settings: { rememberReadingPosition: false },
+      settings: {
+        rememberReadingPosition: false,
+        thumbnailRailWidth: 168,
+      },
       positions: {},
     });
     expect(store.resolve(deck, 10)).toBe(0);
 
     await store.setRememberReadingPosition(true);
-    expect(store.settings).toEqual({ rememberReadingPosition: true });
+    expect(store.settings).toEqual({
+      rememberReadingPosition: true,
+      thumbnailRailWidth: 168,
+    });
     expect(store.resolve(deck, 10)).toBe(0);
     expect(adapter.saved.at(-1)?.positions).toEqual({});
   });
@@ -373,6 +424,9 @@ describe("ReadingPositionStore", () => {
     });
     await initializing;
 
-    expect(store.settings).toEqual({ rememberReadingPosition: true });
+    expect(store.settings).toEqual({
+      rememberReadingPosition: true,
+      thumbnailRailWidth: 168,
+    });
   });
 });

@@ -14,9 +14,10 @@ open failures have explicit states. Malformed, incomplete, protected, and
 renderer-incompatible inputs reach stable read-only error states with retry;
 see `docs/compatibility/pptx-failure-handling.md`.
 
-The M2 reading experience adds a scrollable, virtualized thumbnail rail,
-keyboard navigation, zoom, full screen, independent state in each workspace
-leaf, and optional reading-position recovery. Thumbnails render progressively:
+The M2 reading experience adds a scrollable, virtualized and resizable
+thumbnail rail, keyboard navigation, automatic fit-to-window rendering, full
+screen, independent state in each workspace leaf, and optional reading-position
+recovery. Thumbnails render progressively:
 the current slide is rendered first, adjacent slides are prefetched next, and
 visible/overscan thumbnails use a single-concurrency background queue. Closing
 a view or switching files cancels that work and releases mounted resources.
@@ -28,11 +29,15 @@ screen uses the desktop Fullscreen API and keeps the toolbar and thumbnail rail
 available; use the Full screen control to enter or exit, or the platform Escape
 behavior to leave full screen.
 
-Zoom starts in fit-to-window mode at `100%`. Zoom in/out enters view-local
-manual mode in 25-point steps, clamped to `25%`–`400%`. Pane resize recomputes
-the fitted scale while retaining the manual multiplier; **Fit** returns to
-fit-to-window at `100%`. Navigation, zoom, thumbnail scroll, and full-screen
-state are independent for every open workspace leaf.
+The main slide always fits the available reading pane; manual zoom controls are
+not exposed. Drag the thumbnail rail's right edge to enlarge or shrink slide
+previews. The preferred rail width defaults to `168px`, is constrained to
+`120px`–`480px`, and is temporarily capped at 45% of the reading body in narrow
+panes. Release the pointer to request high-resolution thumbnails. Double-click
+the divider to reset it, or focus it and use Arrow keys (`16px`; `48px` with
+Shift). The preferred width is shared across the Vault and restored after the
+rail is collapsed and reopened. Navigation, thumbnail scroll, and full-screen
+state remain independent for every open workspace leaf.
 
 **Remember reading position** is enabled by default in the Office Viewer
 settings. It stores only a Vault-relative path, file size, modification time,

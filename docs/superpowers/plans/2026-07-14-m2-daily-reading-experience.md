@@ -1,5 +1,16 @@
 # M2 Daily Reading Experience Implementation Plan
 
+> **Status: archived, non-executable history.** Do not execute the task steps
+> below. They record the original implementation sequence before the approved
+> 2026-07-15 amendment; the amended design and PRD are the only current
+> implementation authority.
+
+> **2026-07-15 amendment:** Manual main-slide zoom, zoom controls, zoom state,
+> and related acceptance steps in this historical execution plan are
+> superseded by the approved M2 design amendment. The shipped behavior keeps
+> automatic fit-to-window rendering and adds a Vault-persisted, accessible,
+> resizable thumbnail rail. The amended design and PRD are authoritative.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver the complete PRD M2 so the installed desktop plugin provides virtualized thumbnails, zoom, keyboard/full-screen reading, independent leaves, optional restart-safe position recovery, bounded progressive rendering, cancellation, resource release, theme support, and basic accessibility.

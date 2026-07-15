@@ -11,7 +11,7 @@ function makeRenderer(slideCount = 1) {
     slideCount,
     slideWidth: 960,
     slideHeight: 540,
-    capabilities: { thumbnails: false, prefetch: false, zoom: false },
+    capabilities: { thumbnails: false, prefetch: false },
     renderSlide: vi.fn(async () => {}),
     dispose: vi.fn(),
   };
@@ -29,14 +29,13 @@ function makeM2Renderer(slideCount = 10) {
     slideCount,
     slideWidth: 960,
     slideHeight: 540,
-    capabilities: { thumbnails: true, prefetch: true, zoom: true },
+    capabilities: { thumbnails: true, prefetch: true },
     renderSlide: vi.fn(async () => {}),
     renderThumbnail: vi.fn((index, container) => {
       container.textContent = `Preview ${index + 1}`;
       return { ready: Promise.resolve(), dispose: vi.fn() };
     }),
     prefetchSlide: vi.fn(async () => {}),
-    setZoomPercent: vi.fn(async () => {}),
     dispose: vi.fn(),
   };
   const adapter: PptxRendererAdapter = {
@@ -74,6 +73,202 @@ function makeFullscreen() {
 }
 
 describe("PptxViewSession", () => {
+  it("keeps fit-to-window automatic and exposes no manual zoom controls", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeM2Renderer(3);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+
+    await session.open("deck.pptx");
+
+    expect(root.querySelector('[data-action="zoom-out"]')).toBeNull();
+    expect(root.querySelector('[data-action="zoom-in"]')).toBeNull();
+    expect(root.querySelector('[data-action="fit-slide"]')).toBeNull();
+    expect(root.dataset.zoomMode).toBeUndefined();
+    expect(root.dataset.zoomPercent).toBeUndefined();
+    expect(root.querySelector('[data-action="open-externally"]')).toBeNull();
+
+    session.dispose();
+  });
+
+  it("exposes an accessible thumbnail divider with keyboard resize and reset", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeM2Renderer(12);
+    const recordWidth = vi.fn();
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        thumbnailRail: {
+          initialWidth: () => 300,
+          recordWidth,
+        },
+      },
+    );
+
+    await session.open("deck.pptx");
+    const divider = root.querySelector<HTMLElement>(
+      '[role="separator"][aria-orientation="vertical"]',
+    );
+    const rail = root.querySelector<HTMLElement>(
+      ".pptx-viewer__thumbnail-rail",
+    );
+
+    expect(divider?.getAttribute("aria-label")).toBe(
+      "Resize slide thumbnails",
+    );
+    expect(divider?.tabIndex).toBe(0);
+    expect(divider?.getAttribute("aria-valuenow")).toBe("300");
+    expect(rail?.style.width).toBe("300px");
+
+    divider?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "ArrowRight",
+      }),
+    );
+    expect(divider?.getAttribute("aria-valuenow")).toBe("316");
+    expect(recordWidth).toHaveBeenLastCalledWith(316);
+    await Promise.resolve();
+    expect(rendererSession.renderSlide).toHaveBeenCalledTimes(1);
+    expect(root.textContent).toContain("1 / 12");
+
+    divider?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "ArrowLeft",
+        shiftKey: true,
+      }),
+    );
+    expect(divider?.getAttribute("aria-valuenow")).toBe("268");
+    expect(recordWidth).toHaveBeenLastCalledWith(268);
+
+    divider?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(divider?.getAttribute("aria-valuenow")).toBe("168");
+    expect(recordWidth).toHaveBeenLastCalledWith(168);
+
+    session.dispose();
+  });
+
+  it("updates thumbnail layout while dragging and rerenders only after release", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeM2Renderer(12);
+    const recordWidth = vi.fn();
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        thumbnailRail: {
+          initialWidth: () => 300,
+          recordWidth,
+        },
+      },
+    );
+    await session.open("deck.pptx");
+    const divider = root.querySelector<HTMLElement>(
+      '[data-action="resize-thumbnails"]',
+    )!;
+    const rail = root.querySelector<HTMLElement>(
+      ".pptx-viewer__thumbnail-rail",
+    )!;
+    const pointer = (type: string, clientX: number) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        cancelable: true,
+        clientX,
+      });
+      Object.defineProperty(event, "pointerId", { value: 7 });
+      return event;
+    };
+    await vi.waitFor(() =>
+      expect(rendererSession.renderThumbnail).toHaveBeenCalled(),
+    );
+    const callsBeforeDrag = vi.mocked(rendererSession.renderThumbnail!).mock
+      .calls.length;
+
+    divider.dispatchEvent(pointer("pointerdown", 300));
+    window.dispatchEvent(pointer("pointermove", 400));
+
+    expect(rail.style.width).toBe("400px");
+    expect(recordWidth).not.toHaveBeenCalled();
+    expect(vi.mocked(rendererSession.renderThumbnail!).mock.calls).toHaveLength(
+      callsBeforeDrag,
+    );
+
+    window.dispatchEvent(pointer("pointerup", 400));
+
+    expect(recordWidth).toHaveBeenLastCalledWith(400);
+    await vi.waitFor(() =>
+      expect(
+        vi.mocked(rendererSession.renderThumbnail!).mock.calls.some(
+          (call) => call[3] === 376,
+        ),
+      ).toBe(true),
+    );
+
+    session.dispose();
+  });
+
+  it("synchronizes the Vault-wide thumbnail width across open sessions", async () => {
+    let width = 168;
+    const listeners = new Set<(nextWidth: number) => void>();
+    const thumbnailRail = {
+      initialWidth: () => width,
+      recordWidth: (nextWidth: number) => {
+        width = nextWidth;
+        listeners.forEach((listener) => listener(nextWidth));
+      },
+      subscribeWidth: (listener: (nextWidth: number) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const firstRoot = document.createElement("div");
+    const secondRoot = document.createElement("div");
+    const first = makeM2Renderer(3);
+    const second = makeM2Renderer(3);
+    const firstSession = new PptxViewSession(
+      firstRoot,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      first.adapter,
+      { thumbnailRail },
+    );
+    const secondSession = new PptxViewSession(
+      secondRoot,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      second.adapter,
+      { thumbnailRail },
+    );
+    await Promise.all([
+      firstSession.open("first.pptx"),
+      secondSession.open("second.pptx"),
+    ]);
+
+    firstRoot.querySelector<HTMLElement>('[data-action="resize-thumbnails"]')
+      ?.dispatchEvent(new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "ArrowRight",
+      }));
+
+    expect(width).toBe(184);
+    expect(
+      secondRoot.querySelector<HTMLElement>('[data-action="resize-thumbnails"]')
+        ?.getAttribute("aria-valuenow"),
+    ).toBe("184");
+    firstSession.dispose();
+    secondSession.dispose();
+    expect(listeners.size).toBe(0);
+  });
+
   it("renders a restored page exactly once and records only later successful navigation", async () => {
     const root = document.createElement("div");
     document.body.append(root);
@@ -121,7 +316,7 @@ describe("PptxViewSession", () => {
     session.dispose();
   });
 
-  it("keeps page and zoom state independent between sessions", async () => {
+  it("keeps page state independent between sessions", async () => {
     const firstRoot = document.createElement("div");
     const secondRoot = document.createElement("div");
     document.body.append(firstRoot, secondRoot);
@@ -136,19 +331,15 @@ describe("PptxViewSession", () => {
     await Promise.all([firstSession.open("a.pptx"), secondSession.open("b.pptx")]);
 
     firstRoot.querySelector<HTMLButtonElement>('[data-action="next-slide"]')!.click();
-    firstRoot.querySelector<HTMLButtonElement>('[data-action="zoom-in"]')!.click();
     await vi.waitFor(() => expect(firstRoot.textContent).toContain("2 / 4"));
-    await vi.waitFor(() => expect(firstRoot.dataset.zoomPercent).toBe("125"));
 
     expect(secondRoot.textContent).toContain("1 / 4");
-    expect(secondRoot.dataset.zoomPercent).toBe("100");
     expect(second.rendererSession.renderSlide).toHaveBeenCalledTimes(1);
-    expect(second.rendererSession.setZoomPercent).not.toHaveBeenCalled();
     firstSession.dispose();
     secondSession.dispose();
   });
 
-  it("supports accessible keyboard, thumbnail, zoom, collapse, and full-screen actions", async () => {
+  it("supports accessible keyboard, thumbnail, collapse, and full-screen actions", async () => {
     const root = document.createElement("div");
     document.body.append(root);
     const { adapter, rendererSession } = makeM2Renderer(6);
@@ -163,9 +354,6 @@ describe("PptxViewSession", () => {
 
     expect(document.activeElement).toBe(root);
     expect(root.tabIndex).toBe(0);
-    expect(root.querySelector('[data-action="zoom-out"]')?.getAttribute("aria-label")).toBe("Zoom out");
-    expect(root.querySelector('[data-action="zoom-in"]')?.getAttribute("aria-label")).toBe("Zoom in");
-    expect(root.querySelector('[data-action="fit-slide"]')?.getAttribute("aria-label")).toBe("Fit slide");
     expect(root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute("aria-label")).toBe("Enter full screen");
     expect(root.querySelector('[aria-label="Slide thumbnails"]')).not.toBeNull();
     expect(root.querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
@@ -190,15 +378,6 @@ describe("PptxViewSession", () => {
     await vi.waitFor(() => expect(root.textContent).toContain("3 / 6"));
     expect(root.querySelector('[aria-current="page"]')?.getAttribute("aria-label")).toBe("Slide 3");
 
-    root.querySelector<HTMLButtonElement>('[data-action="zoom-in"]')!.click();
-    await vi.waitFor(() => expect(root.dataset.zoomPercent).toBe("125"));
-    expect(root.dataset.zoomMode).toBe("manual");
-    root.querySelector<HTMLButtonElement>('[data-action="zoom-out"]')!.click();
-    await vi.waitFor(() => expect(root.dataset.zoomPercent).toBe("100"));
-    expect(root.dataset.zoomMode).toBe("manual");
-    root.querySelector<HTMLButtonElement>('[data-action="fit-slide"]')!.click();
-    await vi.waitFor(() => expect(root.dataset.zoomMode).toBe("fit"));
-
     root.querySelector<HTMLButtonElement>('[data-action="toggle-thumbnails"]')!.click();
     expect(root.dataset.thumbnailsCollapsed).toBe("true");
     expect(root.querySelector('[data-action="toggle-thumbnails"]')?.getAttribute("aria-expanded")).toBe("false");
@@ -213,16 +392,14 @@ describe("PptxViewSession", () => {
 
     const actions = Array.from(root.querySelectorAll<HTMLElement>("button, input"), (item) => item.dataset.action).filter(Boolean);
     expect(actions.indexOf("previous-slide")).toBeLessThan(actions.indexOf("page-number"));
-    expect(actions.indexOf("page-number")).toBeLessThan(actions.indexOf("zoom-out"));
-    expect(actions.indexOf("zoom-out")).toBeLessThan(actions.indexOf("toggle-fullscreen"));
+    expect(actions.indexOf("page-number")).toBeLessThan(actions.indexOf("toggle-fullscreen"));
     session.dispose();
   });
 
-  it("keeps zoom and full-screen failures local and disposes session-owned work", async () => {
+  it("keeps full-screen failures local and disposes session-owned work", async () => {
     const root = document.createElement("div");
     document.body.append(root);
     const { adapter, rendererSession } = makeM2Renderer(20);
-    rendererSession.setZoomPercent = vi.fn(async () => { throw new Error("candidate detail"); });
     const fullscreen = makeFullscreen();
     fullscreen.api.enter.mockRejectedValueOnce(new Error("platform detail"));
     const session = new PptxViewSession(
@@ -233,20 +410,12 @@ describe("PptxViewSession", () => {
     );
     await session.open("deck.pptx");
 
-    root.querySelector<HTMLButtonElement>('[data-action="zoom-in"]')!.click();
-    await vi.waitFor(() => expect(root.textContent).toContain("Unable to change zoom."));
-    expect(root.dataset.state).toBe("ready");
-    expect(root.dataset.zoomPercent).toBe("100");
-    expect(root.textContent).not.toContain("candidate detail");
-
     root.querySelector<HTMLButtonElement>('[data-action="toggle-fullscreen"]')!.click();
     await vi.waitFor(() => expect(root.textContent).toContain("Unable to change full-screen mode."));
     expect(root.dataset.fullscreen).toBe("false");
     expect(root.textContent).not.toContain("platform detail");
     expect(session.getPerformanceDiagnostics()).toMatchObject({
       mountedThumbnails: expect.any(Number),
-      zoomMode: "fit",
-      zoomPercent: 100,
     });
     expect(Number(root.dataset.mountedThumbnailCount)).toBeGreaterThan(0);
 
@@ -1149,7 +1318,7 @@ describe("PptxViewSession", () => {
       slideCount: 1,
       slideWidth: 960,
       slideHeight: 540,
-      capabilities: { thumbnails: false, prefetch: false, zoom: false },
+      capabilities: { thumbnails: false, prefetch: false },
       renderSlide: vi.fn(async () => {
         throw new Error("renderer exploded");
       }),
@@ -1173,7 +1342,7 @@ describe("PptxViewSession", () => {
       slideCount: 1,
       slideWidth: 960,
       slideHeight: 540,
-      capabilities: { thumbnails: false, prefetch: false, zoom: false },
+      capabilities: { thumbnails: false, prefetch: false },
       renderSlide: vi.fn(async () => {}),
       dispose: vi.fn(() => {
         throw new Error("late candidate cleanup failed");

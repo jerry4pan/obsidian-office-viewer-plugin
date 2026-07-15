@@ -73,7 +73,7 @@ artifact recorded above without changing thresholds or sample counts.
 
 ## Deferred work
 
-M2 retains thumbnails, zoom, keyboard navigation, full-screen mode,
+M2 retains thumbnails, automatic fit-to-window rendering, keyboard navigation, full-screen mode,
 reading-position persistence, progressive scheduling, and broader resource
 management. M3 retains general compatibility warnings, diagnostics, settings,
 release packaging, and public-release documentation. M1 makes no claim that

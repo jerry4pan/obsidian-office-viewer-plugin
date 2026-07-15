@@ -22,7 +22,7 @@ function createSession(): PptxRendererSession {
     slideCount: 1,
     slideWidth: 960,
     slideHeight: 540,
-    capabilities: { thumbnails: false, prefetch: false, zoom: false },
+    capabilities: { thumbnails: false, prefetch: false },
     renderSlide: vi.fn(async () => {}),
     dispose: vi.fn(),
   };

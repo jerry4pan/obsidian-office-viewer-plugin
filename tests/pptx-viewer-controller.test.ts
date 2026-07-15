@@ -16,11 +16,10 @@ function createRenderer(
   overrides: Partial<PptxRendererSession> = {},
 ): PptxRendererSession {
   return {
-    capabilities: { prefetch: true, thumbnails: true, zoom: true },
+    capabilities: { prefetch: true, thumbnails: true },
     dispose: vi.fn(),
     prefetchSlide: vi.fn().mockResolvedValue(undefined),
     renderSlide: vi.fn().mockResolvedValue(undefined),
-    setZoomPercent: vi.fn().mockResolvedValue(undefined),
     slideCount: 10,
     slideHeight: 540,
     slideWidth: 960,
@@ -31,8 +30,6 @@ function createRenderer(
 function createSink() {
   return {
     commitSlide: vi.fn(),
-    commitZoom: vi.fn(),
-    reportActionFailure: vi.fn(),
     reportNavigationFailure: vi.fn(),
     setNavigationPending: vi.fn(),
   };
@@ -57,8 +54,6 @@ describe("PptxViewerController", () => {
       currentSlideIndex: 7,
       disposed: false,
       navigationPending: false,
-      zoomMode: "fit",
-      zoomPercent: 100,
     });
     expect(enqueue.mock.calls.map(([task]) => task.key)).toEqual([
       "prefetch:6",
@@ -254,93 +249,6 @@ describe("PptxViewerController", () => {
     await queue.whenIdle();
 
     expect(sink.reportNavigationFailure).not.toHaveBeenCalled();
-    expect(sink.reportActionFailure).not.toHaveBeenCalled();
-  });
-
-  it("supports manual zoom in 25-point steps, clamps it, and resets to fit", async () => {
-    const renderer = createRenderer();
-    const queue = new RenderTaskQueue();
-    const sink = createSink();
-    const controller = new PptxViewerController(renderer, queue, sink, {
-      initialSlideIndex: 0,
-    });
-
-    await controller.zoomIn();
-    expect(renderer.setZoomPercent).toHaveBeenLastCalledWith(125);
-    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 125 });
-    expect(sink.commitZoom).toHaveBeenLastCalledWith("manual", 125);
-
-    for (let index = 0; index < 20; index += 1) await controller.zoomIn();
-    expect(controller.state.zoomPercent).toBe(400);
-    expect(renderer.setZoomPercent).toHaveBeenLastCalledWith(400);
-
-    for (let index = 0; index < 20; index += 1) await controller.zoomOut();
-    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 25 });
-    expect(renderer.setZoomPercent).toHaveBeenLastCalledWith(25);
-
-    await controller.resetToFit();
-    expect(renderer.setZoomPercent).toHaveBeenLastCalledWith(100);
-    expect(controller.state).toMatchObject({ zoomMode: "fit", zoomPercent: 100 });
-    expect(sink.commitZoom).toHaveBeenLastCalledWith("fit", 100);
-    await queue.whenIdle();
-  });
-
-  it("reports unavailable zoom locally without calling an absent optional method", async () => {
-    const renderer = createRenderer({
-      capabilities: { prefetch: true, thumbnails: true, zoom: false },
-      setZoomPercent: undefined,
-    });
-    const queue = new RenderTaskQueue();
-    const sink = createSink();
-    const controller = new PptxViewerController(renderer, queue, sink, {
-      initialSlideIndex: 0,
-    });
-
-    await expect(controller.zoomIn()).resolves.toBeUndefined();
-    await expect(controller.resetToFit()).resolves.toBeUndefined();
-
-    expect(sink.reportActionFailure).toHaveBeenCalledTimes(2);
-    expect(sink.reportActionFailure).toHaveBeenCalledWith(
-      "Zoom is not supported by this renderer.",
-    );
-    expect(controller.state).toMatchObject({ zoomMode: "fit", zoomPercent: 100 });
-    await queue.whenIdle();
-  });
-
-  it("retains the prior zoom after a renderer failure and serializes concurrent zoom actions", async () => {
-    const zoomOne = deferred<void>();
-    const zoomTwo = deferred<void>();
-    const renderer = createRenderer();
-    vi.mocked(renderer.setZoomPercent!)
-      .mockImplementationOnce(() => zoomOne.promise)
-      .mockImplementationOnce(() => zoomTwo.promise)
-      .mockRejectedValueOnce(new Error("zoom failed"));
-    const queue = new RenderTaskQueue();
-    const sink = createSink();
-    const controller = new PptxViewerController(renderer, queue, sink, {
-      initialSlideIndex: 0,
-    });
-
-    const first = controller.zoomIn();
-    const second = controller.zoomIn();
-    await Promise.resolve();
-    expect(renderer.setZoomPercent).toHaveBeenCalledTimes(1);
-    expect(renderer.setZoomPercent).toHaveBeenLastCalledWith(125);
-
-    zoomOne.resolve();
-    await first;
-    await Promise.resolve();
-    expect(renderer.setZoomPercent).toHaveBeenCalledTimes(2);
-    expect(renderer.setZoomPercent).toHaveBeenLastCalledWith(150);
-    zoomTwo.resolve();
-    await second;
-
-    await controller.zoomOut();
-    expect(sink.reportActionFailure).toHaveBeenCalledWith(
-      "Unable to change zoom.",
-    );
-    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 150 });
-    await queue.whenIdle();
   });
 
   it("ignores stale completions and post-disposal actions while settling pending truth", async () => {
@@ -383,10 +291,7 @@ describe("PptxViewerController", () => {
     }
 
     await controller.navigate(3);
-    await controller.zoomIn();
-    await controller.resetToFit();
     expect(renderer.renderSlide).toHaveBeenCalledTimes(2);
-    expect(renderer.setZoomPercent).not.toHaveBeenCalled();
     await queue.whenIdle();
   });
 
@@ -465,38 +370,6 @@ describe("PptxViewerController", () => {
     await expect(controller.navigate(3)).resolves.toBeUndefined();
     expect(controller.state.currentSlideIndex).toBe(3);
     expect(renderer.renderSlide).toHaveBeenCalledTimes(3);
-    await queue.whenIdle();
-  });
-
-  it("isolates throwing zoom commit and action failure notifications", async () => {
-    const renderer = createRenderer();
-    vi.mocked(renderer.setZoomPercent!)
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("renderer zoom failed"))
-      .mockResolvedValueOnce(undefined);
-    const queue = new RenderTaskQueue();
-    const sink = createSink();
-    sink.commitZoom.mockImplementation(() => {
-      throw new Error("detached zoom UI");
-    });
-    sink.reportActionFailure.mockImplementation(() => {
-      throw new Error("detached action UI");
-    });
-    const controller = new PptxViewerController(renderer, queue, sink, {
-      initialSlideIndex: 0,
-    });
-
-    await expect(controller.zoomIn()).resolves.toBeUndefined();
-    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 125 });
-    expect(sink.reportActionFailure).not.toHaveBeenCalled();
-
-    await expect(controller.zoomIn()).resolves.toBeUndefined();
-    expect(sink.reportActionFailure).toHaveBeenCalledWith("Unable to change zoom.");
-    expect(controller.state.zoomPercent).toBe(125);
-
-    await expect(controller.zoomOut()).resolves.toBeUndefined();
-    expect(controller.state).toMatchObject({ zoomMode: "manual", zoomPercent: 100 });
-    expect(renderer.setZoomPercent).toHaveBeenCalledTimes(3);
     await queue.whenIdle();
   });
 

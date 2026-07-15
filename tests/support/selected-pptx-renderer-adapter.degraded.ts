@@ -37,18 +37,16 @@ class DegradedNavigationTestAdapter implements PptxRendererAdapter {
         }
         return session.renderSlide(index);
       },
-      renderThumbnail(index, thumbnailContainer, thumbnailSignal) {
+      renderThumbnail(index, thumbnailContainer, thumbnailSignal, width) {
         return session.renderThumbnail!(
           index,
           thumbnailContainer,
           thumbnailSignal,
+          width,
         );
       },
       prefetchSlide(index, prefetchSignal): Promise<void> {
         return session.prefetchSlide!(index, prefetchSignal);
-      },
-      setZoomPercent(percent): Promise<void> {
-        return session.setZoomPercent!(percent);
       },
       dispose(): void {
         session.dispose();

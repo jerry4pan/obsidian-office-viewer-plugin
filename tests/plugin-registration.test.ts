@@ -208,7 +208,10 @@ describe("OfficeViewerPlugin", () => {
 
     expect(plugin.saveData).toHaveBeenLastCalledWith({
       schemaVersion: 1,
-      settings: { rememberReadingPosition: false },
+      settings: {
+        rememberReadingPosition: false,
+        thumbnailRailWidth: 168,
+      },
       positions: {},
     });
   });
@@ -265,7 +268,10 @@ describe("OfficeViewerPlugin", () => {
       await vi.waitFor(() =>
         expect(plugin.saveData).toHaveBeenLastCalledWith({
           schemaVersion: 1,
-          settings: { rememberReadingPosition: true },
+          settings: {
+            rememberReadingPosition: true,
+            thumbnailRailWidth: 168,
+          },
           positions: {},
         }),
       );

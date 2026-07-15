@@ -138,7 +138,7 @@ describe("M2 installed PPTX reading experience", () => {
     }
   });
 
-  it("uses keyboard navigation, virtualized thumbnails, zoom, and real full screen without mutation", async () => {
+  it("uses keyboard navigation, resizable virtualized thumbnails, automatic fit, and real full screen without mutation", async () => {
     const before = await vaultSha256(REPRESENTATIVE);
     await obsidianPage.openFile(REPRESENTATIVE);
     const root = await activeReadyRoot();
@@ -159,9 +159,22 @@ describe("M2 installed PPTX reading experience", () => {
     await waitForPage(root, 6);
     await expect(thumbnail).toHaveAttribute("aria-current", "page");
 
-    await root.$('[data-action="zoom-in"]').click();
-    await expect(root).toHaveAttribute("data-zoom-mode", "manual");
-    await expect(root).toHaveAttribute("data-zoom-percent", "125");
+    expect(await root.$$('[data-action="zoom-in"]')).toHaveLength(0);
+    expect(await root.$$('[data-action="zoom-out"]')).toHaveLength(0);
+    expect(await root.$$('[data-action="fit-slide"]')).toHaveLength(0);
+    const rail = root.$('[aria-label="Slide thumbnails"]');
+    const divider = root.$('[data-action="resize-thumbnails"]');
+    await browser.execute(() => {
+      document.querySelector<HTMLElement>(
+        '.workspace-leaf.mod-active [data-action="resize-thumbnails"]',
+      )?.focus();
+    });
+    await browser.keys(["ArrowRight"]);
+    await expect(divider).toHaveAttribute("aria-valuenow", "184");
+    expect(await rail.getSize("width")).toBe(184);
+    await divider.doubleClick();
+    await expect(divider).toHaveAttribute("aria-valuenow", "168");
+
     const beforeResizeWidth = await root.$(".pptx-viewer__slide > *").getSize("width");
     await browser.execute((viewer) => {
       const leaf = viewer.closest<HTMLElement>(".workspace-leaf");
@@ -172,19 +185,10 @@ describe("M2 installed PPTX reading experience", () => {
     }, root);
     await browser.waitUntil(async () =>
       (await root.$(".pptx-viewer__slide > *").getSize("width")) !== beforeResizeWidth,
-    { timeout: 10_000, timeoutMsg: "manual zoom did not adapt to pane resize" });
-    const resizedManualWidth = await root.$(".pptx-viewer__slide > *").getSize("width");
-    await expect(root).toHaveAttribute("data-zoom-percent", "125");
-    await root.$('[data-action="fit-slide"]').click();
-    await expect(root).toHaveAttribute("data-zoom-mode", "fit");
+    { timeout: 10_000, timeoutMsg: "automatic fit did not adapt to pane resize" });
     const resizedFitWidth = await root.$(".pptx-viewer__slide > *").getSize("width");
     const resizedViewportWidth = await root.$(".pptx-viewer__slide").getSize("width");
-    expect(resizedManualWidth / resizedViewportWidth).toBeGreaterThan(1.24);
-    expect(resizedManualWidth / resizedViewportWidth).toBeLessThan(1.26);
     expect(resizedFitWidth).toBeLessThanOrEqual(resizedViewportWidth);
-    await root.$('[data-action="zoom-out"]').click();
-    await expect(root).toHaveAttribute("data-zoom-percent", "75");
-    await root.$('[data-action="fit-slide"]').click();
     await browser.execute((viewer) => {
       const leaf = viewer.closest<HTMLElement>(".workspace-leaf");
       if (!leaf) return;
@@ -217,7 +221,7 @@ describe("M2 installed PPTX reading experience", () => {
     expect(await vaultSha256(STRESS)).toBe(stressBefore);
   });
 
-  it("keeps page, zoom, thumbnail scroll, and full-screen state independent across two real workspace leaves", async () => {
+  it("keeps page, thumbnail scroll, and full-screen state independent across two real workspace leaves", async () => {
     await obsidianPage.openFile(REPRESENTATIVE);
     const first = await activeReadyRoot();
     await browser.execute(() => {
@@ -241,14 +245,10 @@ describe("M2 installed PPTX reading experience", () => {
     const firstTagged = await browser.$('[data-e2e-leaf="first"]');
     const secondTagged = await browser.$('[data-e2e-leaf="second"]');
     await jumpTo(firstTagged, 4);
-    await firstTagged.$('[data-action="zoom-in"]').click();
     await jumpTo(secondTagged, 8);
-    await secondTagged.$('[data-action="zoom-out"]').click();
 
     await waitForPage(firstTagged, 4);
-    await expect(firstTagged).toHaveAttribute("data-zoom-percent", "125");
     await waitForPage(secondTagged, 8);
-    await expect(secondTagged).toHaveAttribute("data-zoom-percent", "75");
 
     const firstRail = firstTagged.$('[aria-label="Slide thumbnails"]');
     const secondRail = secondTagged.$('[aria-label="Slide thumbnails"]');
@@ -397,7 +397,9 @@ describe("M2 installed PPTX reading experience", () => {
           style.getPropertyValue("--interactive-accent").trim(),
         ];
         const controls = Array.from(
-          viewer.querySelectorAll<HTMLElement>("button:not([hidden]), input:not([hidden])"),
+          viewer.querySelectorAll<HTMLElement>(
+            'button:not([hidden]), input:not([hidden]), [role="separator"]:not([hidden])',
+          ),
         ).filter((control) => control.getClientRects().length > 0).map((control) => {
           const style = getComputedStyle(control);
           const background = effectiveBackground(control);
@@ -484,6 +486,66 @@ describe("M2 installed PPTX reading experience", () => {
       expect(focus.style).not.toBe("none");
       expect(focus.color).not.toBe("transparent");
       expect(focus.contrast).toBeGreaterThanOrEqual(3);
+
+      const separator = root.$('[role="separator"][aria-orientation="vertical"]');
+      await expect(separator).toHaveAttribute("aria-label", "Resize slide thumbnails");
+      await expect(separator).toHaveAttribute("aria-valuemin");
+      await expect(separator).toHaveAttribute("aria-valuemax");
+      await expect(separator).toHaveAttribute("aria-valuenow");
+      await browser.execute(() => {
+        document.querySelector<HTMLElement>(
+          '.workspace-leaf.mod-active [data-action="resize-thumbnails"]',
+        )?.focus();
+      });
+      const separatorFocus = await browser.execute(() => {
+        const parse = (color: string) => {
+          const match = color.match(/^rgba?\((\d+(?:\.\d+)?)[, ]+(\d+(?:\.\d+)?)[, ]+(\d+(?:\.\d+)?)(?:\s*[,/]\s*(\d+(?:\.\d+)?))?\)$/);
+          return match
+            ? { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]), a: match[4] === undefined ? 1 : Number(match[4]) }
+            : null;
+        };
+        const luminance = (color: { r: number; g: number; b: number }) => {
+          const channel = (value: number) => {
+            const normalized = value / 255;
+            return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b);
+        };
+        const element = document.querySelector<HTMLElement>(
+          '.workspace-leaf.mod-active [data-action="resize-thumbnails"]',
+        );
+        if (!element) {
+          return { action: null, width: 0, style: "none", color: "", contrast: 0 };
+        }
+        const style = getComputedStyle(element);
+        const outline = parse(style.outlineColor);
+        let current: HTMLElement | null = element;
+        let background = null as ReturnType<typeof parse>;
+        while (current && (!background || background.a === 0)) {
+          background = parse(getComputedStyle(current).backgroundColor);
+          current = current.parentElement;
+        }
+        let ratio = 0;
+        if (outline && background) {
+          const first = luminance(outline);
+          const second = luminance(background);
+          ratio = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+        }
+        return {
+          action: document.activeElement === element
+            ? element.dataset.action ?? null
+            : null,
+          width: Number.parseFloat(style.outlineWidth) || 0,
+          style: style.outlineStyle,
+          color: style.outlineColor,
+          contrast: ratio,
+        };
+      });
+      expect(separatorFocus.action).toBe("resize-thumbnails");
+      expect(separatorFocus.width).toBeGreaterThan(0);
+      expect(separatorFocus.style).not.toBe("none");
+      expect(separatorFocus.color).not.toBe("transparent");
+      expect(separatorFocus.contrast).toBeGreaterThanOrEqual(3);
     }
   });
 

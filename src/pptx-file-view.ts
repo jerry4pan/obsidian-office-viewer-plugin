@@ -5,9 +5,12 @@ import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapt
 
 export const PPTX_VIEW_TYPE = "pptx-viewer";
 
-export interface PptxFileViewPositions {
+export interface PptxFileViewState {
   initialSlideFor(file: TFile, slideCount: number): number;
   record(file: TFile, slideIndex: number): void;
+  initialThumbnailRailWidth(): number;
+  recordThumbnailRailWidth(width: number): void;
+  subscribeThumbnailRailWidth(listener: (width: number) => void): () => void;
 }
 
 type DesktopVaultAdapter = {
@@ -35,7 +38,7 @@ export class PptxFileView extends FileView {
   constructor(
     leaf: WorkspaceLeaf,
     private readonly onDisposed: () => void = () => {},
-    positions?: PptxFileViewPositions,
+    state?: PptxFileViewState,
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
@@ -45,7 +48,18 @@ export class PptxFileView extends FileView {
       root,
       { readBinary: (file) => this.app.vault.readBinary(file) },
       createPptxRendererAdapter(),
-      { openExternally: createExternalOpenAction(this.app), positions },
+      {
+        openExternally: createExternalOpenAction(this.app),
+        positions: state,
+        thumbnailRail: state === undefined
+          ? undefined
+          : {
+              initialWidth: () => state.initialThumbnailRailWidth(),
+              recordWidth: (width) => state.recordThumbnailRailWidth(width),
+              subscribeWidth: (listener) =>
+                state.subscribeThumbnailRailWidth(listener),
+            },
+      },
     );
   }
 

@@ -39,11 +39,9 @@ describe("PptxPreviewRendererAdapter", () => {
     expect(session.capabilities).toEqual({
       thumbnails: false,
       prefetch: false,
-      zoom: false,
     });
     expect(session.renderThumbnail).toBeUndefined();
     expect(session.prefetchSlide).toBeUndefined();
-    expect(session.setZoomPercent).toBeUndefined();
     expect(createPreviewer).toHaveBeenCalledWith(container, {
       width: 960,
       height: 540,

@@ -1,7 +1,6 @@
 export interface PptxRendererCapabilities {
   readonly thumbnails: boolean;
   readonly prefetch: boolean;
-  readonly zoom: boolean;
 }
 
 export interface PptxRendererResource {
@@ -20,9 +19,9 @@ export interface PptxRendererSession {
     index: number,
     container: HTMLElement,
     signal: AbortSignal,
+    width?: number,
   ): PptxRendererResource;
   prefetchSlide?(index: number, signal: AbortSignal): Promise<void>;
-  setZoomPercent?(percent: number): Promise<void>;
   dispose(): void;
 }
 

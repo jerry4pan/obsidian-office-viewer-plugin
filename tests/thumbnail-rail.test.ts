@@ -20,6 +20,7 @@ function createRenderer(
     index: number,
     container: HTMLElement,
     signal: AbortSignal,
+    width?: number,
   ) => PptxRendererResource,
 ) {
   const renderSlide = vi.fn(async (_index: number): Promise<void> => undefined);
@@ -31,7 +32,7 @@ function createRenderer(
       }),
   );
   return {
-    capabilities: { thumbnails: true, prefetch: true, zoom: true },
+    capabilities: { thumbnails: true, prefetch: true },
     dispose: vi.fn(),
     renderSlide,
     renderThumbnail: renderThumbnailMock,
@@ -653,6 +654,72 @@ describe("ThumbnailRail", () => {
         .width,
     ).toBe("120px");
 
+    rail.dispose();
+    queue.dispose();
+  });
+
+  it("resizes mounted previews live and rerenders them at the committed width", async () => {
+    const root = createRoot();
+    const dispose = vi.fn();
+    const renderer = createRenderer((index, container, _signal, width) => {
+      container.textContent = `Preview ${index + 1} at ${width}px`;
+      return { ready: Promise.resolve(), dispose };
+    });
+    const queue = new RenderTaskQueue();
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+      thumbnailWidth: 144,
+    });
+    rail.start(0);
+    await queue.whenIdle();
+    const initialRenderCount = renderer.renderThumbnail.mock.calls.length;
+
+    rail.setThumbnailWidth(216, { rerender: false });
+
+    expect(
+      root.querySelector<HTMLElement>(".pptx-viewer__thumbnail-preview")?.style
+        .width,
+    ).toBe("216px");
+    expect(renderer.renderThumbnail).toHaveBeenCalledTimes(initialRenderCount);
+
+    rail.setThumbnailWidth(216, { rerender: true });
+    await queue.whenIdle();
+
+    expect(renderer.renderThumbnail.mock.calls.length).toBeGreaterThan(
+      initialRenderCount,
+    );
+    expect(
+      renderer.renderThumbnail.mock.calls
+        .slice(initialRenderCount)
+        .every((call) => call[3] === 216),
+    ).toBe(true);
+    expect(dispose).toHaveBeenCalled();
+
+    rail.dispose();
+    queue.dispose();
+  });
+
+  it("cancels in-flight thumbnail work when live resizing begins", async () => {
+    const root = createRoot();
+    const pending = deferred<void>();
+    let capturedSignal: AbortSignal | undefined;
+    const renderer = createRenderer((_index, _container, signal) => {
+      capturedSignal = signal;
+      return { ready: pending.promise, dispose: vi.fn() };
+    });
+    const queue = new RenderTaskQueue();
+    const rail = new ThumbnailRail(root, renderer, queue, {
+      onNavigate: vi.fn(),
+    });
+    rail.start(0);
+    await Promise.resolve();
+
+    rail.beginResize();
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(queue.diagnostics.pending).toBe(0);
+    pending.reject(new DOMException("aborted", "AbortError"));
+    await queue.whenIdle();
     rail.dispose();
     queue.dispose();
   });

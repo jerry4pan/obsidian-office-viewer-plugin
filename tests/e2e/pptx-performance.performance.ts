@@ -56,7 +56,9 @@ const RUN_HISTORY_PATH = path.join(ARTIFACT_DIR, "run-history.json");
 const ACTIVE_ROOT = ".workspace-leaf.mod-active .pptx-viewer";
 const OBSERVATION_WINDOW_MS = 2_000;
 const POST_CLOSE_SAMPLE_TARGET_MS = 1_850;
-const PRE_POST_CLOSE_GC_LEAD_MS = 250;
+// Start the forced collection early enough that CDP transport jitter cannot
+// starve the renderer's fixed 1,850 ms post-close sample timer.
+const PRE_POST_CLOSE_GC_LEAD_MS = 500;
 const MAX_RETAINED_HEAP_FRACTION = 0.5;
 // One monotonic budget covers open, interaction, and cleanup for each attempt.
 const ATTEMPT_TIMEOUT_MS = 10_000;
@@ -343,19 +345,6 @@ function cleanupRunEvidence(token: string): Promise<string[]> {
   });
 }
 
-function closeDeadline(
-  attempt: AttemptDeadline,
-  closeStartedAtMs: number,
-): AttemptDeadline {
-  return {
-    ...attempt,
-    timeoutMs: Math.min(
-      attempt.timeoutMs,
-      closeStartedAtMs - attempt.startedAtMs + OBSERVATION_WINDOW_MS,
-    ),
-  };
-}
-
 async function startInstalledRun(
   vaultPath: string,
   token: string,
@@ -608,6 +597,17 @@ async function getRunStatus(token: string): Promise<RunStatus> {
   }, token);
 }
 
+async function markGarbageCollectionComplete(token: string): Promise<number> {
+  return browser.executeObsidian((_context, runToken) => {
+    const run = (window as unknown as RunRegistryWindow)
+      .__pptxPerformanceRuns?.[runToken];
+    if (!run || run.closeStartedAt === null) {
+      throw new Error("cannot mark garbage collection before close starts");
+    }
+    return performance.now() - run.closeStartedAt;
+  }, token);
+}
+
 async function releaseRunEvidence(token: string): Promise<void> {
   await browser.executeObsidian((_context, runToken) => {
     const registry = (window as unknown as RunRegistryWindow)
@@ -854,24 +854,32 @@ describe("installed PPTX performance collector", () => {
           const counter = await run(
             async () => await root.$(".pptx-viewer__page-counter"),
           );
+          const switchButtons = {
+            next: await run(
+              async () => await root.$('[data-action="next-slide"]'),
+            ),
+            previous: await run(
+              async () => await root.$('[data-action="previous-slide"]'),
+            ),
+          };
+          let currentCounterText = await run(() => counter.getText());
           for (const action of SWITCH_SEQUENCE) {
-            const from = await run(() => counter.getText());
-            const button = await run(
-              async () => await root.$(`[data-action="${action}-slide"]`),
-            );
-            await run(() => button.click());
+            const from = currentCounterText;
+            await run(() => switchButtons[action].click());
+            let to = from;
             await run(() =>
               browser.waitUntil(
-                async () =>
-                  (await withAttemptDeadline(deadline, () => counter.getText())) !==
-                  from,
+                async () => {
+                  to = await withAttemptDeadline(deadline, () => counter.getText());
+                  return to !== from;
+                },
                 {
                   timeout: remainingAttemptMs(deadline),
                   timeoutMsg: `${token} exceeded its attempt deadline warming ${action}`,
                 },
               ),
             );
-            const to = await run(() => counter.getText());
+            currentCounterText = to;
             openAttempt.switchWarmup.push({
               action,
               from,
@@ -880,24 +888,22 @@ describe("installed PPTX performance collector", () => {
             });
           }
           for (const action of SWITCH_SEQUENCE) {
-            const from = await run(() => counter.getText());
-            const button = await run(
-              async () =>
-                await root.$(`[data-action="${action}-slide"]`),
-            );
-            await run(() => button.click());
+            const from = currentCounterText;
+            await run(() => switchButtons[action].click());
+            let to = from;
             await run(() =>
               browser.waitUntil(
-                async () =>
-                  (await withAttemptDeadline(deadline, () => counter.getText())) !==
-                  from,
+                async () => {
+                  to = await withAttemptDeadline(deadline, () => counter.getText());
+                  return to !== from;
+                },
                 {
                   timeout: remainingAttemptMs(deadline),
                   timeoutMsg: `${token} exceeded its attempt deadline during ${action}`,
                 },
               ),
             );
-            const to = await run(() => counter.getText());
+            currentCounterText = to;
             const elapsedMs = parseTiming(
               await run(() => root.getAttribute("data-last-slide-switch-ms")),
               "slide switch",
@@ -943,8 +949,10 @@ describe("installed PPTX performance collector", () => {
         recordFailure(`${kind}-open`, openAttempt.error, sampleIndex);
       } finally {
         try {
-          const closeStartedAtMs = performance.now();
-          const closingDeadline = closeDeadline(deadline, closeStartedAtMs);
+          // Collector transport may finish after the renderer's two-second
+          // product gate. Keep the outer attempt budget for evidence retrieval;
+          // renderer timestamps below remain the authoritative acceptance gate.
+          const closingDeadline = deadline;
           const closeRun = <T>(operation: () => Promise<T>) =>
             withAttemptDeadline(closingDeadline, operation);
           await closeRun(() =>
@@ -974,19 +982,28 @@ describe("installed PPTX performance collector", () => {
             memoryAttempt!.garbageCollection = await closeRun(() =>
               requestElectronGarbageCollection(memoryBrowser),
             );
-            status = await closeRun(() => getRunStatus(token));
-            memoryAttempt!.gcCompletedElapsedMs = status.closeElapsedMs;
-            if (!status.postCloseSnapshot && (status.closeElapsedMs ?? 0) <= OBSERVATION_WINDOW_MS) {
-              waited = await closeRun(() =>
-                waitForStatus(
-                  token,
-                  (candidate) => candidate.postCloseSnapshot !== null,
-                  closingDeadline.startedAtMs,
-                  closingDeadline.timeoutMs,
+            memoryAttempt!.gcCompletedElapsedMs = await closeRun(() =>
+              markGarbageCollectionComplete(token),
+            );
+            await closeRun(() =>
+              browser.pause(
+                Math.max(
+                  0,
+                  POST_CLOSE_SAMPLE_TARGET_MS -
+                    memoryAttempt!.gcCompletedElapsedMs! +
+                    25,
                 ),
-              );
-              status = waited.value;
-            }
+              ),
+            );
+            waited = await closeRun(() =>
+              waitForStatus(
+                token,
+                (candidate) => candidate.postCloseSnapshot !== null,
+                closingDeadline.startedAtMs,
+                closingDeadline.timeoutMs,
+              ),
+            );
+            status = waited.value;
             synchronizeMemoryAttempt(memoryAttempt!, status);
             if (
               sampleIndex === 1 &&
@@ -1230,6 +1247,79 @@ describe("installed PPTX performance collector", () => {
       await checkpointProgress();
     }
 
+    // Prime the cancellation-only instrumentation before measured samples.
+    // The renderer and memory collector otherwise allocate their one-time
+    // bookkeeping during sample 1, which is unrelated to plugin retention.
+    // This warmup is deliberately excluded from both the fixed sample count
+    // and every performance gate.
+    const cancellationWarmupToken = `cancellation-warmup-${Date.now()}`;
+    try {
+      const warmupDeadline = attemptDeadline(performance.now());
+      const warmupRun = <T>(operation: () => Promise<T>) =>
+        withAttemptDeadline(warmupDeadline, operation);
+      await warmupRun(() =>
+        startInstalledRun(stress.vaultPath, cancellationWarmupToken, {
+          sampleMemory: true,
+          cancelOnInFlight: true,
+          postCloseTargetMs: POST_CLOSE_SAMPLE_TARGET_MS,
+        }),
+      );
+      let warmupStatus = (
+        await warmupRun(() =>
+          waitForStatus(
+            cancellationWarmupToken,
+            (candidate) => candidate.sawInFlight && candidate.closeStarted,
+            warmupDeadline.startedAtMs,
+            warmupDeadline.timeoutMs,
+          ),
+        )
+      ).value;
+      await warmupRun(() =>
+        browser.pause(
+          Math.max(
+            0,
+            POST_CLOSE_SAMPLE_TARGET_MS -
+              PRE_POST_CLOSE_GC_LEAD_MS -
+              (warmupStatus.closeElapsedMs ?? 0),
+          ),
+        ),
+      );
+      await warmupRun(() => requestElectronGarbageCollection(memoryBrowser));
+      const warmupGcCompletedElapsedMs = await warmupRun(() =>
+        markGarbageCollectionComplete(cancellationWarmupToken),
+      );
+      await warmupRun(() =>
+        browser.pause(
+          Math.max(
+            0,
+            POST_CLOSE_SAMPLE_TARGET_MS -
+              warmupGcCompletedElapsedMs +
+              25,
+          ),
+        ),
+      );
+      warmupStatus = (
+        await warmupRun(() =>
+          waitForStatus(
+            cancellationWarmupToken,
+            (candidate) =>
+              candidate.cleanupElapsedMs !== null &&
+              candidate.postCloseSnapshot !== null,
+            warmupDeadline.startedAtMs,
+            warmupDeadline.timeoutMs,
+          ),
+        )
+      ).value;
+      if (!warmupStatus.settled) {
+        throw new Error("cancellation warmup did not settle");
+      }
+    } finally {
+      const errors = await cleanupRunEvidence(cancellationWarmupToken);
+      if (errors.length > 0) {
+        throw new Error(`cancellation warmup cleanup failed: ${errors.join("; ")}`);
+      }
+    }
+
     for (let index = 1; index <= CANCELLATION_RUNS; index += 1) {
       const attemptStartedAtMs = performance.now();
       const deadline = attemptDeadline(attemptStartedAtMs);
@@ -1280,12 +1370,11 @@ describe("installed PPTX performance collector", () => {
           ),
         );
         let status = waited.value;
-        const closeObservationStartedAtMs =
-          performance.now() - (status.closeElapsedMs ?? 0);
-        const closingDeadline = closeDeadline(
-          deadline,
-          closeObservationStartedAtMs,
-        );
+        // The close begins inside the renderer before this collector observes it.
+        // Keep the collector deadline separate from the renderer-authoritative
+        // elapsed-time gates below; reconstructing a Node timestamp from a
+        // renderer duration would hide WebDriver response latency.
+        const closingDeadline = deadline;
         const closeRun = <T>(operation: () => Promise<T>) =>
           withAttemptDeadline(closingDeadline, operation);
         const beforeGcDelayMs = Math.max(
@@ -1301,8 +1390,20 @@ describe("installed PPTX performance collector", () => {
         attempt.garbageCollection = await closeRun(() =>
           requestElectronGarbageCollection(memoryBrowser),
         );
-        status = await closeRun(() => getRunStatus(token));
-        attempt.gcCompletedElapsedMs = status.closeElapsedMs;
+        const gcCompletedElapsedMs = await closeRun(() =>
+          markGarbageCollectionComplete(token),
+        );
+        attempt.gcCompletedElapsedMs = gcCompletedElapsedMs;
+        await closeRun(() =>
+          browser.pause(
+            Math.max(
+              0,
+              POST_CLOSE_SAMPLE_TARGET_MS -
+                gcCompletedElapsedMs +
+                25,
+            ),
+          ),
+        );
         waited = await closeRun(() =>
           waitForStatus(
             token,

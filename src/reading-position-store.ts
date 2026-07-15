@@ -1,3 +1,8 @@
+import {
+  DEFAULT_THUMBNAIL_RAIL_WIDTH,
+  normalizeThumbnailRailWidth,
+} from "./thumbnail-rail-sizing";
+
 export interface FileFingerprint {
   readonly path: string;
   readonly size: number;
@@ -6,6 +11,7 @@ export interface FileFingerprint {
 
 export interface OfficeViewerSettings {
   readonly rememberReadingPosition: boolean;
+  readonly thumbnailRailWidth: number;
 }
 
 export interface ReadingPositionEntry extends FileFingerprint {
@@ -26,6 +32,7 @@ export interface OfficeViewerDataAdapter {
 
 const DEFAULT_SETTINGS: OfficeViewerSettings = {
   rememberReadingPosition: true,
+  thumbnailRailWidth: DEFAULT_THUMBNAIL_RAIL_WIDTH,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,6 +106,10 @@ function normalizeData(value: unknown): OfficeViewerData {
     typeof value.settings.rememberReadingPosition === "boolean"
       ? value.settings.rememberReadingPosition
       : true;
+  const thumbnailRailWidth =
+    isRecord(value.settings) && typeof value.settings.thumbnailRailWidth === "number"
+      ? normalizeThumbnailRailWidth(value.settings.thumbnailRailWidth)
+      : DEFAULT_THUMBNAIL_RAIL_WIDTH;
   const positions: Record<string, ReadingPositionEntry> = {};
 
   if (rememberReadingPosition && isRecord(value.positions)) {
@@ -117,7 +128,7 @@ function normalizeData(value: unknown): OfficeViewerData {
 
   return {
     schemaVersion: 1,
-    settings: { rememberReadingPosition },
+    settings: { rememberReadingPosition, thumbnailRailWidth },
     positions,
   };
 }
@@ -127,6 +138,7 @@ function snapshot(data: OfficeViewerData): OfficeViewerData {
     schemaVersion: 1,
     settings: {
       rememberReadingPosition: data.settings.rememberReadingPosition,
+      thumbnailRailWidth: data.settings.thumbnailRailWidth,
     },
     positions: Object.fromEntries(
       Object.entries(data.positions).map(([path, entry]) => [
@@ -154,6 +166,9 @@ export class ReadingPositionStore {
   private persistedRevision = 0;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private saveTail: Promise<void> = Promise.resolve();
+  private readonly thumbnailRailWidthListeners = new Set<
+    (width: number) => void
+  >();
 
   constructor(
     private readonly adapter: OfficeViewerDataAdapter,
@@ -265,11 +280,41 @@ export class ReadingPositionStore {
     this.clearTimer();
     this.data = {
       schemaVersion: 1,
-      settings: { rememberReadingPosition: enabled },
+      settings: {
+        rememberReadingPosition: enabled,
+        thumbnailRailWidth: this.data.settings.thumbnailRailWidth,
+      },
       positions: {},
     };
     this.revision += 1;
     await this.flush();
+  }
+
+  setThumbnailRailWidth(width: number): void {
+    if (this.disposed) return;
+    const thumbnailRailWidth = normalizeThumbnailRailWidth(width);
+    if (thumbnailRailWidth === this.data.settings.thumbnailRailWidth) return;
+    this.data = {
+      ...this.data,
+      settings: {
+        ...this.data.settings,
+        thumbnailRailWidth,
+      },
+    };
+    this.markChanged();
+    for (const listener of this.thumbnailRailWidthListeners) {
+      try {
+        listener(thumbnailRailWidth);
+      } catch {
+        // A detached viewer must not block preference persistence.
+      }
+    }
+  }
+
+  subscribeThumbnailRailWidth(listener: (width: number) => void): () => void {
+    if (this.disposed) return () => {};
+    this.thumbnailRailWidthListeners.add(listener);
+    return () => this.thumbnailRailWidthListeners.delete(listener);
   }
 
   async flush(): Promise<void> {
@@ -289,6 +334,7 @@ export class ReadingPositionStore {
     }
     this.disposed = true;
     await this.flush();
+    this.thumbnailRailWidthListeners.clear();
   }
 
   private remove(path: string): void {

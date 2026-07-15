@@ -53,7 +53,6 @@ class PptxPreviewRendererSession implements PptxRendererSession {
   readonly capabilities = {
     thumbnails: false,
     prefetch: false,
-    zoom: false,
   } as const;
 
   get slideCount(): number {

@@ -62,6 +62,11 @@ export default class OfficeViewerPlugin extends Plugin {
             store.resolve(fingerprint(file), slideCount),
           record: (file, slideIndex) =>
             store.record(fingerprint(file), slideIndex),
+          initialThumbnailRailWidth: () => store.settings.thumbnailRailWidth,
+          recordThumbnailRailWidth: (width) =>
+            store.setThumbnailRailWidth(width),
+          subscribeThumbnailRailWidth: (listener) =>
+            store.subscribeThumbnailRailWidth(listener),
         },
       );
       this.views.add(view);

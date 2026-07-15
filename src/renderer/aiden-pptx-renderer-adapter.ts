@@ -58,7 +58,6 @@ class AidenPptxRendererSession implements PptxRendererSession {
   readonly capabilities = {
     thumbnails: true,
     prefetch: true,
-    zoom: true,
   } as const;
 
   private throwIfDisposed(): void {
@@ -116,11 +115,12 @@ class AidenPptxRendererSession implements PptxRendererSession {
     index: number,
     container: HTMLElement,
     signal: AbortSignal,
+    width = 144,
   ): PptxRendererResource {
     this.throwIfDisposed();
     signal.throwIfAborted();
     const handle = this.viewer.renderThumbnailToContainer(index, container, {
-      width: 144,
+      width,
     });
     if (!handle) {
       throw new Error(`The renderer could not prepare slide ${index + 1}`);
@@ -142,12 +142,6 @@ class AidenPptxRendererSession implements PptxRendererSession {
     } finally {
       resource.dispose();
     }
-  }
-
-  async setZoomPercent(percent: number): Promise<void> {
-    this.throwIfDisposed();
-    await this.viewer.setZoom(percent);
-    this.throwIfDisposed();
   }
 
   dispose(): void {

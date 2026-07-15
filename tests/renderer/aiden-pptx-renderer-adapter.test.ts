@@ -34,7 +34,6 @@ describe("AidenPptxRendererAdapter", () => {
     expect(session.capabilities).toEqual({
       thumbnails: true,
       prefetch: true,
-      zoom: true,
     });
     expect(container.childElementCount).toBe(0);
     await session.renderSlide(0);
@@ -44,7 +43,7 @@ describe("AidenPptxRendererAdapter", () => {
     expect(container.childElementCount).toBe(0);
   });
 
-  it("exposes thumbnail, prefetch, and zoom without leaking candidate handles", async () => {
+  it("exposes thumbnail and prefetch without leaking candidate handles", async () => {
     const container = document.createElement("div");
     const session = await new AidenPptxRendererAdapter().open(
       await loadFixture(),
@@ -70,10 +69,6 @@ describe("AidenPptxRendererAdapter", () => {
         dispose: prefetchDispose,
         [Symbol.dispose]: prefetchDispose,
       });
-    const setZoom = vi
-      .spyOn(PptxViewer.prototype, "setZoom")
-      .mockResolvedValue();
-
     try {
       const signal = new AbortController().signal;
       const thumbnail = session.renderThumbnail!(
@@ -84,7 +79,6 @@ describe("AidenPptxRendererAdapter", () => {
       await thumbnail.ready;
       thumbnail.dispose();
       await session.prefetchSlide!(0, signal);
-      await session.setZoomPercent!(150);
 
       expect(renderThumbnail).toHaveBeenCalledWith(0, thumbnailContainer, {
         width: 144,
@@ -95,11 +89,9 @@ describe("AidenPptxRendererAdapter", () => {
         expect.any(HTMLElement),
       );
       expect(prefetchDispose).toHaveBeenCalledOnce();
-      expect(setZoom).toHaveBeenCalledWith(150);
     } finally {
       renderThumbnail.mockRestore();
       renderToContainer.mockRestore();
-      setZoom.mockRestore();
       session.dispose();
     }
   });

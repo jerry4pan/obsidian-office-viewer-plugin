@@ -70,15 +70,16 @@ export class ThumbnailRail {
   private readonly mountedLayer = document.createElement("div");
   private readonly queueKeyPrefix = `thumbnail:rail-${nextRailId++}:`;
   private readonly spacer = document.createElement("div");
-  private readonly itemHeight: number;
+  private itemHeight: number;
   private readonly overscanViewports: number;
   private readonly resizeObserver:
     | Pick<ResizeObserver, "observe" | "disconnect">
     | undefined;
-  private readonly thumbnailWidth: number;
+  private thumbnailWidth: number;
   private currentSlideIndex = 0;
   private disposed = false;
   private nextAttempt = 0;
+  private renderingSuspended = false;
   private started = false;
   private lastReportedMountedCount: number | undefined;
   private lastReportedReadyCount: number | undefined;
@@ -93,12 +94,7 @@ export class ThumbnailRail {
       options.thumbnailWidth,
       DEFAULT_THUMBNAIL_WIDTH,
     );
-    const slideWidth = finitePositive(renderer.slideWidth, this.thumbnailWidth);
-    const slideHeight = finitePositive(renderer.slideHeight, this.thumbnailWidth);
-    this.itemHeight = Math.max(
-      1,
-      (this.thumbnailWidth * slideHeight) / slideWidth + ITEM_CHROME_HEIGHT,
-    );
+    this.itemHeight = this.calculateItemHeight(this.thumbnailWidth);
     this.overscanViewports = Math.max(
       0,
       Number.isFinite(options.overscanViewports)
@@ -162,6 +158,43 @@ export class ThumbnailRail {
     this.refresh();
   }
 
+  setThumbnailWidth(
+    width: number,
+    options: { readonly rerender: boolean },
+  ): void {
+    if (this.disposed || !this.started) return;
+    const nextWidth = finitePositive(width, this.thumbnailWidth);
+    const widthChanged = nextWidth !== this.thumbnailWidth;
+    if (!widthChanged && !options.rerender) return;
+    const scrollAnchor = this.root.scrollTop / this.itemHeight;
+    this.thumbnailWidth = nextWidth;
+    this.itemHeight = this.calculateItemHeight(nextWidth);
+    this.root.scrollTop = scrollAnchor * this.itemHeight;
+    this.renderingSuspended = !options.rerender;
+
+    for (const item of this.mounted.values()) {
+      item.button.style.height = `${this.itemHeight}px`;
+      item.preview.style.width = `${this.thumbnailWidth}px`;
+      if (options.rerender) {
+        this.cancelAttempt(item);
+        item.preview.replaceChildren();
+      }
+    }
+    if (options.rerender) this.reportReadyCount();
+    this.refresh();
+  }
+
+  beginResize(): void {
+    if (this.disposed || !this.started || this.renderingSuspended) return;
+    this.renderingSuspended = true;
+    for (const item of this.mounted.values()) {
+      if (item.state !== "pending" && item.state !== "running") continue;
+      this.cancelAttempt(item);
+      item.preview.replaceChildren();
+    }
+    this.reportReadyCount();
+  }
+
   refresh(): void {
     if (this.disposed || !this.started) return;
     const viewportHeight = this.viewportHeight();
@@ -220,6 +253,7 @@ export class ThumbnailRail {
           left.priority - right.priority || left.item.index - right.item.index,
       );
     for (const { item, priority } of candidates) {
+      if (this.renderingSuspended) continue;
       if (item.state === "pending" && item.priority !== priority) {
         this.cancelAttempt(item);
       }
@@ -317,7 +351,12 @@ export class ThumbnailRail {
             ) {
               item.state = "running";
             }
-            resource = renderThumbnail(item.index, item.preview, signal);
+            resource = renderThumbnail(
+              item.index,
+              item.preview,
+              signal,
+              this.thumbnailWidth,
+            );
             if (
               this.mounted.get(item.index) === item &&
               item.queueKey === queueKey
@@ -428,5 +467,14 @@ export class ThumbnailRail {
     } catch {
       // A candidate cleanup failure must not strand other rail resources.
     }
+  }
+
+  private calculateItemHeight(thumbnailWidth: number): number {
+    const slideWidth = finitePositive(this.renderer.slideWidth, thumbnailWidth);
+    const slideHeight = finitePositive(this.renderer.slideHeight, thumbnailWidth);
+    return Math.max(
+      1,
+      (thumbnailWidth * slideHeight) / slideWidth + ITEM_CHROME_HEIGHT,
+    );
   }
 }

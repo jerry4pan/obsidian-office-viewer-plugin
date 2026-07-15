@@ -62,8 +62,6 @@ interface Diagnostics {
   readonly backgroundRunning: number;
   readonly mountedThumbnails: number;
   readonly readyThumbnails: number;
-  readonly zoomMode: "fit" | "manual";
-  readonly zoomPercent: number;
 }
 
 export interface InstalledOpenAttempt {
@@ -307,7 +305,7 @@ function assertSnapshot(value: unknown, path: string): void {
 
 function assertDiagnostics(value: unknown, path: string): void {
   const diagnostics = record(value, path);
-  assertExactKeys(diagnostics, path, [
+  const currentKeys = [
     "generation",
     "openPending",
     "rendererActive",
@@ -317,9 +315,19 @@ function assertDiagnostics(value: unknown, path: string): void {
     "backgroundRunning",
     "mountedThumbnails",
     "readyThumbnails",
-    "zoomMode",
-    "zoomPercent",
-  ]);
+  ] as const;
+  const legacyZoomKeys = ["zoomMode", "zoomPercent"] as const;
+  const actualKeys = Object.keys(diagnostics).sort();
+  const isCurrent =
+    JSON.stringify(actualKeys) === JSON.stringify([...currentKeys].sort());
+  const isLegacy =
+    JSON.stringify(actualKeys) ===
+    JSON.stringify([...currentKeys, ...legacyZoomKeys].sort());
+  if (!isCurrent && !isLegacy) {
+    throw new Error(
+      `${path} must contain the current diagnostics keys or the legacy diagnostics keys with zoomMode and zoomPercent`,
+    );
+  }
   integer(diagnostics.generation, `${path}.generation`);
   boolean(diagnostics.openPending, `${path}.openPending`);
   boolean(diagnostics.rendererActive, `${path}.rendererActive`);
@@ -329,8 +337,10 @@ function assertDiagnostics(value: unknown, path: string): void {
   integer(diagnostics.backgroundRunning, `${path}.backgroundRunning`);
   integer(diagnostics.mountedThumbnails, `${path}.mountedThumbnails`);
   integer(diagnostics.readyThumbnails, `${path}.readyThumbnails`);
-  enumeration(diagnostics.zoomMode, `${path}.zoomMode`, ["fit", "manual"]);
-  nonNegative(diagnostics.zoomPercent, `${path}.zoomPercent`);
+  if (isLegacy) {
+    enumeration(diagnostics.zoomMode, `${path}.zoomMode`, ["fit", "manual"]);
+    nonNegative(diagnostics.zoomPercent, `${path}.zoomPercent`);
+  }
 }
 
 function assertResourceReturn(value: unknown, path: string): void {
