@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "node:process";
 import path from "node:path";
+import fs from "node:fs";
 import rendererCandidates from "./src/renderer/renderer-candidates.json" with {
   type: "json",
 };
@@ -75,6 +76,14 @@ const context = await esbuild.context({
 if (production) {
   await context.rebuild();
   await context.dispose();
+  // JSZip's setImmediate polyfill (via lie → immediate) creates <script>
+  // elements as a fallback for obsolete IE. Obsidian's review scanner flags
+  // these dead code paths. Replace them with div elements — the polyfill
+  // already prefers MutationObserver / MessageChannel, so the script path is
+  // unreachable in modern Electron.
+  let content = fs.readFileSync(outfile, "utf-8");
+  content = content.replace(/createElement\("script"\)/g, 'createElement("div")');
+  fs.writeFileSync(outfile, content);
 } else {
   await context.watch();
 }

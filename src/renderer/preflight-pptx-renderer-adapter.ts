@@ -39,8 +39,12 @@ function measureFontAvailability(font: string): boolean | null {
   const family = font.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   const probe = document.createElement("span");
   probe.textContent = sample;
-  probe.style.cssText =
-    "font-size:72px;position:absolute;visibility:hidden;white-space:nowrap;";
+  probe.setCssStyles({
+    fontSize: "72px",
+    position: "absolute",
+    visibility: "hidden",
+    whiteSpace: "nowrap",
+  });
   document.body.append(probe);
   try {
     const fallbacks = ["monospace", "sans-serif", "serif"];
