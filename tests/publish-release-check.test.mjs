@@ -14,20 +14,6 @@ describe("publish release checks", () => {
       checkPublishRelease({
         manifestVersion: "0.1.6",
         publishContext: {
-          releaseTag: "v0.1.6",
-          headCommit: HEAD,
-          tagCommit: HEAD,
-          publishedReleaseExists: false,
-        },
-      }),
-    ).toEqual([]);
-  });
-
-  it("accepts tags without a v prefix", () => {
-    expect(
-      checkPublishRelease({
-        manifestVersion: "0.1.6",
-        publishContext: {
           releaseTag: "0.1.6",
           headCommit: HEAD,
           tagCommit: HEAD,
@@ -37,10 +23,26 @@ describe("publish release checks", () => {
     ).toEqual([]);
   });
 
+  it("rejects tags with a v prefix", () => {
+    expect(
+      checkPublishRelease({
+        manifestVersion: "0.1.6",
+        publishContext: {
+          releaseTag: "v0.1.6",
+          headCommit: HEAD,
+          tagCommit: HEAD,
+          publishedReleaseExists: false,
+        },
+      }),
+    ).toContain(
+      "release tag v0.1.6 must not start with v; publish plain 0.1.6 instead",
+    );
+  });
+
   it("fails when the tag commit does not match HEAD", () => {
     expect(
       collectPublishReleaseErrors({
-        releaseTag: "v0.1.6",
+        releaseTag: "0.1.6",
         headCommit: HEAD,
         tagCommit: TAG_COMMIT,
         publishedReleaseExists: false,
@@ -51,13 +53,13 @@ describe("publish release checks", () => {
   it("fails when a GitHub release already exists for the tag", () => {
     expect(
       collectPublishReleaseErrors({
-        releaseTag: "v0.1.5",
+        releaseTag: "0.1.5",
         headCommit: HEAD,
         tagCommit: HEAD,
         publishedReleaseExists: true,
       }),
     ).toContain(
-      "GitHub release for v0.1.5 already exists; bump the version before publishing",
+      "GitHub release for 0.1.5 already exists; bump the version before publishing",
     );
   });
 
@@ -66,16 +68,16 @@ describe("publish release checks", () => {
       checkPublishRelease({
         manifestVersion: "0.1.5",
         publishContext: {
-          releaseTag: "v0.1.6",
+          releaseTag: "0.1.6",
           headCommit: HEAD,
           tagCommit: HEAD,
           publishedReleaseExists: false,
         },
       }),
-    ).toContain("release tag v0.1.6 does not match manifest version 0.1.5");
+    ).toContain("release tag 0.1.6 does not match manifest version 0.1.5");
   });
 
-  it("treats only an explicit not-found response as an absent release", () => {
+  it("treats only an explicit not-found response as an absent exact-match release", () => {
     const viewedTags = [];
     const viewRelease = (tag) => {
       viewedTags.push(tag);
@@ -84,8 +86,8 @@ describe("publish release checks", () => {
       throw error;
     };
 
-    expect(releaseExists("v0.1.6", viewRelease)).toBe(false);
-    expect(viewedTags).toEqual(["v0.1.6", "0.1.6"]);
+    expect(releaseExists("0.1.6", viewRelease)).toBe(false);
+    expect(viewedTags).toEqual(["0.1.6"]);
   });
 
   it("stops publishing when the GitHub release lookup fails operationally", () => {
@@ -95,7 +97,7 @@ describe("publish release checks", () => {
       throw error;
     };
 
-    expect(() => releaseExists("v0.1.6", viewRelease)).toThrow(
+    expect(() => releaseExists("0.1.6", viewRelease)).toThrow(
       "GitHub API request failed",
     );
   });

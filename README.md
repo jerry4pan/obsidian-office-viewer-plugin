@@ -163,13 +163,15 @@ evidence and must be committed as FAIL rather than tuned away.
 supported-extension, license, and required-documentation consistency without
 requiring a version bump on `main`.
 `npm run release:check:publish` adds tag, commit, and GitHub-release guards
-for tagged releases only.
+for tagged releases only. Publish releases with the plain manifest version as
+the tag and release name, for example `0.1.6`, not `v0.1.6`; Obsidian matches
+the GitHub release directly against `manifest.json`.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
 installs that extracted ZIP into a clean test Vault, opens a real PPTX,
 rehearses an in-place package upgrade, and verifies disable/removal without
-network access or source mutation. Tag CI additionally requires `v<version>`
-or `<version>`, runs publish checks, and proves a second package build is
+network access or source mutation. Tag CI requires the exact manifest version
+as the tag name, runs publish checks, and proves a second package build is
 byte-identical before uploading the CI artifact.
 
 ## Current boundaries

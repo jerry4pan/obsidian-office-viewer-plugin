@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "[0-9]*"
-      - "v[0-9]*"
 
 jobs:
   package:
@@ -23,6 +22,7 @@ jobs:
       - run: npm run build
       - run: npm run release:check:publish
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
       - run: npm run release:package
       - name: Prove reproducible package
@@ -40,7 +40,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          VERSION="${TAG#v}"
+          VERSION="$TAG"
           cp node_modules/@aiden0z/pptx-renderer/LICENSE AIDEN-PPTX-RENDERER-LICENSE
           gh release view "$TAG" &>/dev/null || gh release create "$TAG" --title "$TAG" --generate-notes
           gh release upload "$TAG" main.js manifest.json styles.css LICENSE NOTICE \

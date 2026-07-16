@@ -40,18 +40,11 @@ function isReleaseNotFound(error) {
 }
 
 export function releaseExists(releaseTag, lookupRelease = viewRelease) {
-  const candidates = releaseTag.startsWith("v")
-    ? [releaseTag, releaseTag.slice(1)]
-    : [releaseTag, `v${releaseTag}`];
-
-  for (const candidate of candidates) {
-    try {
-      lookupRelease(candidate);
-      return true;
-    } catch (error) {
-      if (!isReleaseNotFound(error)) throw error;
-      // Try the next tag spelling.
-    }
+  try {
+    lookupRelease(releaseTag);
+    return true;
+  } catch (error) {
+    if (!isReleaseNotFound(error)) throw error;
   }
 
   return false;

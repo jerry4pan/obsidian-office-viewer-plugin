@@ -12,9 +12,6 @@
  */
 export function collectPublishReleaseErrors(publishContext) {
   const errors = [];
-  const normalizedTag = publishContext.releaseTag.startsWith("v")
-    ? publishContext.releaseTag.slice(1)
-    : publishContext.releaseTag;
 
   if (publishContext.tagCommit !== publishContext.headCommit) {
     errors.push("release tag commit does not match HEAD");
@@ -26,8 +23,14 @@ export function collectPublishReleaseErrors(publishContext) {
     );
   }
 
-  if (!normalizedTag) {
+  if (!publishContext.releaseTag) {
     errors.push("release tag is empty");
+  }
+
+  if (publishContext.releaseTag.startsWith("v")) {
+    errors.push(
+      `release tag ${publishContext.releaseTag} must not start with v; publish plain ${publishContext.releaseTag.slice(1)} instead`,
+    );
   }
 
   return errors;
@@ -41,11 +44,8 @@ export function collectPublishReleaseErrors(publishContext) {
  */
 export function checkPublishRelease({ manifestVersion, publishContext }) {
   const errors = collectPublishReleaseErrors(publishContext);
-  const normalizedTag = publishContext.releaseTag.startsWith("v")
-    ? publishContext.releaseTag.slice(1)
-    : publishContext.releaseTag;
 
-  if (normalizedTag !== manifestVersion) {
+  if (publishContext.releaseTag !== manifestVersion) {
     errors.push(
       `release tag ${publishContext.releaseTag} does not match manifest version ${manifestVersion}`,
     );
