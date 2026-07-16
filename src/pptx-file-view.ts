@@ -29,6 +29,7 @@ function createExternalOpenAction(
   const adapter = app.vault.adapter as Partial<DesktopVaultAdapter> | undefined;
   if (!adapter || typeof adapter.getFullPath !== "function") return undefined;
   return async (file) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { shell } = require("electron") as {
       shell: { openPath(path: string): Promise<string> };
     };
@@ -50,8 +51,7 @@ export class PptxFileView extends FileView {
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
-    const root = document.createElement("div");
-    this.contentEl.append(root);
+    const root = this.contentEl.createEl("div");
     this.session = new PptxViewSession(
       root,
       { readBinary: (file) => this.app.vault.readBinary(file) },

@@ -164,7 +164,7 @@ export class ReadingPositionStore {
   private disposed = false;
   private revision = 0;
   private persistedRevision = 0;
-  private saveTimer: ReturnType<typeof setTimeout> | undefined;
+  private saveTimer: number | undefined;
   private saveTail: Promise<void> = Promise.resolve();
   private readonly thumbnailRailWidthListeners = new Set<
     (width: number) => void
@@ -363,7 +363,7 @@ export class ReadingPositionStore {
     if (this.saveTimer !== undefined) {
       return;
     }
-    this.saveTimer = setTimeout(() => {
+    this.saveTimer = window.setTimeout(() => {
       this.saveTimer = undefined;
       void this.flush().catch(() => undefined);
     }, this.options.debounceMs ?? 250);
@@ -371,7 +371,7 @@ export class ReadingPositionStore {
 
   private clearTimer(): void {
     if (this.saveTimer !== undefined) {
-      clearTimeout(this.saveTimer);
+      window.clearTimeout(this.saveTimer);
       this.saveTimer = undefined;
     }
   }

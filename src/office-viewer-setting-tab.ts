@@ -1,4 +1,4 @@
-import { PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
+import { PluginSettingTab, Setting, type App, type Plugin, type SettingDefinitionItem } from "obsidian";
 import {
   ENGLISH_MESSAGE_TRANSLATOR,
   type MessageTranslator,
@@ -14,6 +14,50 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
     private readonly messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
   ) {
     super(app, plugin);
+  }
+
+  override getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        name: this.messages.text("settings.rememberPosition"),
+        desc: this.messages.text("settings.rememberPositionDescription"),
+        control: {
+          type: "toggle",
+          key: "rememberReadingPosition",
+          defaultValue: true,
+        },
+      },
+      {
+        name: this.messages.text("settings.localProcessing"),
+        desc: this.messages.text("settings.localProcessingDescription"),
+      },
+      {
+        name: this.messages.text("settings.compatibility"),
+        desc: this.messages.text("settings.compatibilityDescription"),
+      },
+      {
+        name: this.messages.text("settings.diagnostics"),
+        desc: this.messages.text("settings.diagnosticsDescription"),
+      },
+    ];
+  }
+
+  override getControlValue(key: string): unknown {
+    if (key === "rememberReadingPosition") {
+      return this.store.settings.rememberReadingPosition;
+    }
+    return undefined;
+  }
+
+  override setControlValue(key: string, value: unknown): void {
+    if (key === "rememberReadingPosition") {
+      void this.store.setRememberReadingPosition(Boolean(value)).catch((error: unknown) => {
+        reportNonFatalError(
+          "Failed to save PPTX reading-position setting",
+          error,
+        );
+      });
+    }
   }
 
   override display(): void {

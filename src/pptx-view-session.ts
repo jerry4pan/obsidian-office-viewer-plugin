@@ -139,10 +139,11 @@ export class PptxViewSession<FileRef> {
   ) {
     this.messages = options.messages ?? ENGLISH_MESSAGE_TRANSLATOR;
     root.classList.add("pptx-viewer");
-    const empty = document.createElement("div");
-    empty.className = "pptx-viewer__empty";
-    empty.textContent = this.messages.text("viewer.empty");
-    root.replaceChildren(empty);
+    root.replaceChildren();
+    root.createEl("div", {
+      cls: "pptx-viewer__empty",
+      text: this.messages.text("viewer.empty"),
+    });
     root.dataset.state = "empty";
     this.setLifecyclePhase("idle");
   }
@@ -157,83 +158,104 @@ export class PptxViewSession<FileRef> {
     const controller = new AbortController();
     this.abortController = controller;
 
-    const status = document.createElement("div");
-    status.className = "pptx-viewer__status-text";
-    status.setAttribute("role", "status");
-    status.setAttribute("aria-live", "polite");
-    status.textContent = this.messages.text("viewer.loading");
     this.root.tabIndex = 0;
     this.root.dataset.thumbnailsCollapsed = "false";
     this.root.dataset.fullscreen = "false";
     this.root.dataset.mountedThumbnailCount = "0";
     this.root.dataset.readyThumbnailCount = "0";
-    const pageCounter = document.createElement("div");
-    pageCounter.className = "pptx-viewer__page-counter";
-    const previousButton = document.createElement("button");
-    previousButton.type = "button";
-    previousButton.dataset.action = "previous-slide";
-    previousButton.textContent = this.messages.text("navigation.previous");
+
+    this.root.replaceChildren();
+
+    const header = this.root.createEl("div", {
+      cls: "pptx-viewer__header pptx-viewer__status",
+    });
+    const status = header.createEl("div", {
+      cls: "pptx-viewer__status-text",
+      text: this.messages.text("viewer.loading"),
+      attr: { role: "status", "aria-live": "polite" },
+    });
+
+    const compatibility = this.root.createEl("div", {
+      cls: "pptx-viewer__compatibility",
+      attr: { role: "note" },
+    });
+
+    const controls = this.root.createEl("div", {
+      cls: "pptx-viewer__controls",
+    });
+
+    const previousButton = controls.createEl("button", {
+      type: "button",
+      text: this.messages.text("navigation.previous"),
+      attr: { "data-action": "previous-slide" },
+    });
     previousButton.disabled = true;
-    const nextButton = document.createElement("button");
-    nextButton.type = "button";
-    nextButton.dataset.action = "next-slide";
-    nextButton.textContent = this.messages.text("navigation.next");
+
+    const pageCounter = controls.createEl("div", {
+      cls: "pptx-viewer__page-counter",
+    });
+
+    const nextButton = controls.createEl("button", {
+      type: "button",
+      text: this.messages.text("navigation.next"),
+      attr: { "data-action": "next-slide" },
+    });
     nextButton.disabled = true;
-    const pageInput = document.createElement("input");
-    pageInput.type = "number";
-    pageInput.min = "1";
-    pageInput.step = "1";
+
+    const jumpForm = controls.createEl("form", {
+      cls: "pptx-viewer__page-jump",
+    });
+    jumpForm.createEl("span", {
+      text: this.messages.text("navigation.slide"),
+    });
+    const pageInput = jumpForm.createEl("input", {
+      type: "number",
+      attr: {
+        min: "1",
+        step: "1",
+        "data-action": "page-number",
+        "aria-label": this.messages.text("navigation.slideNumber"),
+      },
+    });
     pageInput.value = "1";
     pageInput.disabled = true;
-    pageInput.dataset.action = "page-number";
-    pageInput.setAttribute(
-      "aria-label",
-      this.messages.text("navigation.slideNumber"),
-    );
-    const pageTotal = document.createElement("span");
-    pageTotal.className = "pptx-viewer__page-total";
-    pageTotal.textContent = this.messages.text("navigation.pageTotalPending");
-    const jumpButton = document.createElement("button");
-    jumpButton.type = "button";
+
+    const pageTotal = jumpForm.createEl("span", {
+      cls: "pptx-viewer__page-total",
+      text: this.messages.text("navigation.pageTotalPending"),
+    });
+
+    const jumpButton = jumpForm.createEl("button", {
+      type: "button",
+      text: this.messages.text("navigation.go"),
+      attr: { "data-action": "jump-to-slide" },
+    });
     jumpButton.disabled = true;
-    jumpButton.dataset.action = "jump-to-slide";
-    jumpButton.textContent = this.messages.text("navigation.go");
-    const jumpForm = document.createElement("form");
-    jumpForm.className = "pptx-viewer__page-jump";
-    const jumpLabel = document.createElement("span");
-    jumpLabel.textContent = this.messages.text("navigation.slide");
-    jumpForm.append(jumpLabel, pageInput, pageTotal, jumpButton);
-    const controls = document.createElement("div");
-    controls.className = "pptx-viewer__controls";
-    const toggleThumbnails = document.createElement("button");
-    toggleThumbnails.type = "button";
-    toggleThumbnails.dataset.action = "toggle-thumbnails";
-    toggleThumbnails.textContent = this.messages.text("thumbnails.toggle");
-    toggleThumbnails.setAttribute(
-      "aria-label",
-      this.messages.text("thumbnails.toggleLabel"),
-    );
-    toggleThumbnails.setAttribute("aria-expanded", "true");
-    const toggleFullscreen = document.createElement("button");
-    toggleFullscreen.type = "button";
-    toggleFullscreen.dataset.action = "toggle-fullscreen";
-    toggleFullscreen.textContent = this.messages.text("fullscreen.button");
-    toggleFullscreen.setAttribute(
-      "aria-label",
-      this.messages.text("fullscreen.enterLabel"),
-    );
-    controls.append(
-      previousButton,
-      pageCounter,
-      nextButton,
-      jumpForm,
-      toggleFullscreen,
-      toggleThumbnails,
-    );
-    const actionStatus = document.createElement("div");
-    actionStatus.className = "pptx-viewer__action-status";
-    actionStatus.setAttribute("role", "status");
-    actionStatus.setAttribute("aria-live", "polite");
+
+    const toggleFullscreen = controls.createEl("button", {
+      type: "button",
+      text: this.messages.text("fullscreen.button"),
+      attr: {
+        "data-action": "toggle-fullscreen",
+        "aria-label": this.messages.text("fullscreen.enterLabel"),
+      },
+    });
+
+    const toggleThumbnails = controls.createEl("button", {
+      type: "button",
+      text: this.messages.text("thumbnails.toggle"),
+      attr: {
+        "data-action": "toggle-thumbnails",
+        "aria-label": this.messages.text("thumbnails.toggleLabel"),
+        "aria-expanded": "true",
+      },
+    });
+
+    const actionStatus = this.root.createEl("div", {
+      cls: "pptx-viewer__action-status",
+      attr: { role: "status", "aria-live": "polite" },
+    });
+
     const openExternally = this.createExternalOpenButton(
       file,
       generation,
@@ -241,9 +263,6 @@ export class PptxViewSession<FileRef> {
     );
     if (openExternally) controls.append(openExternally);
     const diagnosticButton = this.createDiagnosticButton(actionStatus);
-    const header = document.createElement("div");
-    header.className = "pptx-viewer__header pptx-viewer__status";
-    header.append(status);
     if (diagnosticButton) {
       diagnosticButton.classList.add("pptx-viewer__diagnostic-shortcut");
       diagnosticButton.textContent = "⧉";
@@ -254,22 +273,14 @@ export class PptxViewSession<FileRef> {
       diagnosticButton.title = this.messages.text("diagnostics.copy");
       header.append(diagnosticButton);
     }
-    const slideContainer = document.createElement("div");
-    slideContainer.className = "pptx-viewer__slide";
-    const thumbnailRoot = document.createElement("div");
-    const readingBody = document.createElement("div");
-    readingBody.className = "pptx-viewer__reading-body";
-    readingBody.append(thumbnailRoot, slideContainer);
-    const compatibility = document.createElement("div");
-    compatibility.className = "pptx-viewer__compatibility";
-    compatibility.setAttribute("role", "note");
-    this.root.replaceChildren(
-      header,
-      compatibility,
-      controls,
-      actionStatus,
-      readingBody,
-    );
+
+    const readingBody = this.root.createEl("div", {
+      cls: "pptx-viewer__reading-body",
+    });
+    const thumbnailRoot = readingBody.createEl("div");
+    const slideContainer = readingBody.createEl("div", {
+      cls: "pptx-viewer__slide",
+    });
     this.root.dataset.state = "loading";
     this.setLifecyclePhase("reading");
     delete this.root.dataset.errorCategory;
@@ -693,24 +704,26 @@ export class PptxViewSession<FileRef> {
     error: PptxOpenError,
     generation: number,
   ): void {
-    const panel = document.createElement("div");
-    panel.className = "pptx-viewer__error";
-    const title = document.createElement("div");
-    title.className = "pptx-viewer__status";
-    title.textContent = this.messages.text(errorMessageKeys[error.category]);
-    const safety = document.createElement("p");
-    safety.className = "pptx-viewer__safety-note";
-    safety.textContent = this.messages.text(
-      error.category === "unsupported-legacy"
-        ? "error.sourceUnmodifiedLegacy"
-        : "error.sourceUnmodified",
-    );
-    const actions = document.createElement("div");
-    actions.className = "pptx-viewer__actions";
-    const retry = document.createElement("button");
-    retry.type = "button";
-    retry.dataset.action = "retry";
-    retry.textContent = this.messages.text("error.retry");
+    this.root.replaceChildren();
+    const panel = this.root.createEl("div", { cls: "pptx-viewer__error" });
+    panel.createEl("div", {
+      cls: "pptx-viewer__status",
+      text: this.messages.text(errorMessageKeys[error.category]),
+    });
+    panel.createEl("p", {
+      cls: "pptx-viewer__safety-note",
+      text: this.messages.text(
+        error.category === "unsupported-legacy"
+          ? "error.sourceUnmodifiedLegacy"
+          : "error.sourceUnmodified",
+      ),
+    });
+    const actions = panel.createEl("div", { cls: "pptx-viewer__actions" });
+    const retry = actions.createEl("button", {
+      type: "button",
+      text: this.messages.text("error.retry"),
+      attr: { "data-action": "retry" },
+    });
     retry.addEventListener("click", () => {
       if (error.category === "unsupported-legacy") {
         this.openUnsupportedLegacy(
@@ -721,10 +734,10 @@ export class PptxViewSession<FileRef> {
       }
       void this.open(file);
     });
-    actions.append(retry);
 
-    const actionStatus = document.createElement("div");
-    actionStatus.className = "pptx-viewer__action-status";
+    const actionStatus = panel.createEl("div", {
+      cls: "pptx-viewer__action-status",
+    });
     const openExternally = this.createExternalOpenButton(
       file,
       generation,
@@ -734,8 +747,6 @@ export class PptxViewSession<FileRef> {
     const diagnosticButton = this.createDiagnosticButton(actionStatus);
     if (diagnosticButton) actions.append(diagnosticButton);
 
-    panel.append(title, safety, actions, actionStatus);
-    this.root.replaceChildren(panel);
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = error.category;
     this.diagnosticError = error.category;
@@ -748,6 +759,7 @@ export class PptxViewSession<FileRef> {
     actionStatus: HTMLElement,
   ): HTMLButtonElement | null {
     if (!this.options.openExternally) return null;
+    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone button returned and appended later by caller
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.action = "open-externally";
@@ -770,10 +782,10 @@ export class PptxViewSession<FileRef> {
     const unique = [...new Set(categories)].sort();
     container.replaceChildren();
     for (const category of unique) {
-      const warning = document.createElement("p");
-      warning.dataset.warningCategory = category;
-      warning.textContent = this.messages.text(warningMessageKeys[category]);
-      container.append(warning);
+      container.createEl("p", {
+        text: this.messages.text(warningMessageKeys[category]),
+        attr: { "data-warning-category": category },
+      });
     }
     if (unique.length > 0) {
       this.root.dataset.warningCategories = unique.join(",");
@@ -788,6 +800,7 @@ export class PptxViewSession<FileRef> {
   ): HTMLButtonElement | null {
     const diagnostics = this.options.diagnostics;
     if (!diagnostics) return null;
+    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone button returned and appended later by caller
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.action = "copy-diagnostics";

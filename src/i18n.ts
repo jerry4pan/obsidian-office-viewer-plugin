@@ -232,9 +232,11 @@ function interpolate(
   template: string,
   parameters: MessageParameters = {},
 ): string {
-  return template.replace(/\{([a-z][a-zA-Z0-9]*)\}/g, (placeholder, name) =>
-    parameters[name] === undefined ? placeholder : String(parameters[name])
-  );
+  return template.replace(/\{([a-z][a-zA-Z0-9]*)\}/g, (placeholder, name) => {
+    const key = name as keyof MessageParameters;
+    const value: string | number | undefined = parameters[key];
+    return value === undefined ? placeholder : String(value);
+  });
 }
 
 export function createMessageTranslator(

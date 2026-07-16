@@ -131,6 +131,7 @@ class AidenPptxRendererSession implements PptxRendererSession {
   async prefetchSlide(index: number, signal: AbortSignal): Promise<void> {
     this.throwIfDisposed();
     signal.throwIfAborted();
+    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone container passed to external renderer API
     const container = document.createElement("div");
     const handle = this.viewer.renderSlideToContainer(index, container);
     if (!handle) {

@@ -22,6 +22,7 @@ export interface ThumbnailRailResizerOptions {
 }
 
 export class ThumbnailRailResizer {
+  // eslint-disable-next-line obsidianmd/prefer-create-el -- public field initializer, parent assigned later
   readonly element = document.createElement("div");
   private preferredWidth: number;
   private actualWidth: number;
@@ -149,7 +150,7 @@ export class ThumbnailRailResizer {
 
   private scheduleHostResize(): void {
     if (this.disposed || this.resizeFrame !== undefined) return;
-    this.resizeFrame = requestAnimationFrame(() => {
+    this.resizeFrame = window.requestAnimationFrame(() => {
       this.resizeFrame = undefined;
       if (!this.disposed) this.applyWidth(false, true);
     });

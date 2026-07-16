@@ -7,12 +7,18 @@ import JSZip from "jszip";
 
 const execFileAsync = promisify(execFile);
 
+const MANIFEST = JSON.parse(
+  await readFile("manifest.json", "utf-8"),
+) as { version: string };
+
+const VERSION = MANIFEST.version;
+
 describe("release artifacts", () => {
   it("accepts synchronized package, manifest, versions, and required files", async () => {
     await expect(
       execFileAsync(process.execPath, ["scripts/check-release.mjs"]),
     ).resolves.toMatchObject({
-      stdout: expect.stringContaining("office-viewer v0.0.1"),
+      stdout: expect.stringContaining(`office-viewer v${VERSION}`),
     });
   });
 
@@ -56,6 +62,6 @@ describe("release artifacts", () => {
     const packagedManifest = JSON.parse(
       await zip.file("manifest.json")!.async("text"),
     ) as { version: string };
-    expect(packagedManifest.version).toBe("0.0.1");
+    expect(packagedManifest.version).toBe(VERSION);
   });
 });

@@ -55,9 +55,11 @@ async function waitForReady(
   let onAbort: (() => void) | undefined;
   const aborted = new Promise<never>((_resolve, reject) => {
     onAbort = () => {
+      const reason = signal.reason;
       reject(
-        signal.reason ??
-          new DOMException("The operation was aborted.", "AbortError"),
+        reason instanceof Error
+          ? reason
+          : new DOMException("The operation was aborted.", "AbortError"),
       );
     };
     signal.addEventListener("abort", onAbort, { once: true });
@@ -72,8 +74,10 @@ async function waitForReady(
 export class ThumbnailRail {
   private readonly disposedResources = new WeakSet<PptxRendererResource>();
   private readonly mounted = new Map<number, MountedThumbnail>();
+  // eslint-disable-next-line obsidianmd/prefer-create-el -- field initializer, appended later in start()
   private readonly mountedLayer = document.createElement("div");
   private readonly queueKeyPrefix = `thumbnail:rail-${nextRailId++}:`;
+  // eslint-disable-next-line obsidianmd/prefer-create-el -- field initializer, appended later in start()
   private readonly spacer = document.createElement("div");
   private itemHeight: number;
   private readonly overscanViewports: number;
@@ -299,6 +303,7 @@ export class ThumbnailRail {
   }
 
   private mount(index: number, windowStart: number): MountedThumbnail {
+    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone button returned and appended later to mountedLayer
     const button = document.createElement("button");
     button.type = "button";
     button.className = "pptx-viewer__thumbnail";
@@ -311,18 +316,19 @@ export class ThumbnailRail {
     button.style.height = `${this.itemHeight}px`;
     button.style.top = `${(index - windowStart) * this.itemHeight}px`;
 
-    const preview = document.createElement("span");
-    preview.className = "pptx-viewer__thumbnail-preview";
+    const preview = button.createEl("span", {
+      cls: "pptx-viewer__thumbnail-preview",
+    });
     preview.style.width = `${this.thumbnailWidth}px`;
     preview.style.setProperty(
       "--pptx-slide-aspect-ratio",
       `${this.renderer.slideWidth} / ${this.renderer.slideHeight}`,
     );
-    const number = document.createElement("span");
-    number.className = "pptx-viewer__thumbnail-number";
-    number.setAttribute("aria-hidden", "true");
-    number.textContent = String(index + 1);
-    button.append(preview, number);
+    button.createEl("span", {
+      cls: "pptx-viewer__thumbnail-number",
+      text: String(index + 1),
+      attr: { "aria-hidden": "true" },
+    });
     button.addEventListener("click", () => this.options.onNavigate(index));
 
     const item: MountedThumbnail = { button, index, preview, state: "idle" };
