@@ -55,7 +55,7 @@ async function waitForReady(
   let onAbort: (() => void) | undefined;
   const aborted = new Promise<never>((_resolve, reject) => {
     onAbort = () => {
-      const reason = signal.reason;
+      const reason: unknown = signal.reason;
       reject(
         reason instanceof Error
           ? reason
@@ -74,11 +74,9 @@ async function waitForReady(
 export class ThumbnailRail {
   private readonly disposedResources = new WeakSet<PptxRendererResource>();
   private readonly mounted = new Map<number, MountedThumbnail>();
-  // eslint-disable-next-line obsidianmd/prefer-create-el -- field initializer, appended later in start()
-  private readonly mountedLayer = document.createElement("div");
+  private readonly mountedLayer = createDiv();
   private readonly queueKeyPrefix = `thumbnail:rail-${nextRailId++}:`;
-  // eslint-disable-next-line obsidianmd/prefer-create-el -- field initializer, appended later in start()
-  private readonly spacer = document.createElement("div");
+  private readonly spacer = createDiv();
   private itemHeight: number;
   private readonly overscanViewports: number;
   private readonly resizeObserver:
@@ -303,20 +301,21 @@ export class ThumbnailRail {
   }
 
   private mount(index: number, windowStart: number): MountedThumbnail {
-    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone button returned and appended later to mountedLayer
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "pptx-viewer__thumbnail";
-    button.dataset.action = "thumbnail-slide";
-    button.dataset.slideIndex = String(index);
-    button.setAttribute(
-      "aria-label",
-      this.messages.text("thumbnails.slideLabel", { slide: index + 1 }),
-    );
+    const button = createEl("button", {
+      type: "button",
+      cls: "pptx-viewer__thumbnail",
+      attr: {
+        "data-action": "thumbnail-slide",
+        "data-slide-index": String(index),
+        "aria-label": this.messages.text("thumbnails.slideLabel", {
+          slide: index + 1,
+        }),
+      },
+    });
     button.style.height = `${this.itemHeight}px`;
     button.style.top = `${(index - windowStart) * this.itemHeight}px`;
 
-    const preview = button.createEl("span", {
+    const preview = button.createSpan({
       cls: "pptx-viewer__thumbnail-preview",
     });
     preview.style.width = `${this.thumbnailWidth}px`;
@@ -324,7 +323,7 @@ export class ThumbnailRail {
       "--pptx-slide-aspect-ratio",
       `${this.renderer.slideWidth} / ${this.renderer.slideHeight}`,
     );
-    button.createEl("span", {
+    button.createSpan({
       cls: "pptx-viewer__thumbnail-number",
       text: String(index + 1),
       attr: { "aria-hidden": "true" },

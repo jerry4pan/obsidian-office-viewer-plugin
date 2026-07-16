@@ -37,9 +37,7 @@ function measureFontAvailability(font: string): boolean | null {
   if (!document.body) return null;
   const sample = "mmmmmmmmmwwwwwiiiii0123456789";
   const family = font.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-  // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone probe for font measurement
-  const probe = document.createElement("span");
-  probe.textContent = sample;
+  const probe = createSpan({ text: sample });
   probe.setCssStyles({
     fontSize: "72px",
     position: "absolute",

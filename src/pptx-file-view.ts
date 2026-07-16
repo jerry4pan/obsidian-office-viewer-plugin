@@ -29,7 +29,7 @@ function createExternalOpenAction(
   const adapter = app.vault.adapter as Partial<DesktopVaultAdapter> | undefined;
   if (!adapter || typeof adapter.getFullPath !== "function") return undefined;
   return async (file) => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron shell is only available at desktop runtime
     const { shell } = require("electron") as {
       shell: { openPath(path: string): Promise<string> };
     };
@@ -51,7 +51,7 @@ export class PptxFileView extends FileView {
   ) {
     super(leaf);
     this.contentEl.replaceChildren();
-    const root = this.contentEl.createEl("div");
+    const root = this.contentEl.createDiv();
     this.session = new PptxViewSession(
       root,
       { readBinary: (file) => this.app.vault.readBinary(file) },

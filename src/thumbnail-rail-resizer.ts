@@ -22,8 +22,7 @@ export interface ThumbnailRailResizerOptions {
 }
 
 export class ThumbnailRailResizer {
-  // eslint-disable-next-line obsidianmd/prefer-create-el -- public field initializer, parent assigned later
-  readonly element = document.createElement("div");
+  readonly element = createDiv();
   private preferredWidth: number;
   private actualWidth: number;
   private dragging:

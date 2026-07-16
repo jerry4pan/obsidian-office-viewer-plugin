@@ -140,7 +140,7 @@ export class PptxViewSession<FileRef> {
     this.messages = options.messages ?? ENGLISH_MESSAGE_TRANSLATOR;
     root.classList.add("pptx-viewer");
     root.replaceChildren();
-    root.createEl("div", {
+    root.createDiv({
       cls: "pptx-viewer__empty",
       text: this.messages.text("viewer.empty"),
     });
@@ -166,21 +166,21 @@ export class PptxViewSession<FileRef> {
 
     this.root.replaceChildren();
 
-    const header = this.root.createEl("div", {
+    const header = this.root.createDiv({
       cls: "pptx-viewer__header pptx-viewer__status",
     });
-    const status = header.createEl("div", {
+    const status = header.createDiv({
       cls: "pptx-viewer__status-text",
       text: this.messages.text("viewer.loading"),
       attr: { role: "status", "aria-live": "polite" },
     });
 
-    const compatibility = this.root.createEl("div", {
+    const compatibility = this.root.createDiv({
       cls: "pptx-viewer__compatibility",
       attr: { role: "note" },
     });
 
-    const controls = this.root.createEl("div", {
+    const controls = this.root.createDiv({
       cls: "pptx-viewer__controls",
     });
 
@@ -191,7 +191,7 @@ export class PptxViewSession<FileRef> {
     });
     previousButton.disabled = true;
 
-    const pageCounter = controls.createEl("div", {
+    const pageCounter = controls.createDiv({
       cls: "pptx-viewer__page-counter",
     });
 
@@ -205,7 +205,7 @@ export class PptxViewSession<FileRef> {
     const jumpForm = controls.createEl("form", {
       cls: "pptx-viewer__page-jump",
     });
-    jumpForm.createEl("span", {
+    jumpForm.createSpan({
       text: this.messages.text("navigation.slide"),
     });
     const pageInput = jumpForm.createEl("input", {
@@ -220,7 +220,7 @@ export class PptxViewSession<FileRef> {
     pageInput.value = "1";
     pageInput.disabled = true;
 
-    const pageTotal = jumpForm.createEl("span", {
+    const pageTotal = jumpForm.createSpan({
       cls: "pptx-viewer__page-total",
       text: this.messages.text("navigation.pageTotalPending"),
     });
@@ -251,7 +251,7 @@ export class PptxViewSession<FileRef> {
       },
     });
 
-    const actionStatus = this.root.createEl("div", {
+    const actionStatus = this.root.createDiv({
       cls: "pptx-viewer__action-status",
       attr: { role: "status", "aria-live": "polite" },
     });
@@ -274,11 +274,11 @@ export class PptxViewSession<FileRef> {
       header.append(diagnosticButton);
     }
 
-    const readingBody = this.root.createEl("div", {
+    const readingBody = this.root.createDiv({
       cls: "pptx-viewer__reading-body",
     });
-    const thumbnailRoot = readingBody.createEl("div");
-    const slideContainer = readingBody.createEl("div", {
+    const thumbnailRoot = readingBody.createDiv();
+    const slideContainer = readingBody.createDiv({
       cls: "pptx-viewer__slide",
     });
     this.root.dataset.state = "loading";
@@ -705,8 +705,8 @@ export class PptxViewSession<FileRef> {
     generation: number,
   ): void {
     this.root.replaceChildren();
-    const panel = this.root.createEl("div", { cls: "pptx-viewer__error" });
-    panel.createEl("div", {
+    const panel = this.root.createDiv({ cls: "pptx-viewer__error" });
+    panel.createDiv({
       cls: "pptx-viewer__status",
       text: this.messages.text(errorMessageKeys[error.category]),
     });
@@ -718,7 +718,7 @@ export class PptxViewSession<FileRef> {
           : "error.sourceUnmodified",
       ),
     });
-    const actions = panel.createEl("div", { cls: "pptx-viewer__actions" });
+    const actions = panel.createDiv({ cls: "pptx-viewer__actions" });
     const retry = actions.createEl("button", {
       type: "button",
       text: this.messages.text("error.retry"),
@@ -735,7 +735,7 @@ export class PptxViewSession<FileRef> {
       void this.open(file);
     });
 
-    const actionStatus = panel.createEl("div", {
+    const actionStatus = panel.createDiv({
       cls: "pptx-viewer__action-status",
     });
     const openExternally = this.createExternalOpenButton(
@@ -759,11 +759,11 @@ export class PptxViewSession<FileRef> {
     actionStatus: HTMLElement,
   ): HTMLButtonElement | null {
     if (!this.options.openExternally) return null;
-    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone button returned and appended later by caller
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.action = "open-externally";
-    button.textContent = this.messages.text("external.open");
+    const button = createEl("button", {
+      type: "button",
+      text: this.messages.text("external.open"),
+      attr: { "data-action": "open-externally" },
+    });
     button.addEventListener("click", () => {
       actionStatus.textContent = "";
       void this.options.openExternally?.(file).catch(() => {
@@ -800,11 +800,11 @@ export class PptxViewSession<FileRef> {
   ): HTMLButtonElement | null {
     const diagnostics = this.options.diagnostics;
     if (!diagnostics) return null;
-    // eslint-disable-next-line obsidianmd/prefer-create-el -- standalone button returned and appended later by caller
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.action = "copy-diagnostics";
-    button.textContent = this.messages.text("diagnostics.copy");
+    const button = createEl("button", {
+      type: "button",
+      text: this.messages.text("diagnostics.copy"),
+      attr: { "data-action": "copy-diagnostics" },
+    });
     button.addEventListener("click", () => {
       actionStatus.textContent = "";
       const summary = createDiagnosticSummary({
