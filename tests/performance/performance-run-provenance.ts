@@ -27,7 +27,7 @@ export interface PerformanceBaselineProvenanceLock {
   readonly attemptRunIds: readonly string[];
   readonly outcomes: readonly PerformanceRunAttempt["outcome"][];
   readonly acceptedRunIds: readonly string[];
-  readonly bundleBytes: number;
+  readonly bundleBytes: readonly number[];
   readonly representativeFixtureSha256: string;
 }
 
@@ -200,8 +200,16 @@ function assertPerformanceBaselineProvenanceLock(
   ) {
     throw new Error("performance provenance lock acceptedRunIds must be non-empty strings");
   }
-  if (!Number.isInteger(value.bundleBytes) || (value.bundleBytes as number) < 0) {
-    throw new Error("performance provenance lock bundleBytes must be a non-negative integer");
+  if (
+    !Array.isArray(value.bundleBytes) ||
+    value.bundleBytes.length !== value.attemptRunIds.length ||
+    value.bundleBytes.some(
+      (bundleBytes) => !Number.isInteger(bundleBytes) || bundleBytes < 0,
+    )
+  ) {
+    throw new Error(
+      "performance provenance lock bundleBytes must align with attempts and contain non-negative integers",
+    );
   }
   if (
     typeof value.representativeFixtureSha256 !== "string" ||
@@ -225,8 +233,8 @@ export function assertPerformanceRunProvenanceMatchesLock(
     JSON.stringify(provenance.acceptedRunIds) !==
       JSON.stringify(lockValue.acceptedRunIds) ||
     provenance.attempts.some(
-      (attempt) =>
-        attempt.bundleBytes !== lockValue.bundleBytes ||
+      (attempt, index) =>
+        attempt.bundleBytes !== lockValue.bundleBytes[index] ||
         attempt.representativeFixtureSha256 !==
           lockValue.representativeFixtureSha256,
     )

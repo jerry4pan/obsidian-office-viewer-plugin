@@ -22,6 +22,10 @@ import {
 import { inspectActiveFixture } from "../compatibility/fixture-inspection";
 import { fileSha256 } from "../compatibility/hash";
 import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
+import {
+  closeSettings,
+  setDiagnosticSummaryEnabled,
+} from "./office-viewer-settings";
 
 const renderer = activeRendererAcceptanceConfig();
 const artifactDir = renderer.paths.compatibilityArtifactDir;
@@ -56,6 +60,8 @@ describe("installed PPTX compatibility corpus", () => {
     await mkdir(artifactDir, { recursive: true });
     await applyFixedEnvironment(CORPUS_ENVIRONMENT);
     await installNetworkGuard();
+    await setDiagnosticSummaryEnabled(true, "Diagnostic summary");
+    await closeSettings();
 
     const sourceHashes = new Map<string, string>();
     for (const fixture of corpusManifest) {

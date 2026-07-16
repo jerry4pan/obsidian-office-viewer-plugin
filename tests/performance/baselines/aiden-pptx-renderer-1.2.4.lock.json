@@ -1,16 +1,31 @@
 {
   "attemptRunIds": [
     "1a9744a2-cc53-41dd-8f9f-3f3ff82ae0cc",
-    "1f54c57e-a1ed-4b88-9e97-b9d54821db8d"
+    "1f54c57e-a1ed-4b88-9e97-b9d54821db8d",
+    "a2b2bc9f-a215-48a5-86ba-c2453b0f516d",
+    "493d87bf-23d7-4042-a808-bd17603062d0",
+    "ab365edd-8a70-4a6d-b505-ecc7a3455646",
+    "0a20df3d-2393-4989-b605-560bfe8fbd28"
   ],
   "outcomes": [
+    "passed",
+    "passed",
+    "passed",
+    "passed",
     "passed",
     "passed"
   ],
   "acceptedRunIds": [
-    "1a9744a2-cc53-41dd-8f9f-3f3ff82ae0cc",
-    "1f54c57e-a1ed-4b88-9e97-b9d54821db8d"
+    "ab365edd-8a70-4a6d-b505-ecc7a3455646",
+    "0a20df3d-2393-4989-b605-560bfe8fbd28"
   ],
-  "bundleBytes": 1199730,
+  "bundleBytes": [
+    1199730,
+    1199730,
+    1200540,
+    1200540,
+    1200758,
+    1200758
+  ],
   "representativeFixtureSha256": "d613d62d93be1a11c9a52537ecf2bcd5bbc8c0aae8cd4c6b84b721ebc96d8948"
 }

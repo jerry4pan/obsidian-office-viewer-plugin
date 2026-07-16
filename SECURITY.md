@@ -2,8 +2,8 @@
 
 ## Supported release
 
-Security fixes target the latest published Office Viewer release. This M3
-development branch is not yet a public release.
+Security fixes target the latest published Office Viewer release on GitHub and
+in Obsidian Community Plugins.
 
 ## Security model
 
@@ -17,6 +17,10 @@ development branch is not yet a public release.
   to the open generation.
 - Candidate exceptions are mapped to stable categories before user display or
   diagnostic export.
+- Non-blocking compatibility warnings can be disabled by turning off
+  **Diagnostic summary**. Security rejections for macros, ActiveX, external
+  content, resource limits, and other blocking failures are not controlled by
+  that setting.
 
 Office Viewer is a previewer, not a malware scanner or a complete PowerPoint
 security boundary. Do not treat a successful preview as proof that a file is

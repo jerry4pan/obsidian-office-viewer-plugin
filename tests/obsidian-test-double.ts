@@ -33,6 +33,13 @@ export class PluginSettingTab {
 export class ToggleComponent {
   private value = false;
   private change: ((value: boolean) => unknown) | undefined;
+  readonly toggleEl = document.createElement("label");
+
+  constructor() {
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    this.toggleEl.append(input);
+  }
 
   setValue(value: boolean): this {
     this.value = value;
@@ -83,6 +90,7 @@ export class Setting {
 
   addToggle(configure: (toggle: ToggleComponent) => unknown): this {
     configure(this.toggle);
+    this.settingEl.append(this.toggle.toggleEl);
     Object.defineProperty(this.settingEl, "testToggle", {
       value: this.toggle,
     });

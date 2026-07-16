@@ -82,9 +82,9 @@ describe("OfficeViewerPlugin", () => {
   );
 
   it.each([
-    ["en", "Local processing and privacy", "Presentation bytes stay on this device", "Compatibility and safety", "Rendering is a read-only preview", "Diagnostic summary", "excludes filenames, paths, slide text, images, and author metadata"],
-    ["zh-CN", "本地处理与隐私", "演示文稿数据始终保留在此设备上", "兼容性与安全", "渲染结果是只读预览", "诊断摘要", "不包含文件名、路径、幻灯片文本、图像或作者元数据"],
-    ["zh-TW", "本機處理與隱私", "簡報資料始終保留在此裝置上", "相容性與安全", "呈現結果是唯讀預覽", "診斷摘要", "不包含檔名、路徑、投影片文字、影像或作者中繼資料"],
+    ["en", "Local processing and privacy", "Presentation bytes stay on this device", "Compatibility and safety", "Blocking errors always stay visible", "Diagnostic summary", "Off by default. When enabled, detectable compatibility warnings"],
+    ["zh-CN", "本地处理与隐私", "演示文稿数据始终保留在此设备上", "兼容性与安全", "阻断性错误始终可见", "诊断摘要", "默认关闭。开启后，下一次打开、重试或重新加载文件时会显示"],
+    ["zh-TW", "本機處理與隱私", "簡報資料始終保留在此裝置上", "相容性與安全", "阻斷性錯誤始終可見", "診斷摘要", "預設關閉。開啟後，下一次開啟、重試或重新載入檔案時會顯示"],
   ] as const)(
     "explains M3 settings in the Obsidian %s language",
     async (
@@ -119,6 +119,11 @@ describe("OfficeViewerPlugin", () => {
       expect(settingTab.containerEl.textContent).toContain(
         diagnosticsDescription,
       );
+      expect(
+        settingTab.containerEl.querySelector(
+          `input[type="checkbox"][aria-label="${diagnostics}"]`,
+        ),
+      ).not.toBeNull();
     },
   );
 
@@ -373,9 +378,10 @@ describe("OfficeViewerPlugin", () => {
     };
 
     settingTab.display();
-    const diagnosticSetting = [...settingTab.containerEl.children].find((child) =>
-      child.textContent?.includes("Diagnostic summary"),
-    ) as HTMLElement & {
+    const diagnosticSetting = [...settingTab.containerEl.children].find((child) => {
+      const nameEl = child.firstElementChild;
+      return nameEl?.textContent === "Diagnostic summary";
+    }) as HTMLElement & {
       testToggle: ToggleComponent & { trigger(value: boolean): Promise<void> };
     };
     expect(diagnosticSetting.testToggle.getValue()).toBe(false);

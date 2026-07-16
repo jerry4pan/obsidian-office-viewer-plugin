@@ -5,9 +5,9 @@ import { createMessageTranslator } from "./i18n";
 import { OfficeViewerSettingTab } from "./office-viewer-setting-tab";
 import { PptxFileView, PPTX_VIEW_TYPE } from "./pptx-file-view";
 import {
-  ReadingPositionStore,
+  OfficeViewerDataStore,
   type FileFingerprint,
-} from "./reading-position-store";
+} from "./office-viewer-data-store";
 import { reportNonFatalError } from "./report-error";
 
 function fingerprint(file: TFile): FileFingerprint {
@@ -20,7 +20,7 @@ function fingerprint(file: TFile): FileFingerprint {
 
 export default class OfficeViewerPlugin extends Plugin {
   private readonly views = new Set<PptxFileView>();
-  private store: ReadingPositionStore | undefined;
+  private store: OfficeViewerDataStore | undefined;
   private unloading = false;
 
   override async onload(): Promise<void> {
@@ -32,7 +32,7 @@ export default class OfficeViewerPlugin extends Plugin {
       rendererVersion: process.env.PPTX_RENDERER_VERSION ?? "unknown",
       operatingSystem: `${process.platform}-${process.arch}`,
     };
-    const store = new ReadingPositionStore({
+    const store = new OfficeViewerDataStore({
       loadData: () => this.loadData(),
       saveData: (data) => this.saveData(data),
     });

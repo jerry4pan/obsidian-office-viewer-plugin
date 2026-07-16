@@ -5,6 +5,10 @@ import {
   assertNoNetworkRequests,
   installNetworkGuard,
 } from "../compatibility/browser-environment";
+import {
+  closeSettings,
+  setDiagnosticSummaryEnabled,
+} from "./office-viewer-settings";
 
 async function sourceHash(): Promise<string> {
   return browser.executeObsidian(async ({ app, obsidian, require }) => {
@@ -27,19 +31,8 @@ describe("packaged release lifecycle", () => {
     await expect(installed.$('[data-action="copy-diagnostics"]')).not.toExist();
     expect(await sourceHash()).toBe(before);
 
-    await browser.executeObsidian(async ({ app }) => {
-      const plugin = (app as unknown as {
-        plugins: { plugins: Record<string, unknown> };
-      }).plugins.plugins["office-viewer"] as {
-        store?: {
-          setDiagnosticSummary(enabled: boolean): Promise<void>;
-          flush(): Promise<void>;
-        };
-      };
-      if (!plugin?.store) throw new Error("Installed office-viewer store unavailable");
-      await plugin.store.setDiagnosticSummary(true);
-      await plugin.store.flush();
-    });
+    await setDiagnosticSummaryEnabled(true, "Diagnostic summary");
+    await closeSettings();
     await obsidianPage.openFile("minimal.pptx");
     await expect(
       browser.$('.pptx-viewer[data-state="ready"] [data-action="copy-diagnostics"]'),

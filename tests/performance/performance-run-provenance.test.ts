@@ -62,7 +62,7 @@ describe("performance run provenance", () => {
       attemptRunIds: ["1", "2", "3"],
       outcomes: ["failed", "passed", "passed"],
       acceptedRunIds: ["2", "3"],
-      bundleBytes: provenance.attempts[0]!.bundleBytes,
+      bundleBytes: provenance.attempts.map(({ bundleBytes }) => bundleBytes),
       representativeFixtureSha256:
         provenance.attempts[0]!.representativeFixtureSha256,
     };
@@ -79,6 +79,31 @@ describe("performance run provenance", () => {
     ).toThrow(/provenance lock/);
   });
 
+  it("anchors each retained attempt to the bundle it actually measured", () => {
+    let provenance = emptyPerformanceRunProvenance();
+    provenance = appendPerformanceRunAttempt(provenance, attempt("1", "passed"));
+    provenance = appendPerformanceRunAttempt(provenance, {
+      ...attempt("2", "passed"),
+      bundleBytes: 1_200_540,
+    });
+    provenance = appendPerformanceRunAttempt(provenance, {
+      ...attempt("3", "passed"),
+      bundleBytes: 1_200_540,
+    });
+    const lock = {
+      attemptRunIds: ["1", "2", "3"],
+      outcomes: ["passed", "passed", "passed"],
+      acceptedRunIds: ["2", "3"],
+      bundleBytes: [1_171_580, 1_200_540, 1_200_540],
+      representativeFixtureSha256:
+        provenance.attempts[0]!.representativeFixtureSha256,
+    };
+
+    expect(() =>
+      assertPerformanceRunProvenanceMatchesLock(provenance, lock),
+    ).not.toThrow();
+  });
+
   it("anchors every retained attempt outcome in the baseline lock", () => {
     let provenance = emptyPerformanceRunProvenance();
     provenance = appendPerformanceRunAttempt(provenance, attempt("1", "failed"));
@@ -88,7 +113,7 @@ describe("performance run provenance", () => {
       attemptRunIds: ["1", "2", "3"],
       outcomes: ["passed", "passed", "passed"],
       acceptedRunIds: ["2", "3"],
-      bundleBytes: provenance.attempts[0]!.bundleBytes,
+      bundleBytes: provenance.attempts.map(({ bundleBytes }) => bundleBytes),
       representativeFixtureSha256:
         provenance.attempts[0]!.representativeFixtureSha256,
     };

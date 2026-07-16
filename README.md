@@ -3,6 +3,25 @@
 A desktop Obsidian plugin for reading local `.pptx` files right inside
 Obsidian — no PDF conversion, no uploads, no network requests.
 
+The latest published release is **v0.1.5** on GitHub and in Obsidian Community
+Plugins. The `main` branch may contain unreleased changes.
+
+## Install
+
+**Obsidian Community Plugins (recommended)**
+
+1. Open **Settings → Community plugins**.
+2. Enable Community plugins if needed, then open **Browse**.
+3. Search for **Office Viewer**, install it, and enable the plugin.
+
+**GitHub Release**
+
+Download the release ZIP from
+[GitHub Releases](https://github.com/jerry4pan/obsidian-office-viewer-plugin/releases/latest),
+extract `main.js`, `manifest.json`, and `styles.css` to
+`<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
+**Office Viewer**.
+
 ## Features
 
 **Reading**
@@ -40,17 +59,21 @@ Obsidian — no PDF conversion, no uploads, no network requests.
 **Reading position**
 - **Remember reading position** (on by default) reopens each file at the slide
   you left off.
-- Only a file fingerprint is stored — no slide text, images, paths, or personal
-  data. Turn it off at any time to clear saved positions instantly.
+- Stores only a Vault-relative path, file size, modification time, slide index,
+  and update timestamp. It does not store slide text, images, paths outside the
+  Vault, or author metadata. Turn it off at any time to clear saved positions
+  instantly.
 
 **Compatibility awareness**
-- When diagnostic summary is enabled, files with unsupported media or missing
-  fonts display a persistent banner so you know when to double-check in an
-  external application.
+- **Diagnostic summary** is off by default.
+- When enabled, detectable unsupported media or missing fonts show a persistent
+  banner on the next open, retry, or reload of that file.
+- Blocking errors, retry, and **Open in default application** stay visible
+  regardless of the diagnostic setting.
 
 **Diagnostic summary**
-- Off by default. Turn on **Diagnostic summary** in settings to show
-  compatibility warnings and the copy control.
+- Turn on **Diagnostic summary** in settings to show compatibility warnings and
+  the copy control on the next open, retry, or reload.
 - **Copy diagnostic summary** captures versions, file size, slide count,
   timings, and stable categories for troubleshooting. It excludes filenames,
   paths, slide text, images, and any personal or rendered content.
@@ -136,15 +159,18 @@ those two committed files. Run
 `npm run test:performance:baseline` after the copy. A budget miss remains valid
 evidence and must be committed as FAIL rather than tuned away.
 
-`npm run release:check` requires package, manifest, compatibility-version,
-supported-extension, license, and required-documentation consistency.
+`npm run release:check` validates package, manifest, compatibility-version,
+supported-extension, license, and required-documentation consistency without
+requiring a version bump on `main`.
+`npm run release:check:publish` adds tag, commit, and GitHub-release guards
+for tagged releases only.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
 installs that extracted ZIP into a clean test Vault, opens a real PPTX,
 rehearses an in-place package upgrade, and verifies disable/removal without
 network access or source mutation. Tag CI additionally requires `v<version>`
-and proves a second package build is byte-identical before uploading the CI
-artifact; public GitHub release creation remains M4.
+or `<version>`, runs publish checks, and proves a second package build is
+byte-identical before uploading the CI artifact.
 
 ## Current boundaries
 
@@ -158,12 +184,13 @@ artifact; public GitHub release creation remains M4.
 - Rendering is a readable preview, not pixel-perfect PowerPoint fidelity;
   embedded SVG and other advanced content can degrade. Use **Open in default
   application** when the preview is not trustworthy.
-- Known unsupported media and unavailable fonts produce persistent
-  compatibility warnings. Unknown PowerPoint differences may still exist.
+- Detectable unsupported media and unavailable fonts show compatibility
+  warnings only when **Diagnostic summary** is enabled. Unknown PowerPoint
+  differences may still exist.
 - Privacy and security details are in `PRIVACY.md` and `SECURITY.md`; reporting
   and contribution guidance is in `CONTRIBUTING.md`.
-- M4 retains Beta validation, GitHub release publication, and Obsidian
-  Community Plugins submission.
+- Post-release validation and v0.2 planning are tracked in M4; see the PRD and
+  GitHub Issues for current status.
 - Editing, saving, animations, legacy `.ppt` parsing, search, page links,
   embeds, notes, telemetry, accounts, licensing, and cloud services are out of
   scope.

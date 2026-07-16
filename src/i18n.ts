@@ -58,10 +58,10 @@ const ENGLISH_MESSAGES = {
     "Presentation bytes stay on this device. Office Viewer does not upload files or include telemetry.",
   "settings.compatibility": "Compatibility and safety",
   "settings.compatibilityDescription":
-    "Rendering is a read-only preview. Unsupported or potentially inaccurate content is identified when known, and the original file is never modified.",
+    "Rendering is a read-only preview. Blocking errors always stay visible. Detectable non-blocking compatibility warnings and the diagnostic copy control appear only when Diagnostic summary is enabled.",
   "settings.diagnostics": "Diagnostic summary",
   "settings.diagnosticsDescription":
-    "The copied summary includes versions, file size, slide count, timings, and stable categories. It excludes filenames, paths, slide text, images, and author metadata.",
+    "Off by default. When enabled, detectable compatibility warnings and the copy control appear the next time you open, retry, or reload a file. The copied summary includes versions, file size, slide count, timings, and stable categories. It excludes filenames, paths, slide text, images, and author metadata.",
 } as const;
 
 export type MessageKey = keyof typeof ENGLISH_MESSAGES;
@@ -123,10 +123,10 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
     "演示文稿数据始终保留在此设备上。Office Viewer 不会上传文件，也不包含遥测。",
   "settings.compatibility": "兼容性与安全",
   "settings.compatibilityDescription":
-    "渲染结果是只读预览。已知的不支持或可能不准确的内容会显示提示，原始文件始终不会被修改。",
+    "渲染结果是只读预览。阻断性错误始终可见。可检测的非阻断兼容性提示和诊断复制入口仅在开启诊断摘要后显示。",
   "settings.diagnostics": "诊断摘要",
   "settings.diagnosticsDescription":
-    "复制的摘要包含版本、文件大小、幻灯片数量、耗时和稳定分类，不包含文件名、路径、幻灯片文本、图像或作者元数据。",
+    "默认关闭。开启后，下一次打开、重试或重新加载文件时会显示可检测的兼容性提示和复制入口。复制的摘要包含版本、文件大小、幻灯片数量、耗时和稳定分类，不包含文件名、路径、幻灯片文本、图像或作者元数据。",
 } as const satisfies MessageCatalog;
 
 const TRADITIONAL_CHINESE_MESSAGES = {
@@ -184,10 +184,10 @@ const TRADITIONAL_CHINESE_MESSAGES = {
     "簡報資料始終保留在此裝置上。Office Viewer 不會上傳檔案，也不包含遙測。",
   "settings.compatibility": "相容性與安全",
   "settings.compatibilityDescription":
-    "呈現結果是唯讀預覽。已知不支援或可能不準確的內容會顯示提示，原始檔案始終不會被修改。",
+    "呈現結果是唯讀預覽。阻斷性錯誤始終可見。可偵測的非阻斷相容性提示和診斷複製入口僅在開啟診斷摘要後顯示。",
   "settings.diagnostics": "診斷摘要",
   "settings.diagnosticsDescription":
-    "複製的摘要包含版本、檔案大小、投影片數量、耗時和穩定分類，不包含檔名、路徑、投影片文字、影像或作者中繼資料。",
+    "預設關閉。開啟後，下一次開啟、重試或重新載入檔案時會顯示可偵測的相容性提示和複製入口。複製的摘要包含版本、檔案大小、投影片數量、耗時和穩定分類，不包含檔名、路徑、投影片文字、影像或作者中繼資料。",
 } as const satisfies MessageCatalog;
 
 export const MESSAGE_CATALOGS: Readonly<

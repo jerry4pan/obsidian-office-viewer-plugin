@@ -3,6 +3,22 @@
 Obsidian Office Viewer provides a trustworthy, local, read-only presentation
 reading experience inside Obsidian.
 
+## Knowledge workflow
+
+**Knowledge material**:
+A local Office document that a reader uses as input to knowledge work and
+needs to locate, reference, or reuse inside Obsidian without changing the
+source document. Format coverage is valuable only when it advances this
+workflow, not as a standalone measure of product breadth.
+_Avoid_: Supported file, Office file
+
+**Knowledge reference loop**:
+The complete reader journey from finding relevant content, opening its precise
+location, copying or embedding it with its source, and returning to that
+location later. A new document format is useful only when this loop works; a
+standalone preview is not the completed journey.
+_Avoid_: Preview flow, Open-file flow
+
 ## Globalization
 
 **Supported locale**:

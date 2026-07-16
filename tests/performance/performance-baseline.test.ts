@@ -111,7 +111,7 @@ describe("committed installed PPTX performance baseline", () => {
   it.runIf(expectedOutcome === "pass")(
     "anchors the lock to the actual production bundle and committed M2 fixture",
     () => {
-      expect(provenanceLockValue!.bundleBytes).toBe(actualBundleBytes());
+      expect(provenanceLockValue!.bundleBytes.at(-1)).toBe(actualBundleBytes());
       expect(provenanceLockValue!.representativeFixtureSha256).toBe(
         actualRepresentativeFixtureSha256(),
       );
@@ -468,18 +468,10 @@ describe("committed installed PPTX performance baseline", () => {
       const tampered = cloneBaseline() as {
         runProvenance: {
           attempts: unknown[];
-          acceptedRunIds: string[];
         };
       };
       [tampered.runProvenance.attempts[0], tampered.runProvenance.attempts[1]] =
         [tampered.runProvenance.attempts[1], tampered.runProvenance.attempts[0]];
-      [
-        tampered.runProvenance.acceptedRunIds[0],
-        tampered.runProvenance.acceptedRunIds[1],
-      ] = [
-        tampered.runProvenance.acceptedRunIds[1]!,
-        tampered.runProvenance.acceptedRunIds[0]!,
-      ];
 
       expect(() =>
         validateInstalledPerformanceArtifact(

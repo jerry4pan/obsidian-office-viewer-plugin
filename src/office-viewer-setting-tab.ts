@@ -3,14 +3,21 @@ import {
   ENGLISH_MESSAGE_TRANSLATOR,
   type MessageTranslator,
 } from "./i18n";
-import type { ReadingPositionStore } from "./reading-position-store";
+import type { OfficeViewerDataStore } from "./office-viewer-data-store";
 import { reportNonFatalError } from "./report-error";
+
+function labelToggle(toggle: import("obsidian").ToggleComponent, label: string): void {
+  const input = toggle.toggleEl.querySelector<HTMLInputElement>(
+    'input[type="checkbox"]',
+  );
+  (input ?? toggle.toggleEl).setAttribute("aria-label", label);
+}
 
 export class OfficeViewerSettingTab extends PluginSettingTab {
   constructor(
     app: App,
     plugin: Plugin,
-    private readonly store: ReadingPositionStore,
+    private readonly store: OfficeViewerDataStore,
     private readonly messages: MessageTranslator = ENGLISH_MESSAGE_TRANSLATOR,
   ) {
     super(app, plugin);
@@ -85,16 +92,17 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
         this.messages.text("settings.rememberPositionDescription"),
       )
       .addToggle((toggle) =>
-        toggle
-          .setValue(this.store.settings.rememberReadingPosition)
-          .onChange((value) => {
+        {
+          labelToggle(toggle, this.messages.text("settings.rememberPosition"));
+          toggle.setValue(this.store.settings.rememberReadingPosition).onChange((value) => {
             void this.store.setRememberReadingPosition(value).catch((error: unknown) => {
               reportNonFatalError(
                 "Failed to save PPTX reading-position setting",
                 error,
               );
             });
-          }),
+          });
+        },
       );
     new Setting(this.containerEl)
       .setName(this.messages.text("settings.localProcessing"))
@@ -106,16 +114,17 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       .setName(this.messages.text("settings.diagnostics"))
       .setDesc(this.messages.text("settings.diagnosticsDescription"))
       .addToggle((toggle) =>
-        toggle
-          .setValue(this.store.settings.diagnosticSummary)
-          .onChange((value) => {
+        {
+          labelToggle(toggle, this.messages.text("settings.diagnostics"));
+          toggle.setValue(this.store.settings.diagnosticSummary).onChange((value) => {
             void this.store.setDiagnosticSummary(value).catch((error: unknown) => {
               reportNonFatalError(
                 "Failed to save PPTX diagnostic-summary setting",
                 error,
               );
             });
-          }),
+          });
+        },
       );
   }
 }

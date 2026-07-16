@@ -1,8 +1,8 @@
 import {
   type OfficeViewerData,
   type OfficeViewerDataAdapter,
-  ReadingPositionStore,
-} from "../src/reading-position-store";
+  OfficeViewerDataStore,
+} from "../src/office-viewer-data-store";
 
 function clone(data: OfficeViewerData): OfficeViewerData {
   return structuredClone(data);
@@ -27,10 +27,10 @@ function makeDataAdapter(loaded?: unknown): OfficeViewerDataAdapter & {
 
 const deck = { path: "deck.pptx", size: 42, mtime: 10 };
 
-describe("ReadingPositionStore", () => {
+describe("OfficeViewerDataStore", () => {
   it("defaults safely, restores an exact fingerprint, and persists no document content", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     expect(store.settings).toEqual({
@@ -57,7 +57,7 @@ describe("ReadingPositionStore", () => {
       },
       positions: {},
     });
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     expect(store.settings.thumbnailRailWidth).toBe(300);
@@ -70,7 +70,7 @@ describe("ReadingPositionStore", () => {
 
   it("notifies open viewers when the Vault-wide rail width changes", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
     const listener = vi.fn();
     const unsubscribe = store.subscribeThumbnailRailWidth(listener);
@@ -86,7 +86,7 @@ describe("ReadingPositionStore", () => {
 
   it("copies only approved fields from record and rename inputs", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
     const decoratedDeck = {
       ...deck,
@@ -129,7 +129,7 @@ describe("ReadingPositionStore", () => {
         "invalid.pptx": { path: "invalid.pptx", slideIndex: 1 },
       },
     });
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     expect(
@@ -153,7 +153,7 @@ describe("ReadingPositionStore", () => {
         "deck.pptx": { ...deck, slideIndex: 12, updatedAt: 3 },
       },
     });
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     expect(store.resolve(deck, 12)).toBe(0);
@@ -163,7 +163,7 @@ describe("ReadingPositionStore", () => {
 
   it("migrates a saved position on rename", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
     store.record(deck, 4);
 
@@ -188,7 +188,7 @@ describe("ReadingPositionStore", () => {
 
   it("removes a saved position on deletion", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
     store.record(deck, 4);
 
@@ -200,7 +200,7 @@ describe("ReadingPositionStore", () => {
 
   it("uses the last navigation event as the future resume position", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     store.record(deck, 2);
@@ -221,7 +221,7 @@ describe("ReadingPositionStore", () => {
         "deck.pptx": { ...deck, slideIndex: 6, updatedAt: 1 },
       },
     });
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     expect(adapter.loadCalls).toBe(1);
@@ -241,7 +241,7 @@ describe("ReadingPositionStore", () => {
 
   it("rejects invalid runtime fingerprints, indices, and path traversal", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     await store.initialize();
 
     store.record({ ...deck, size: Number.NaN }, 1);
@@ -257,7 +257,7 @@ describe("ReadingPositionStore", () => {
 
   it("does not replace a valid entry when rename receives invalid runtime data", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 60_000 });
     await store.initialize();
     store.record(deck, 4);
 
@@ -271,7 +271,7 @@ describe("ReadingPositionStore", () => {
 
   it("immediately saves an empty position set when disabled and starts clean when re-enabled", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 60_000 });
     await store.initialize();
     store.record(deck, 7);
 
@@ -299,7 +299,7 @@ describe("ReadingPositionStore", () => {
 
   it("persists diagnostic summary independently of reading-position memory", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 60_000 });
     await store.initialize();
     store.record(deck, 7);
 
@@ -337,7 +337,7 @@ describe("ReadingPositionStore", () => {
         await new Promise<void>((resolve) => releases.push(resolve));
       },
     };
-    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 60_000 });
     await store.initialize();
 
     store.record(deck, 1);
@@ -378,7 +378,7 @@ describe("ReadingPositionStore", () => {
           saved.push(clone(data));
         },
       };
-      const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+      const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
       await store.initialize();
       store.record(deck, 3);
       await vi.runAllTimersAsync();
@@ -409,7 +409,7 @@ describe("ReadingPositionStore", () => {
           saved.push(clone(data));
         },
       };
-      const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+      const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
       await store.initialize();
       store.record(deck, 9);
       await vi.runAllTimersAsync();
@@ -425,7 +425,7 @@ describe("ReadingPositionStore", () => {
 
   it("flushes the latest entry when disposed", async () => {
     const adapter = makeDataAdapter();
-    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 60_000 });
     await store.initialize();
     store.record(deck, 2);
     store.record(deck, 6);
@@ -446,7 +446,7 @@ describe("ReadingPositionStore", () => {
       },
       async saveData() {},
     };
-    const store = new ReadingPositionStore(adapter, { debounceMs: 0 });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
     const initializing = store.initialize();
 
     await store.dispose();

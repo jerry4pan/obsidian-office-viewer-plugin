@@ -4,6 +4,12 @@ import {
   assertNoNetworkRequests,
   installNetworkGuard,
 } from "../compatibility/browser-environment";
+import {
+  closeSettings,
+  DIAGNOSTIC_SUMMARY_LABELS,
+  setDiagnosticSummaryEnabled,
+  type DiagnosticSummaryHostLanguage,
+} from "./office-viewer-settings";
 
 const EXPECTED_UI = {
   en: {
@@ -106,22 +112,16 @@ describe("multilingual installed smoke", () => {
     );
     expect(hostLanguage).toBe(expectedHostLanguage);
     const expected = EXPECTED_UI[expectedHostLanguage];
+    const diagnosticHostLanguage =
+      expectedHostLanguage in DIAGNOSTIC_SUMMARY_LABELS
+        ? (expectedHostLanguage as DiagnosticSummaryHostLanguage)
+        : "en";
+    const diagnosticLabel = DIAGNOSTIC_SUMMARY_LABELS[diagnosticHostLanguage];
     const path = "performance/representative-12-slides.pptx";
     const before = await vaultSha256(path);
 
-    await browser.executeObsidian(async ({ app }) => {
-      const plugin = (app as unknown as {
-        plugins: { plugins: Record<string, unknown> };
-      }).plugins.plugins["office-viewer"] as {
-        store?: {
-          setDiagnosticSummary(enabled: boolean): Promise<void>;
-          flush(): Promise<void>;
-        };
-      };
-      if (!plugin?.store) throw new Error("Installed office-viewer store unavailable");
-      await plugin.store.setDiagnosticSummary(true);
-      await plugin.store.flush();
-    });
+    await setDiagnosticSummaryEnabled(true, diagnosticLabel);
+    await closeSettings();
 
     await obsidianPage.openFile(path);
     const root = await browser.$(

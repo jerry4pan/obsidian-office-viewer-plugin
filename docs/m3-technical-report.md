@@ -1,5 +1,10 @@
 # M3 Technical Report
 
+> Post-release amendment (2026-07-16): diagnostic-summary default-off behavior
+> and optional non-blocking compatibility warnings are defined in
+> `docs/superpowers/specs/2026-07-16-v0.1-post-release-alignment-design.md`
+> and the revised PRD. Historical measurements in this report are unchanged.
+
 Date: 2026-07-15
 
 ## Outcome

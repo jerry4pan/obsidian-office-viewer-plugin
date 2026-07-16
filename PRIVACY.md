@@ -10,11 +10,19 @@ a Vault-relative path, file size, modification time, zero-based slide index,
 and update timestamp in the plugin data store. It can be disabled and cleared
 from settings.
 
+**Diagnostic summary** is off by default. When you enable it, detectable
+compatibility warnings and the copy control appear on the next open, retry, or
+reload of a file. Enabling the setting does not upload data or submit a report
+automatically.
+
 The user-triggered diagnostic summary contains plugin, Obsidian, renderer, and
 operating-system versions; source byte size; slide count when known; timings;
 stable warning/error categories; and anonymous feature flags. It excludes
 filenames, paths, presentation text, images, author metadata, URLs, raw errors,
 and rendered content. Copying the summary writes it only to the local clipboard.
+
+Compatibility-check results exist only for the current view lifecycle and are
+not persisted as a document archive.
 
 **Open in default application** is an explicit action. After it is selected,
 the operating system and chosen application control any subsequent processing

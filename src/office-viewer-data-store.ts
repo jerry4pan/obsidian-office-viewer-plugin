@@ -163,7 +163,7 @@ function snapshot(data: OfficeViewerData): OfficeViewerData {
   };
 }
 
-export class ReadingPositionStore {
+export class OfficeViewerDataStore {
   private data: OfficeViewerData = {
     schemaVersion: 1,
     settings: DEFAULT_SETTINGS,
