@@ -62,6 +62,10 @@ const ENGLISH_MESSAGES = {
   "settings.diagnostics": "Diagnostic summary",
   "settings.diagnosticsDescription":
     "Off by default. When enabled, detectable compatibility warnings and the copy control appear the next time you open, retry, or reload a file. The copied summary includes versions, file size, slide count, timings, and stable categories. It excludes filenames, paths, slide text, images, and author metadata.",
+  "settings.supportDevelopment":
+    "If Office Viewer helps your reading workflow, you can support its continued development here.",
+  "settings.supportDevelopmentGitHub": "GitHub Sponsors",
+  "settings.supportDevelopmentCoffee": "Buy Me a Coffee",
 } as const;
 
 export type MessageKey = keyof typeof ENGLISH_MESSAGES;
@@ -127,6 +131,10 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "settings.diagnostics": "诊断摘要",
   "settings.diagnosticsDescription":
     "默认关闭。开启后，下一次打开、重试或重新加载文件时会显示可检测的兼容性提示和复制入口。复制的摘要包含版本、文件大小、幻灯片数量、耗时和稳定分类，不包含文件名、路径、幻灯片文本、图像或作者元数据。",
+  "settings.supportDevelopment":
+    "如果 Office Viewer 对你的阅读流程有帮助，你可以在这里支持它继续开发。",
+  "settings.supportDevelopmentGitHub": "GitHub Sponsors",
+  "settings.supportDevelopmentCoffee": "Buy Me a Coffee",
 } as const satisfies MessageCatalog;
 
 const TRADITIONAL_CHINESE_MESSAGES = {
@@ -188,6 +196,10 @@ const TRADITIONAL_CHINESE_MESSAGES = {
   "settings.diagnostics": "診斷摘要",
   "settings.diagnosticsDescription":
     "預設關閉。開啟後，下一次開啟、重試或重新載入檔案時會顯示可偵測的相容性提示和複製入口。複製的摘要包含版本、檔案大小、投影片數量、耗時和穩定分類，不包含檔名、路徑、投影片文字、影像或作者中繼資料。",
+  "settings.supportDevelopment":
+    "如果 Office Viewer 對你的閱讀流程有幫助，你可以在這裡支持它持續開發。",
+  "settings.supportDevelopmentGitHub": "GitHub Sponsors",
+  "settings.supportDevelopmentCoffee": "Buy Me a Coffee",
 } as const satisfies MessageCatalog;
 
 export const MESSAGE_CATALOGS: Readonly<

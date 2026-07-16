@@ -1,5 +1,11 @@
 import { PluginSettingTab, Setting, type App, type Plugin, type SettingDefinitionItem } from "obsidian";
 import {
+  BUY_ME_A_COFFEE_BUTTON_SRC,
+  BUY_ME_A_COFFEE_URL,
+  GITHUB_SPONSORS_BUTTON_SRC,
+  GITHUB_SPONSORS_URL,
+} from "./donate-button-assets";
+import {
   ENGLISH_MESSAGE_TRANSLATOR,
   type MessageTranslator,
 } from "./i18n";
@@ -11,6 +17,28 @@ function labelToggle(toggle: import("obsidian").ToggleComponent, label: string):
     'input[type="checkbox"]',
   );
   (input ?? toggle.toggleEl).setAttribute("aria-label", label);
+}
+
+function createDonateImageLink(
+  document: Document,
+  label: string,
+  href: string,
+  imageSrc: string,
+): HTMLAnchorElement {
+  const link = document.createElement("a");
+  link.className = "office-viewer-donate__button";
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.setAttribute("aria-label", label);
+  link.title = label;
+  const image = document.createElement("img");
+  image.className = "office-viewer-donate__image";
+  image.src = imageSrc;
+  image.alt = label;
+  image.height = 40;
+  link.append(image);
+  return link;
 }
 
 export class OfficeViewerSettingTab extends PluginSettingTab {
@@ -126,5 +154,30 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
           });
         },
       );
+
+    const donateCard = this.containerEl.createDiv({
+      cls: "office-viewer-donate",
+    });
+    donateCard.createEl("p", {
+      cls: "office-viewer-donate__description",
+      text: this.messages.text("settings.supportDevelopment"),
+    });
+    const donateActions = donateCard.createDiv({
+      cls: "office-viewer-donate__actions",
+    });
+    donateActions.append(
+      createDonateImageLink(
+        donateActions.ownerDocument,
+        this.messages.text("settings.supportDevelopmentGitHub"),
+        GITHUB_SPONSORS_URL,
+        GITHUB_SPONSORS_BUTTON_SRC,
+      ),
+      createDonateImageLink(
+        donateActions.ownerDocument,
+        this.messages.text("settings.supportDevelopmentCoffee"),
+        BUY_ME_A_COFFEE_URL,
+        BUY_ME_A_COFFEE_BUTTON_SRC,
+      ),
+    );
   }
 }

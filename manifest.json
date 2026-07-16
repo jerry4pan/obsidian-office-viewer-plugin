@@ -5,5 +5,9 @@
   "minAppVersion": "1.8.10",
   "description": "View local PPTX files.",
   "author": "jerry4pan",
+  "fundingUrl": {
+    "GitHub Sponsor": "https://github.com/sponsors/jerry4pan",
+    "Buy Me a Coffee": "https://buymeacoffee.com/jerry4pan"
+  },
   "isDesktopOnly": true
 }
