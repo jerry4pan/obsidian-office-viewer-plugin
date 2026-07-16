@@ -35,6 +35,7 @@ describe("ReadingPositionStore", () => {
 
     expect(store.settings).toEqual({
       rememberReadingPosition: true,
+      diagnosticSummary: false,
       thumbnailRailWidth: 168,
     });
     store.record(deck, 7);
@@ -139,6 +140,7 @@ describe("ReadingPositionStore", () => {
     ).toBe(0);
     expect(store.settings).toEqual({
       rememberReadingPosition: true,
+      diagnosticSummary: false,
       thumbnailRailWidth: 168,
     });
   });
@@ -225,6 +227,7 @@ describe("ReadingPositionStore", () => {
     expect(adapter.loadCalls).toBe(1);
     expect(store.settings).toEqual({
       rememberReadingPosition: false,
+      diagnosticSummary: false,
       thumbnailRailWidth: 168,
     });
     expect(store.resolve(deck, 10)).toBe(0);
@@ -277,6 +280,7 @@ describe("ReadingPositionStore", () => {
       schemaVersion: 1,
       settings: {
         rememberReadingPosition: false,
+        diagnosticSummary: false,
         thumbnailRailWidth: 168,
       },
       positions: {},
@@ -286,10 +290,39 @@ describe("ReadingPositionStore", () => {
     await store.setRememberReadingPosition(true);
     expect(store.settings).toEqual({
       rememberReadingPosition: true,
+      diagnosticSummary: false,
       thumbnailRailWidth: 168,
     });
     expect(store.resolve(deck, 10)).toBe(0);
     expect(adapter.saved.at(-1)?.positions).toEqual({});
+  });
+
+  it("persists diagnostic summary independently of reading-position memory", async () => {
+    const adapter = makeDataAdapter();
+    const store = new ReadingPositionStore(adapter, { debounceMs: 60_000 });
+    await store.initialize();
+    store.record(deck, 7);
+
+    await store.setDiagnosticSummary(true);
+    expect(adapter.saved.at(-1)).toEqual({
+      schemaVersion: 1,
+      settings: {
+        rememberReadingPosition: true,
+        diagnosticSummary: true,
+        thumbnailRailWidth: 168,
+      },
+      positions: {
+        [deck.path]: expect.objectContaining({
+          path: deck.path,
+          slideIndex: 7,
+        }),
+      },
+    });
+    expect(store.settings.diagnosticSummary).toBe(true);
+
+    await store.setDiagnosticSummary(false);
+    expect(store.settings.diagnosticSummary).toBe(false);
+    expect(adapter.saved.at(-1)?.positions[deck.path]?.slideIndex).toBe(7);
   });
 
   it("serializes concurrent saves so an earlier slow write cannot overwrite a later state", async () => {
@@ -426,6 +459,7 @@ describe("ReadingPositionStore", () => {
 
     expect(store.settings).toEqual({
       rememberReadingPosition: true,
+      diagnosticSummary: false,
       thumbnailRailWidth: 168,
     });
   });

@@ -17,6 +17,7 @@ export interface PptxFileViewState {
   recordThumbnailRailWidth(width: number): void;
   subscribeThumbnailRailWidth(listener: (width: number) => void): () => void;
   rememberReadingPosition(): boolean;
+  diagnosticSummary(): boolean;
 }
 
 type DesktopVaultAdapter = {
@@ -74,6 +75,7 @@ export class PptxFileView extends FileView {
               environment: diagnosticEnvironment,
               rememberReadingPosition: () =>
                 state?.rememberReadingPosition() ?? false,
+              enabled: () => state?.diagnosticSummary() ?? false,
               copy: async (summary) => navigator.clipboard.writeText(summary),
             },
       },

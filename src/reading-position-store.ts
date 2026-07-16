@@ -11,6 +11,7 @@ export interface FileFingerprint {
 
 export interface OfficeViewerSettings {
   readonly rememberReadingPosition: boolean;
+  readonly diagnosticSummary: boolean;
   readonly thumbnailRailWidth: number;
 }
 
@@ -32,6 +33,7 @@ export interface OfficeViewerDataAdapter {
 
 const DEFAULT_SETTINGS: OfficeViewerSettings = {
   rememberReadingPosition: true,
+  diagnosticSummary: false,
   thumbnailRailWidth: DEFAULT_THUMBNAIL_RAIL_WIDTH,
 };
 
@@ -106,6 +108,11 @@ function normalizeData(value: unknown): OfficeViewerData {
     typeof value.settings.rememberReadingPosition === "boolean"
       ? value.settings.rememberReadingPosition
       : true;
+  const diagnosticSummary =
+    isRecord(value.settings) &&
+    typeof value.settings.diagnosticSummary === "boolean"
+      ? value.settings.diagnosticSummary
+      : false;
   const thumbnailRailWidth =
     isRecord(value.settings) && typeof value.settings.thumbnailRailWidth === "number"
       ? normalizeThumbnailRailWidth(value.settings.thumbnailRailWidth)
@@ -128,7 +135,7 @@ function normalizeData(value: unknown): OfficeViewerData {
 
   return {
     schemaVersion: 1,
-    settings: { rememberReadingPosition, thumbnailRailWidth },
+    settings: { rememberReadingPosition, diagnosticSummary, thumbnailRailWidth },
     positions,
   };
 }
@@ -138,6 +145,7 @@ function snapshot(data: OfficeViewerData): OfficeViewerData {
     schemaVersion: 1,
     settings: {
       rememberReadingPosition: data.settings.rememberReadingPosition,
+      diagnosticSummary: data.settings.diagnosticSummary,
       thumbnailRailWidth: data.settings.thumbnailRailWidth,
     },
     positions: Object.fromEntries(
@@ -282,9 +290,27 @@ export class ReadingPositionStore {
       schemaVersion: 1,
       settings: {
         rememberReadingPosition: enabled,
+        diagnosticSummary: this.data.settings.diagnosticSummary,
         thumbnailRailWidth: this.data.settings.thumbnailRailWidth,
       },
       positions: {},
+    };
+    this.revision += 1;
+    await this.flush();
+  }
+
+  async setDiagnosticSummary(enabled: boolean): Promise<void> {
+    if (this.disposed || enabled === this.data.settings.diagnosticSummary) {
+      return;
+    }
+
+    this.clearTimer();
+    this.data = {
+      ...this.data,
+      settings: {
+        ...this.data.settings,
+        diagnosticSummary: enabled,
+      },
     };
     this.revision += 1;
     await this.flush();

@@ -24,7 +24,26 @@ describe("packaged release lifecycle", () => {
     await obsidianPage.openFile("minimal.pptx");
     const installed = await browser.$('.pptx-viewer[data-state="ready"]');
     await expect(installed).toHaveText(expect.stringContaining("Obsidian PPTX smoke test"));
-    await expect(installed.$('[data-action="copy-diagnostics"]')).toExist();
+    await expect(installed.$('[data-action="copy-diagnostics"]')).not.toExist();
+    expect(await sourceHash()).toBe(before);
+
+    await browser.executeObsidian(async ({ app }) => {
+      const plugin = (app as unknown as {
+        plugins: { plugins: Record<string, unknown> };
+      }).plugins.plugins["office-viewer"] as {
+        store?: {
+          setDiagnosticSummary(enabled: boolean): Promise<void>;
+          flush(): Promise<void>;
+        };
+      };
+      if (!plugin?.store) throw new Error("Installed office-viewer store unavailable");
+      await plugin.store.setDiagnosticSummary(true);
+      await plugin.store.flush();
+    });
+    await obsidianPage.openFile("minimal.pptx");
+    await expect(
+      browser.$('.pptx-viewer[data-state="ready"] [data-action="copy-diagnostics"]'),
+    ).toExist();
     expect(await sourceHash()).toBe(before);
 
     await browser.executeObsidian(

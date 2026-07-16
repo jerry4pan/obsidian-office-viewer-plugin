@@ -81,6 +81,7 @@ export default class OfficeViewerPlugin extends Plugin {
             store.subscribeThumbnailRailWidth(listener),
           rememberReadingPosition: () =>
             store.settings.rememberReadingPosition,
+          diagnosticSummary: () => store.settings.diagnosticSummary,
         },
         messages,
         diagnosticEnvironment,

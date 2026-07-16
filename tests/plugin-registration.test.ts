@@ -341,9 +341,59 @@ describe("OfficeViewerPlugin", () => {
       schemaVersion: 1,
       settings: {
         rememberReadingPosition: false,
+        diagnosticSummary: false,
         thumbnailRailWidth: 168,
       },
       positions: {},
+    });
+  });
+
+  it("enabling diagnostic summary persists without clearing reading positions", async () => {
+    const app = {
+      vault: { readBinary: vi.fn(), on: vi.fn(() => ({ off: vi.fn() })) },
+    };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    vi.mocked(plugin.loadData).mockResolvedValue({
+      schemaVersion: 1,
+      settings: { rememberReadingPosition: true },
+      positions: {
+        "deck.pptx": {
+          path: "deck.pptx",
+          size: 1,
+          mtime: 2,
+          slideIndex: 3,
+          updatedAt: 4,
+        },
+      },
+    });
+    await plugin.onload();
+    const settingTab = vi.mocked(plugin.addSettingTab).mock.calls[0]?.[0] as {
+      containerEl: HTMLElement;
+      display(): void;
+    };
+
+    settingTab.display();
+    const diagnosticSetting = [...settingTab.containerEl.children].find((child) =>
+      child.textContent?.includes("Diagnostic summary"),
+    ) as HTMLElement & {
+      testToggle: ToggleComponent & { trigger(value: boolean): Promise<void> };
+    };
+    expect(diagnosticSetting.testToggle.getValue()).toBe(false);
+    await diagnosticSetting.testToggle.trigger(true);
+
+    expect(plugin.saveData).toHaveBeenLastCalledWith({
+      schemaVersion: 1,
+      settings: {
+        rememberReadingPosition: true,
+        diagnosticSummary: true,
+        thumbnailRailWidth: 168,
+      },
+      positions: {
+        "deck.pptx": expect.objectContaining({
+          path: "deck.pptx",
+          slideIndex: 3,
+        }),
+      },
     });
   });
 
@@ -401,6 +451,7 @@ describe("OfficeViewerPlugin", () => {
           schemaVersion: 1,
           settings: {
             rememberReadingPosition: true,
+            diagnosticSummary: false,
             thumbnailRailWidth: 168,
           },
           positions: {},

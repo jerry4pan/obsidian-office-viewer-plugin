@@ -68,6 +68,7 @@ export interface PptxViewOptions<FileRef> {
   diagnostics?: {
     readonly environment: DiagnosticEnvironment;
     rememberReadingPosition(): boolean;
+    enabled(): boolean;
     copy(summary: string): Promise<void>;
   };
 }
@@ -780,6 +781,15 @@ export class PptxViewSession<FileRef> {
     categories: readonly PptxCompatibilityWarningCategory[],
   ): void {
     const unique = [...new Set(categories)].sort();
+    this.diagnosticWarnings = unique;
+    if (
+      this.options.diagnostics !== undefined &&
+      this.options.diagnostics.enabled() !== true
+    ) {
+      container.replaceChildren();
+      delete this.root.dataset.warningCategories;
+      return;
+    }
     container.replaceChildren();
     for (const category of unique) {
       container.createEl("p", {
@@ -792,14 +802,13 @@ export class PptxViewSession<FileRef> {
     } else {
       delete this.root.dataset.warningCategories;
     }
-    this.diagnosticWarnings = unique;
   }
 
   private createDiagnosticButton(
     actionStatus: HTMLElement,
   ): HTMLButtonElement | null {
     const diagnostics = this.options.diagnostics;
-    if (!diagnostics) return null;
+    if (!diagnostics || diagnostics.enabled() !== true) return null;
     const button = createEl("button", {
       type: "button",
       text: this.messages.text("diagnostics.copy"),

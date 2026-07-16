@@ -38,6 +38,11 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       {
         name: this.messages.text("settings.diagnostics"),
         desc: this.messages.text("settings.diagnosticsDescription"),
+        control: {
+          type: "toggle",
+          key: "diagnosticSummary",
+          defaultValue: false,
+        },
       },
     ];
   }
@@ -45,6 +50,9 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
   override getControlValue(key: string): unknown {
     if (key === "rememberReadingPosition") {
       return this.store.settings.rememberReadingPosition;
+    }
+    if (key === "diagnosticSummary") {
+      return this.store.settings.diagnosticSummary;
     }
     return undefined;
   }
@@ -54,6 +62,15 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       void this.store.setRememberReadingPosition(Boolean(value)).catch((error: unknown) => {
         reportNonFatalError(
           "Failed to save PPTX reading-position setting",
+          error,
+        );
+      });
+      return;
+    }
+    if (key === "diagnosticSummary") {
+      void this.store.setDiagnosticSummary(Boolean(value)).catch((error: unknown) => {
+        reportNonFatalError(
+          "Failed to save PPTX diagnostic-summary setting",
           error,
         );
       });
@@ -87,6 +104,18 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       .setDesc(this.messages.text("settings.compatibilityDescription"));
     new Setting(this.containerEl)
       .setName(this.messages.text("settings.diagnostics"))
-      .setDesc(this.messages.text("settings.diagnosticsDescription"));
+      .setDesc(this.messages.text("settings.diagnosticsDescription"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.store.settings.diagnosticSummary)
+          .onChange((value) => {
+            void this.store.setDiagnosticSummary(value).catch((error: unknown) => {
+              reportNonFatalError(
+                "Failed to save PPTX diagnostic-summary setting",
+                error,
+              );
+            });
+          }),
+      );
   }
 }

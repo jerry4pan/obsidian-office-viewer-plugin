@@ -414,6 +414,39 @@ describe("PptxViewSession", () => {
     },
   );
 
+  it("hides compatibility warnings and diagnostic copy when diagnostic summary is disabled", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeRenderer(2);
+    Object.defineProperty(rendererSession, "compatibilityWarnings", {
+      value: ["unsupported-content", "font-substitution"],
+    });
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        diagnostics: {
+          environment: {
+            pluginVersion: "0.0.1",
+            obsidianVersion: "1.13.1",
+            rendererVersion: "1.2.4",
+            operatingSystem: "darwin-arm64",
+          },
+          rememberReadingPosition: () => false,
+          enabled: () => false,
+          copy: vi.fn(async () => {}),
+        },
+      },
+    );
+
+    await session.open("deck.pptx");
+
+    expect(root.dataset.state).toBe("ready");
+    expect(root.querySelector("[data-warning-category]")).toBeNull();
+    expect(root.querySelector('[data-action="copy-diagnostics"]')).toBeNull();
+    expect(root.dataset.warningCategories).toBeUndefined();
+  });
+
   it.each([
     ["en", "Copy diagnostic summary", "Diagnostic summary copied."],
     ["zh-CN", "复制诊断摘要", "已复制诊断摘要。"],
@@ -440,6 +473,7 @@ describe("PptxViewSession", () => {
             operatingSystem: "darwin-arm64",
           },
           rememberReadingPosition: () => true,
+          enabled: () => true,
           copy,
         },
       },
@@ -488,6 +522,7 @@ describe("PptxViewSession", () => {
             operatingSystem: "darwin-arm64",
           },
           rememberReadingPosition: () => false,
+          enabled: () => true,
           copy: vi.fn(async () => { throw new Error("clipboard unavailable"); }),
         },
       },

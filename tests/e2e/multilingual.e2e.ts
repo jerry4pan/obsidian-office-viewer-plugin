@@ -109,6 +109,20 @@ describe("multilingual installed smoke", () => {
     const path = "performance/representative-12-slides.pptx";
     const before = await vaultSha256(path);
 
+    await browser.executeObsidian(async ({ app }) => {
+      const plugin = (app as unknown as {
+        plugins: { plugins: Record<string, unknown> };
+      }).plugins.plugins["office-viewer"] as {
+        store?: {
+          setDiagnosticSummary(enabled: boolean): Promise<void>;
+          flush(): Promise<void>;
+        };
+      };
+      if (!plugin?.store) throw new Error("Installed office-viewer store unavailable");
+      await plugin.store.setDiagnosticSummary(true);
+      await plugin.store.flush();
+    });
+
     await obsidianPage.openFile(path);
     const root = await browser.$(
       '.workspace-leaf.mod-active .pptx-viewer[data-state="ready"]',

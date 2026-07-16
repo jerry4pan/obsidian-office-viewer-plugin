@@ -5765,7 +5765,7 @@
         "failureCount": 0,
         "firstReadableP95Ms": 90.1,
         "slideSwitchP95Ms": 1.8,
-        "bundleBytes": 1198789,
+        "bundleBytes": 1199730,
         "representativeFixtureSha256": "d613d62d93be1a11c9a52537ecf2bcd5bbc8c0aae8cd4c6b84b721ebc96d8948"
       },
       {
@@ -5776,7 +5776,7 @@
         "failureCount": 0,
         "firstReadableP95Ms": 91.2,
         "slideSwitchP95Ms": 1.9,
-        "bundleBytes": 1198789,
+        "bundleBytes": 1199730,
         "representativeFixtureSha256": "d613d62d93be1a11c9a52537ecf2bcd5bbc8c0aae8cd4c6b84b721ebc96d8948"
       }
     ],
@@ -6422,7 +6422,7 @@
         "resourcesReleased": true
       }
     ],
-    "bundleBytes": 1198789,
+    "bundleBytes": 1199730,
     "observationWindowMs": 2000
   },
   "failures": [],

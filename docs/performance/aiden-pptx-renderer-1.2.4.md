@@ -28,7 +28,7 @@ Overall result: **PASS**.
 
 ## Resources
 
-- Production bundle: 1,198,789 bytes
+- Production bundle: 1,199,730 bytes
 - Cleanup observation window: 2,000 ms
 - Memory observations: 30
 - Cancellation observations: 5

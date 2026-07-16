@@ -44,10 +44,13 @@ Obsidian — no PDF conversion, no uploads, no network requests.
   data. Turn it off at any time to clear saved positions instantly.
 
 **Compatibility awareness**
-- Files with unsupported media or missing fonts display a persistent banner so
-  you know when to double-check in an external application.
+- When diagnostic summary is enabled, files with unsupported media or missing
+  fonts display a persistent banner so you know when to double-check in an
+  external application.
 
 **Diagnostic summary**
+- Off by default. Turn on **Diagnostic summary** in settings to show
+  compatibility warnings and the copy control.
 - **Copy diagnostic summary** captures versions, file size, slide count,
   timings, and stable categories for troubleshooting. It excludes filenames,
   paths, slide text, images, and any personal or rendered content.
