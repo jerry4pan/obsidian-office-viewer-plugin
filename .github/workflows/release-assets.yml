@@ -36,8 +36,8 @@ jobs:
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          TAG="${{ github.ref_name }}"
           cp node_modules/@aiden0z/pptx-renderer/LICENSE AIDEN-PPTX-RENDERER-LICENSE
           gh release upload "$TAG" main.js manifest.json styles.css LICENSE NOTICE \
             AIDEN-PPTX-RENDERER-LICENSE \
