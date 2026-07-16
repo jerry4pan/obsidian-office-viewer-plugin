@@ -39,6 +39,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           cp node_modules/@aiden0z/pptx-renderer/LICENSE AIDEN-PPTX-RENDERER-LICENSE
+          gh release view "$TAG" &>/dev/null || gh release create "$TAG" --title "$TAG" --generate-notes
           gh release upload "$TAG" main.js manifest.json styles.css LICENSE NOTICE \
             AIDEN-PPTX-RENDERER-LICENSE \
             dist/office-viewer-"$TAG".zip \
