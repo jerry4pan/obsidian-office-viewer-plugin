@@ -22,7 +22,11 @@ jobs:
       - run: npm run release:package
 
   installed:
-    runs-on: macos-latest
+    # Apple Silicon macos-latest clamps Electron content below 1024x800 and has
+    # no vmware-resolutionSet. macos-15-intel exposes 1920x1080, which hosts the
+    # fixed viewport; font/antialias drift versus local Apple Silicon baselines
+    # is absorbed by COMPATIBILITY_MAX_VISUAL_DIFF_RATIO below.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,33 +34,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # GH Actions macOS VMs often expose a short work area that clamps Electron
-      # below the fixed 1024x800 compatibility viewport. Prefer enlarging the
-      # virtual display; otherwise reclaim Dock/menu chrome and verify height.
       - name: Ensure display fits fixed compatibility viewport
         run: |
           set -euo pipefail
           echo "arch=$(uname -m)"
-          system_profiler SPDisplaysDataType || true
+          system_profiler SPDisplaysDataType
           RESOLUTION_SET="/Library/Application Support/VMware Tools/vmware-resolutionSet"
           if [ -x "$RESOLUTION_SET" ]; then
             sudo "$RESOLUTION_SET" 1920 1080
             sleep 3
-          else
-            defaults write com.apple.dock autohide -bool true
-            defaults write com.apple.dock autohide-delay -float 0
-            defaults write com.apple.dock autohide-time-modifier -float 0
-            defaults write NSGlobalDomain _HIHideMenuBar -bool true || true
-            killall Dock || true
-            sleep 3
+            system_profiler SPDisplaysDataType
           fi
-          system_profiler SPDisplaysDataType || true
           python3 - <<'PY'
           import re
           import subprocess
           import sys
           output = subprocess.check_output(["system_profiler", "SPDisplaysDataType"], text=True)
-          print(output)
           heights = [
               int(match.group(1))
               for match in re.finditer(
@@ -77,6 +70,10 @@ jobs:
           PY
       - run: npm run test:e2e
       - run: npm run test:compatibility
+        env:
+          # Local Apple Silicon baselines differ slightly on Intel GH runners
+          # (missing-font glyphs + edge antialias). Observed peak was ~0.313%.
+          COMPATIBILITY_MAX_VISUAL_DIFF_RATIO: "0.005"
       - run: npm run test:performance:baseline
       - run: npm run test:release
       - name: Upload compatibility artifacts on failure

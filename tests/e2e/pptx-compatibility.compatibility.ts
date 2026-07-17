@@ -30,6 +30,15 @@ import {
 const renderer = activeRendererAcceptanceConfig();
 const artifactDir = renderer.paths.compatibilityArtifactDir;
 const updateBaselines = process.env.UPDATE_COMPATIBILITY_BASELINES === "1";
+const maxVisualDiffRatio = Number(
+  process.env.COMPATIBILITY_MAX_VISUAL_DIFF_RATIO ??
+    CORPUS_ENVIRONMENT.maxVisualDiffRatio,
+);
+if (!Number.isFinite(maxVisualDiffRatio) || maxVisualDiffRatio < 0) {
+  throw new Error(
+    `COMPATIBILITY_MAX_VISUAL_DIFF_RATIO must be a non-negative number (got ${process.env.COMPATIBILITY_MAX_VISUAL_DIFF_RATIO})`,
+  );
+}
 
 describe("installed PPTX compatibility corpus", () => {
   it("detects main-slide font labels when thumbnails duplicate slide content", async () => {
@@ -131,7 +140,7 @@ describe("installed PPTX compatibility corpus", () => {
           fixture,
           await root.$(".pptx-viewer__slide"),
           updateBaselines,
-          CORPUS_ENVIRONMENT.maxVisualDiffRatio,
+          maxVisualDiffRatio,
         );
       } catch (caught) {
         error = caught instanceof Error ? caught.message : String(caught);
