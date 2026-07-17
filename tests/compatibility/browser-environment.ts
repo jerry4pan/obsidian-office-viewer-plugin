@@ -12,15 +12,19 @@ export async function applyFixedEnvironment(
         electron: {
           remote: {
             getCurrentWindow(): {
+              setPosition(x: number, y: number): Promise<void>;
               setContentSize(width: number, height: number): Promise<void>;
             };
           };
         };
       }
     ).electron;
-    await electron.remote
-      .getCurrentWindow()
-      .setContentSize(expected.viewport.width, expected.viewport.height);
+    const currentWindow = electron.remote.getCurrentWindow();
+    await currentWindow.setPosition(0, 0);
+    await currentWindow.setContentSize(
+      expected.viewport.width,
+      expected.viewport.height,
+    );
     document.body.classList.remove("theme-dark");
     document.body.classList.add("theme-light");
     document.documentElement.style.zoom = String(expected.zoom);
