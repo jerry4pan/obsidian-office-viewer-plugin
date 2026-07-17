@@ -22,9 +22,7 @@ jobs:
       - run: npm run release:package
 
   installed:
-    # Apple Silicon macos-latest clamps Electron content below 1024x800.
-    # macos-15-intel reports a 1920x1080 virtual display that can host it.
-    runs-on: macos-15-intel
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,15 +30,27 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # GH Actions macOS VMs often expose a short work area that clamps Electron
+      # below the fixed 1024x800 compatibility viewport. Prefer enlarging the
+      # virtual display; otherwise reclaim Dock/menu chrome and verify height.
       - name: Ensure display fits fixed compatibility viewport
         run: |
+          set -euo pipefail
+          echo "arch=$(uname -m)"
           system_profiler SPDisplaysDataType || true
           RESOLUTION_SET="/Library/Application Support/VMware Tools/vmware-resolutionSet"
           if [ -x "$RESOLUTION_SET" ]; then
             sudo "$RESOLUTION_SET" 1920 1080
             sleep 3
-            system_profiler SPDisplaysDataType || true
+          else
+            defaults write com.apple.dock autohide -bool true
+            defaults write com.apple.dock autohide-delay -float 0
+            defaults write com.apple.dock autohide-time-modifier -float 0
+            defaults write NSGlobalDomain _HIHideMenuBar -bool true || true
+            killall Dock || true
+            sleep 3
           fi
+          system_profiler SPDisplaysDataType || true
           python3 - <<'PY'
           import re
           import subprocess
@@ -69,3 +79,10 @@ jobs:
       - run: npm run test:compatibility
       - run: npm run test:performance:baseline
       - run: npm run test:release
+      - name: Upload compatibility artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-artifacts
+          path: artifacts/compatibility/
+          if-no-files-found: ignore

@@ -7,24 +7,58 @@ export async function applyFixedEnvironment(
   environment: CorpusEnvironment,
 ): Promise<void> {
   const actual = await browser.execute(async (expected) => {
+    type CurrentWindow = {
+      setPosition(x: number, y: number): Promise<void> | void;
+      setMinimumSize(width: number, height: number): void;
+      setContentSize(width: number, height: number): Promise<void> | void;
+      setSize(width: number, height: number): Promise<void> | void;
+      getContentSize(): number[] | Promise<number[]>;
+      getSize(): number[] | Promise<number[]>;
+      setBounds(
+        bounds: { x: number; y: number; width: number; height: number },
+      ): Promise<void> | void;
+      isMaximized(): boolean;
+      unmaximize(): void;
+    };
     const electron = (
       window as typeof window & {
         electron: {
           remote: {
-            getCurrentWindow(): {
-              setPosition(x: number, y: number): Promise<void>;
-              setContentSize(width: number, height: number): Promise<void>;
-            };
+            getCurrentWindow(): CurrentWindow;
           };
         };
       }
     ).electron;
     const currentWindow = electron.remote.getCurrentWindow();
+    if (currentWindow.isMaximized()) currentWindow.unmaximize();
     await currentWindow.setPosition(0, 0);
+    currentWindow.setMinimumSize(
+      expected.viewport.width,
+      expected.viewport.height,
+    );
     await currentWindow.setContentSize(
       expected.viewport.width,
       expected.viewport.height,
     );
+    if (
+      window.innerWidth !== expected.viewport.width ||
+      window.innerHeight !== expected.viewport.height
+    ) {
+      const contentSize = await currentWindow.getContentSize();
+      const outerSize = await currentWindow.getSize();
+      const frameWidth = Math.max(0, outerSize[0]! - contentSize[0]!);
+      const frameHeight = Math.max(0, outerSize[1]! - contentSize[1]!);
+      await currentWindow.setBounds({
+        x: 0,
+        y: 0,
+        width: expected.viewport.width + frameWidth,
+        height: expected.viewport.height + frameHeight,
+      });
+      await currentWindow.setContentSize(
+        expected.viewport.width,
+        expected.viewport.height,
+      );
+    }
     document.body.classList.remove("theme-dark");
     document.body.classList.add("theme-light");
     document.documentElement.style.zoom = String(expected.zoom);
