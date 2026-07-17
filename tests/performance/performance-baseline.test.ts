@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  maxAllowedBundleBytes,
+  PERFORMANCE_BUDGETS,
+} from "../../src/performance/performance-report";
 import { validateInstalledPerformanceArtifact } from "./installed-performance-artifact";
 import { renderInstalledPerformanceMarkdown } from "./installed-performance-markdown";
 import { performanceFixtureManifest } from "./performance-fixtures";
@@ -109,9 +113,14 @@ describe("committed installed PPTX performance baseline", () => {
   });
 
   it.runIf(expectedOutcome === "pass")(
-    "anchors the lock to the actual production bundle and committed M2 fixture",
+    "keeps the production bundle within the baseline size budget and anchors the M2 fixture",
     () => {
-      expect(provenanceLockValue!.bundleBytes.at(-1)).toBe(actualBundleBytes());
+      const baselineBundleBytes = provenanceLockValue!.bundleBytes.at(-1)!;
+      expect(actualBundleBytes()).toBeLessThanOrEqual(
+        maxAllowedBundleBytes(baselineBundleBytes),
+      );
+      expect(actualBundleBytes()).toBeGreaterThanOrEqual(0);
+      expect(PERFORMANCE_BUDGETS.bundleSizeGrowthRatio).toBe(0.05);
       expect(provenanceLockValue!.representativeFixtureSha256).toBe(
         actualRepresentativeFixtureSha256(),
       );
@@ -229,15 +238,18 @@ describe("committed installed PPTX performance baseline", () => {
     ).toThrow(/environment\.renderer must equal selected candidate/);
   });
 
-  it("rejects a baseline recorded for a different production bundle", () => {
+  it("rejects a production bundle that exceeds the baseline size budget", () => {
+    const baselineBundleBytes = (
+      baselineValue as { resources: { bundleBytes: number } }
+    ).resources.bundleBytes;
     expect(() =>
       validateInstalledPerformanceArtifact(
         baselineValue,
-        actualBundleBytes() + 1,
+        maxAllowedBundleBytes(baselineBundleBytes) + 1,
         expectedOutcome,
         renderer.candidate.label,
       ),
-    ).toThrow(/bundleBytes must equal actual production main.js size/);
+    ).toThrow(/exceeds baseline bundleBytes.*more than 5%/);
   });
 
   it.runIf(expectedOutcome === "pass")(

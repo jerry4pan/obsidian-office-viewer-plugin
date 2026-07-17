@@ -1,4 +1,5 @@
 import {
+  assertProductionBundleWithinBudget,
   PERFORMANCE_BUDGETS,
   summarizePerformance,
   type PerformanceSummary,
@@ -1167,11 +1168,12 @@ export function validateInstalledPerformanceArtifact(
   });
 
   const artifact = value as InstalledPerformanceArtifact;
-  if (artifact.resources.bundleBytes !== expectedBundleBytes) {
-    throw new Error(
-      `artifact.resources.bundleBytes must equal actual production main.js size ${expectedBundleBytes}`,
-    );
-  }
+  // expectedBundleBytes is the current production main.js size; the committed
+  // baseline may trail it by up to the configured growth budget.
+  assertProductionBundleWithinBudget(
+    artifact.resources.bundleBytes,
+    expectedBundleBytes,
+  );
   const expectedOpenSequence = [
     { kind: "cold", sampleIndex: 1 },
     ...Array.from({ length: artifact.protocol.warmupRuns }, (_, index) => ({

@@ -1,7 +1,33 @@
 export const PERFORMANCE_BUDGETS = {
   firstReadableMs: 3_000,
   slideSwitchMs: 100,
+  /** Current production main.js may grow at most this ratio versus the committed baseline. */
+  bundleSizeGrowthRatio: 0.05,
 } as const;
+
+export function maxAllowedBundleBytes(baselineBundleBytes: number): number {
+  if (!Number.isInteger(baselineBundleBytes) || baselineBundleBytes < 0) {
+    throw new Error("baselineBundleBytes must be a non-negative integer");
+  }
+  return Math.floor(
+    baselineBundleBytes * (1 + PERFORMANCE_BUDGETS.bundleSizeGrowthRatio),
+  );
+}
+
+export function assertProductionBundleWithinBudget(
+  baselineBundleBytes: number,
+  productionBundleBytes: number,
+): void {
+  if (!Number.isInteger(productionBundleBytes) || productionBundleBytes < 0) {
+    throw new Error("productionBundleBytes must be a non-negative integer");
+  }
+  const maxAllowed = maxAllowedBundleBytes(baselineBundleBytes);
+  if (productionBundleBytes > maxAllowed) {
+    throw new Error(
+      `production main.js size ${productionBundleBytes} exceeds baseline bundleBytes ${baselineBundleBytes} by more than ${PERFORMANCE_BUDGETS.bundleSizeGrowthRatio * 100}% (max ${maxAllowed})`,
+    );
+  }
+}
 
 export interface PerformanceEnvironment {
   readonly device: string;

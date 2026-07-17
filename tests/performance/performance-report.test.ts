@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertProductionBundleWithinBudget,
+  maxAllowedBundleBytes,
+  PERFORMANCE_BUDGETS,
   renderPerformanceMarkdown,
   summarizePerformance,
   type PerformanceFailure,
@@ -36,6 +39,20 @@ function performanceInput(
 }
 
 describe("performance report", () => {
+  it("allows production bundles within a 5% growth budget of the baseline", () => {
+    expect(PERFORMANCE_BUDGETS.bundleSizeGrowthRatio).toBe(0.05);
+    expect(maxAllowedBundleBytes(1_200_758)).toBe(1_260_795);
+    expect(() =>
+      assertProductionBundleWithinBudget(1_200_758, 1_209_854),
+    ).not.toThrow();
+    expect(() =>
+      assertProductionBundleWithinBudget(1_200_758, 1_260_795),
+    ).not.toThrow();
+    expect(() =>
+      assertProductionBundleWithinBudget(1_200_758, 1_260_796),
+    ).toThrow(/exceeds baseline bundleBytes 1200758 by more than 5%/);
+  });
+
   it("uses nearest-rank p95 values for the fixed M0 latency gates", () => {
     const summary = summarizePerformance(performanceInput());
 
