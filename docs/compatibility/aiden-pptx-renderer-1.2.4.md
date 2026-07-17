@@ -30,11 +30,31 @@ an element present only in clipped DOM does not count as readable.
 ## Fixed environment
 
 - Obsidian 1.12.7, installer 1.12.7
-- macOS / Electron test sandbox from `wdio-obsidian-service` 3.1.1
+- Apple Silicon macOS reference host and Electron test sandbox from
+  `wdio-obsidian-service` 3.1.1
 - Electron content viewport 1024 × 800
 - light theme, 100% zoom, Arial
 - renderer `@aiden0z/pptx-renderer` 1.2.4
-- visual drift limit 0 changed pixels
+- reference-host visual drift limit 0 changed pixels
+
+### Intel CI profile
+
+The installed GitHub Actions job runs on `macos-15-intel`. Before Electron
+starts, it requests a 1920 × 1080 virtual display and verifies that the reported
+display height is at least 800 pixels. The compatibility test then reclaims
+window chrome, applies the exact 1024 × 800 content size, and rejects any other
+measured viewport.
+
+The approved PNGs remain the Apple Silicon reference baselines. During PR #24
+runner diagnosis on 2026-07-17, the Intel profile reported a peak visual
+difference of approximately 0.313% from font fallback and edge antialiasing, so
+this CI profile accepts at most 0.5% changed pixels. This is a workflow-scoped
+cross-architecture rasterization allowance, not baseline approval:
+`CORPUS_ENVIRONMENT.maxVisualDiffRatio` and the approved hashes remain unchanged
+at their reference-host values. The fixture classifications, readable-content
+checks, warning categories, source hashes, network guard, viewport, theme, and
+zoom also remain unchanged. Reference-host runs continue to require zero
+changed pixels.
 
 ## Corpus and provenance
 
@@ -48,8 +68,9 @@ automated test.
 The approved baselines live under `tests/compatibility/baselines/`. Each PNG is
 bound to an approval reason and SHA-256 hash in the manifest. Updating them
 requires the explicit `UPDATE_COMPATIBILITY_BASELINES=1` flag and then fails
-until the reviewed hash and reason are recorded. Ordinary runs reject any
-changed pixel.
+until the reviewed hash and reason are recorded. Ordinary reference-host runs
+reject any changed pixel; the declared Intel CI profile uses only the bounded
+cross-architecture tolerance above.
 
 Ticket #5 verification found that the Task 1 navigation-controls row had
 intentionally reduced the captured slide container from 632 × 599 to
@@ -67,8 +88,8 @@ remain readable, while the two previously documented embedded-SVG gaps remain
 unchanged. The inspection walker, image search, and contained-element search
 are now restricted to `.pptx-viewer__slide`, preventing duplicate thumbnail
 DOM from being mistaken for main-slide evidence. The refreshed hashes and
-2026-07-14 approval reasons are recorded per fixture; ordinary runs still
-require 18 / 20 readable units and zero changed pixels.
+2026-07-14 approval reasons are recorded per fixture; ordinary reference-host
+runs still require 18 / 20 readable units and zero changed pixels.
 
 The 2026-07-15 multilingual revalidation explicitly fixes the ordinary
 installed compatibility host to `en-US`. Visual inspection and repeated

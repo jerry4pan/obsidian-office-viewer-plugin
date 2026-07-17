@@ -55,5 +55,9 @@ out-of-scope work are unlikely to be accepted.
 Open a pull request only after an Issue exists for the change, or when fixing
 something already tracked. Follow the Development constraints above.
 Compatibility changes must update the corpus expectation, visual evidence, and
-known-limit documentation together. Performance misses are evidence and must
-not be hidden by loosening a budget.
+known-limit documentation together. Runner-specific visual tolerances must be
+bounded and documented separately from the approved reference baselines.
+Performance misses are evidence and must not be hidden by loosening latency,
+lifecycle, or resource budgets. Committed performance reports remain immutable
+evidence snapshots; the sole current bundle-size allowance is the documented
+5% regression budget in `docs/performance/README.md`.
