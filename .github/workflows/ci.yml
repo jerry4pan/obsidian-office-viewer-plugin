@@ -30,6 +30,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # GitHub macOS runners default to a short virtual display that clamps
+      # Electron content size below the fixed 1024x800 compatibility viewport.
+      - name: Ensure display fits fixed compatibility viewport
+        run: |
+          system_profiler SPDisplaysDataType | grep -E 'Resolution|UI Looks like' || true
+          RESOLUTION_SET="/Library/Application Support/VMware Tools/vmware-resolutionSet"
+          if [ ! -x "$RESOLUTION_SET" ]; then
+            echo "::error::vmware-resolutionSet unavailable; cannot guarantee 1024x800"
+            exit 1
+          fi
+          sudo "$RESOLUTION_SET" 1920 1080
+          sleep 3
+          system_profiler SPDisplaysDataType | grep -E 'Resolution|UI Looks like' || true
       - run: npm run test:e2e
       - run: npm run test:compatibility
       - run: npm run test:performance:baseline

@@ -29,6 +29,8 @@ export async function applyFixedEnvironment(
     return {
       width: window.innerWidth,
       height: window.innerHeight,
+      availWidth: window.screen.availWidth,
+      availHeight: window.screen.availHeight,
       fontReady: document.fonts.check(`16px "${expected.fontFamily}"`),
     };
   }, environment);
@@ -38,7 +40,7 @@ export async function applyFixedEnvironment(
     !actual.fontReady
   ) {
     throw new Error(
-      `fixed environment unavailable: ${actual.width}x${actual.height}, fontReady=${actual.fontReady}`,
+      `fixed environment unavailable: ${actual.width}x${actual.height}, fontReady=${actual.fontReady}, screen.avail=${actual.availWidth}x${actual.availHeight}`,
     );
   }
 }
