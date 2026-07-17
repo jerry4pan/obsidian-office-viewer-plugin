@@ -146,3 +146,13 @@ Reopen this ADR if any of the following occurs:
 
 Any replacement must rerun the existing evidence suite. It cannot substitute a
 friendlier corpus or silently change a budget.
+
+## Operational evidence policy
+
+Added 2026-07-17: the selected renderer's committed installed-performance run
+remains an immutable evidence snapshot. The current production `main.js` may be
+up to 5% larger than the bundle recorded by that run; exceeding the threshold
+requires a new accepted installed run or an explicit revision of this policy.
+The threshold does not change the latency, cancellation, cleanup, or resource
+completion gates in this decision. See the
+[performance evidence policy](../performance/README.md).
