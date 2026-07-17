@@ -22,7 +22,9 @@ jobs:
       - run: npm run release:package
 
   installed:
-    runs-on: macos-latest
+    # Apple Silicon macos-latest lacks vmware-resolutionSet; Intel image can
+    # enlarge the virtual display so Electron can host the fixed 1024x800 viewport.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,14 +32,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # GitHub macOS runners default to a short virtual display that clamps
-      # Electron content size below the fixed 1024x800 compatibility viewport.
       - name: Ensure display fits fixed compatibility viewport
         run: |
           system_profiler SPDisplaysDataType | grep -E 'Resolution|UI Looks like' || true
           RESOLUTION_SET="/Library/Application Support/VMware Tools/vmware-resolutionSet"
           if [ ! -x "$RESOLUTION_SET" ]; then
-            echo "::error::vmware-resolutionSet unavailable; cannot guarantee 1024x800"
+            echo "::error::vmware-resolutionSet unavailable on $(uname -m); cannot guarantee 1024x800"
+            ls -la "/Library/Application Support/VMware Tools" || true
             exit 1
           fi
           sudo "$RESOLUTION_SET" 1920 1080
