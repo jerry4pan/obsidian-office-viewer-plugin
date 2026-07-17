@@ -87,6 +87,14 @@ extract `main.js`, `manifest.json`, and `styles.css` to
 - Everything stays local. The plugin never uploads files, phones home, or
   collects telemetry. Source files are never modified.
 
+## Feedback
+
+- **Bugs** and **feature requests**: open a
+  [GitHub Issue](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues).
+  Do not open a pull request to report a bug or propose a feature.
+- **Security vulnerabilities**: use private reporting described in `SECURITY.md`.
+- Contribution and reporting details are in `CONTRIBUTING.md`.
+
 ## Development install
 
 Requirements: desktop Obsidian, Node.js 22, and npm.
@@ -189,8 +197,7 @@ byte-identical before uploading the CI artifact.
 - Detectable unsupported media and unavailable fonts show compatibility
   warnings only when **Diagnostic summary** is enabled. Unknown PowerPoint
   differences may still exist.
-- Privacy and security details are in `PRIVACY.md` and `SECURITY.md`; reporting
-  and contribution guidance is in `CONTRIBUTING.md`.
+- Privacy and security details are in `PRIVACY.md` and `SECURITY.md`.
 - Post-release validation and v0.2 planning are tracked in M4; see the PRD and
   GitHub Issues for current status.
 - Editing, saving, animations, legacy `.ppt` parsing, search, page links,
