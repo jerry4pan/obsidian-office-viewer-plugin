@@ -1,5 +1,7 @@
 # Obsidian Office Viewer
 
+[简体中文](README.zh-Hans.md)
+
 A desktop Obsidian plugin for reading local `.pptx` files right inside
 Obsidian — no PDF conversion, no uploads, no network requests.
 
