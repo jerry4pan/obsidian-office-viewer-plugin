@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { searchSlideContent } from "../src/slide-content-search";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createSlideContentSearchIndex,
+  searchSlideContent,
+} from "../src/slide-content-search";
 
 describe("Slide content search", () => {
   it("returns one result per slide with a representative match and count", () => {
@@ -52,5 +55,31 @@ describe("Slide content search", () => {
     expect(results[0]?.snippet.before.length).toBeLessThanOrEqual(60);
     expect(results[0]?.snippet.after.length).toBeLessThanOrEqual(60);
     expect(results[0]?.snippet.match).toBe("NEEDLE");
+  });
+
+  it("normalizes source-authored text once for repeated session queries", () => {
+    const normalize = vi.spyOn(String.prototype, "normalize");
+    const index = createSlideContentSearchIndex([
+      { slideId: 256, text: ["Needle text"] },
+    ]);
+
+    expect(index.search("needle")).toHaveLength(1);
+    expect(index.search("missing")).toHaveLength(0);
+    expect(normalize).toHaveBeenCalledTimes(3);
+    normalize.mockRestore();
+  });
+
+  it("keeps a high-text-volume indexed query within an interactive budget", () => {
+    const payload = "x".repeat(4 * 1024 * 1024);
+    const index = createSlideContentSearchIndex(
+      Array.from({ length: 4 }, (_, slideIndex) => ({
+        slideId: 256 + slideIndex,
+        text: [`${payload} marker-${slideIndex}`],
+      })),
+    );
+    const startedAt = performance.now();
+
+    expect(index.search("not present")).toHaveLength(0);
+    expect(performance.now() - startedAt).toBeLessThanOrEqual(250);
   });
 });

@@ -75,6 +75,8 @@ includes:
   assurance;
 - thumbnail rail labels, thumbnail labels, and unavailable-preview text;
 - the thumbnail resize separator's accessible label, title, and value text;
+- Slide content search controls, query field, result count/range, result list,
+  current-result state, pagination controls, and honest no-result coverage;
 - accessible labels, live-region messages, tooltips, and other
   plugin-authored accessible descriptions;
 - the plugin view's fallback display title;
@@ -171,6 +173,8 @@ cover at least:
 - full-screen enter/exit labels.
 - slide-reference and slide-embed controls, notices, placeholders, source
   recovery links, and accessible states.
+- Slide content search labels, result count/range, pagination, current result,
+  and no-result coverage.
 
 Assertions target plugin-owned elements and attributes so presentation or
 fixture text is not mistaken for an untranslated plugin message. Each locale
@@ -190,7 +194,10 @@ fallback at the same installed seam. Run it with
 this matrix without multiplying the complete behavior suite by locale.
 The default installed behavior suite additionally verifies exact-return and
 Reading View embed behavior; locale smoke tests assert the new copy controls
-and embed source link in every supported message locale.
+and embed source link in every supported message locale. The same locale smoke
+opens Slide content search and verifies its input, result-list label, result
+count, and no-result coverage in every supported message locale and English
+fallback.
 
 The complete installed behavior, compatibility, and performance suites do not
 need to be duplicated for every locale. They remain authoritative for product

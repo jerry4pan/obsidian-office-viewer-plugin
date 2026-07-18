@@ -1,4 +1,4 @@
-import type { PptxSlideContent } from "./renderer/pptx-renderer-adapter";
+import type { PptxSourceAuthoredSlideText } from "./renderer/pptx-renderer-adapter";
 
 export interface SlideSearchSnippet {
   readonly before: string;
@@ -11,6 +11,20 @@ export interface SlideSearchResult {
   readonly slideIndex: number;
   readonly matchCount: number;
   readonly snippet: SlideSearchSnippet;
+}
+
+export interface SlideContentSearchIndex {
+  search(query: string): readonly SlideSearchResult[];
+}
+
+interface IndexedParagraph {
+  readonly display: string;
+  readonly comparable: string;
+}
+
+interface IndexedSlide {
+  readonly slideId: number;
+  readonly text: readonly IndexedParagraph[];
 }
 
 const MAX_SNIPPET_CONTEXT_CHARACTERS = 60;
@@ -52,7 +66,29 @@ function occurrenceCount(text: string, query: string): number {
 }
 
 export function searchSlideContent(
-  slides: readonly PptxSlideContent[],
+  slides: readonly PptxSourceAuthoredSlideText[],
+  query: string,
+): readonly SlideSearchResult[] {
+  return createSlideContentSearchIndex(slides).search(query);
+}
+
+export function createSlideContentSearchIndex(
+  slides: readonly PptxSourceAuthoredSlideText[],
+): SlideContentSearchIndex {
+  const indexedSlides: readonly IndexedSlide[] = slides.map((slide) => ({
+    slideId: slide.slideId,
+    text: slide.text.map((paragraph) => {
+      const display = displayText(paragraph);
+      return { display, comparable: display.toLowerCase() };
+    }),
+  }));
+  return {
+    search: (query) => searchIndexedSlideContent(indexedSlides, query),
+  };
+}
+
+function searchIndexedSlideContent(
+  slides: readonly IndexedSlide[],
   query: string,
 ): readonly SlideSearchResult[] {
   const comparableQuery = comparableText(query);
@@ -62,9 +98,7 @@ export function searchSlideContent(
   slides.forEach((slide, slideIndex) => {
     let matchCount = 0;
     let snippet: SlideSearchSnippet | undefined;
-    for (const paragraph of slide.text) {
-      const display = displayText(paragraph);
-      const comparable = display.toLowerCase();
+    for (const { display, comparable } of slide.text) {
       const firstMatch = comparable.indexOf(comparableQuery);
       if (firstMatch < 0) continue;
       matchCount += occurrenceCount(comparable, comparableQuery);

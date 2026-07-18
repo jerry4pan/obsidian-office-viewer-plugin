@@ -32,8 +32,9 @@ reader-visible slide text as precise slide locations, allowing the reader to
 continue through the **Knowledge reference loop**. Speaker notes are not part of
 the initial search surface. Matches derived from OCR must be distinguishable
 from source-authored text because recognition may be wrong. The search does not
-imply a persistent or Vault-wide content index; its query, extracted or
-recognized text, and results do not outlive the active reading session.
+imply a persistent or Vault-wide content index; its query, source-authored slide
+text or future OCR-recognized text, and results do not outlive the active reading
+session.
 _Avoid_: Vault search, File search
 
 **Source-authored slide text**:

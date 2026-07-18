@@ -59,7 +59,7 @@ extract `main.js`, `manifest.json`, and `styles.css` to
   falling back to an ordinal position. Live Preview keeps the canonical
   Markdown syntax editable and does not render the slide inline.
 
-**Slide text search**
+**Slide content search**
 - Press `Cmd+F` or `Ctrl+F` in an open PPTX to search source-authored text in
   that presentation, then use `Enter` / `Shift+Enter` to move through matches.
 - Search covers visible titles, body text, text boxes, shape text, and table
@@ -106,7 +106,7 @@ extract `main.js`, `manifest.json`, and `styles.css` to
 **Privacy**
 - Everything stays local. The plugin never uploads files, phones home, or
   collects telemetry. Source files are never modified, and slide-search
-  queries, extracted text, snippets, and results are not saved.
+  queries, source-authored slide text, snippets, and results are not saved.
 
 ## Feedback
 

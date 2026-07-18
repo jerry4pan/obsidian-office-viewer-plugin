@@ -2,10 +2,14 @@ import {
   ENGLISH_MESSAGE_TRANSLATOR,
   type MessageTranslator,
 } from "./i18n";
-import type { PptxSlideContent } from "./renderer/pptx-renderer-adapter";
-import { searchSlideContent } from "./slide-content-search";
+import type { PptxSourceAuthoredSlideText } from "./renderer/pptx-renderer-adapter";
+import {
+  createSlideContentSearchIndex,
+  type SlideContentSearchIndex,
+} from "./slide-content-search";
 
 export const MAX_MOUNTED_SEARCH_RESULTS = 50;
+export const MAX_SEARCH_QUERY_CHARACTERS = 200;
 
 export interface SlideSearchRailOptions {
   readonly messages?: MessageTranslator;
@@ -23,16 +27,18 @@ export class SlideSearchRail {
   private readonly previousResults: HTMLButtonElement;
   private readonly nextResults: HTMLButtonElement;
   private readonly messages: MessageTranslator;
-  private matches = searchSlideContent([], "");
+  private readonly searchIndex: SlideContentSearchIndex;
+  private matches = createSlideContentSearchIndex([]).search("");
   private resultPage = 0;
   private disposed = false;
 
   constructor(
     private readonly root: HTMLElement,
-    private readonly slides: readonly PptxSlideContent[],
+    slides: readonly PptxSourceAuthoredSlideText[],
     private readonly options: SlideSearchRailOptions,
   ) {
     this.messages = options.messages ?? ENGLISH_MESSAGE_TRANSLATOR;
+    this.searchIndex = createSlideContentSearchIndex(slides);
     this.panel.className = "pptx-viewer__slide-search";
     this.panel.setAttribute("role", "search");
     this.panel.setAttribute("aria-label", this.messages.text("search.open"));
@@ -41,6 +47,7 @@ export class SlideSearchRail {
       attr: {
         "aria-label": this.messages.text("search.inputLabel"),
         "data-action": "slide-search-input",
+        maxlength: String(MAX_SEARCH_QUERY_CHARACTERS),
         placeholder: this.messages.text("search.placeholder"),
       },
     });
@@ -100,6 +107,7 @@ export class SlideSearchRail {
   close(): void {
     if (this.disposed) return;
     delete this.root.dataset.searchOpen;
+    delete this.root.dataset.searchHasQuery;
     this.input.value = "";
     this.render();
   }
@@ -135,6 +143,7 @@ export class SlideSearchRail {
     this.previousResults.removeEventListener("click", this.onPreviousResults);
     this.nextResults.removeEventListener("click", this.onNextResults);
     delete this.root.dataset.searchOpen;
+    delete this.root.dataset.searchHasQuery;
     delete this.root.dataset.lastSearchMs;
     delete this.root.dataset.mountedSearchResultCount;
     this.panel.remove();
@@ -182,10 +191,13 @@ export class SlideSearchRail {
 
   private render(): void {
     const startedAt = performance.now();
-    const query = this.input.value;
-    const matches = searchSlideContent(this.slides, query);
+    const hadActiveQuery = this.root.dataset.searchHasQuery === "true";
+    const query = this.input.value.slice(0, MAX_SEARCH_QUERY_CHARACTERS);
+    if (query !== this.input.value) this.input.value = query;
+    const matches = this.searchIndex.search(query);
     this.matches = matches;
     if (!query.trim()) {
+      delete this.root.dataset.searchHasQuery;
       this.summary.textContent = "";
       this.results.replaceChildren();
       this.range.textContent = "";
@@ -193,8 +205,10 @@ export class SlideSearchRail {
       this.nextResults.hidden = true;
       delete this.root.dataset.lastSearchMs;
       this.root.dataset.mountedSearchResultCount = "0";
+      if (hadActiveQuery && this.isOpen) this.options.onDismiss();
       return;
     }
+    this.root.dataset.searchHasQuery = "true";
     this.summary.textContent = matches.length === 0
       ? this.messages.text("search.noResults")
       : this.messages.text("search.resultCount", { count: matches.length });

@@ -257,8 +257,22 @@ describe("M2 installed PPTX reading experience", () => {
     expect(Number(await rail.getAttribute("data-last-search-ms")))
       .toBeLessThanOrEqual(1_000);
     await expect(rail).toHaveAttribute("data-mounted-search-result-count", "50");
-    await expect(root).toHaveText(expect.stringContaining("200 matching slides"));
+    await expect(root).toHaveText(expect.stringContaining("Matching slides: 200"));
     await expect(root).toHaveText(expect.stringContaining("Showing 1–50 of 200"));
+
+    await browser.execute(() => {
+      const searchInput = document.querySelector<HTMLInputElement>(
+        '.workspace-leaf.mod-active [data-action="slide-search-input"]',
+      );
+      if (!searchInput) throw new Error("Installed slide search input unavailable");
+      searchInput.value = "";
+      searchInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    });
+    expect(await rail.getAttribute("data-search-has-query")).toBeNull();
+    expect(await rail.getAttribute("data-search-open")).toBeNull();
+    await expect(root).toHaveAttribute("data-thumbnails-collapsed", "true");
+    await root.$('[data-action="open-slide-search"]').click();
+    await expect(input).toBeFocused();
 
     await input.setValue("简体中文搜索标记");
     const simplified = root.$('[data-action="slide-search-result"]');

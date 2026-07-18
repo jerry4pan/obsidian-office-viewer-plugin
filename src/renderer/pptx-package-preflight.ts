@@ -3,7 +3,7 @@ import CFB from "cfb";
 import { PptxOpenError } from "../pptx-open-error";
 import type {
   PptxCompatibilityWarningCategory,
-  PptxSlideContent,
+  PptxSourceAuthoredSlideText,
 } from "./pptx-renderer-adapter";
 import { isOoxmlSlideId } from "../slide-identity";
 
@@ -73,7 +73,7 @@ function resourceExhausted(message: string): PptxOpenError {
 export interface PptxPackageInspection {
   readonly declaredFonts: readonly string[];
   readonly slideIdentities: readonly number[];
-  readonly slideContents: readonly PptxSlideContent[];
+  readonly sourceAuthoredSlideText?: readonly PptxSourceAuthoredSlideText[];
   readonly warningCategories: readonly PptxCompatibilityWarningCategory[];
 }
 
@@ -341,11 +341,11 @@ function orderedSlideIdentities(presentation: Document): readonly number[] {
   return identities;
 }
 
-function orderedSlideContents(
+function optionalOrderedSourceAuthoredSlideText(
   presentation: Document,
   presentationRelationships: Document,
-  documentsByPath: ReadonlyMap<string, Document>,
-): readonly PptxSlideContent[] {
+  sourceAuthoredTextByPath: ReadonlyMap<string, readonly string[] | null>,
+): readonly PptxSourceAuthoredSlideText[] | undefined {
   const relationships = new Map<string, Element>();
   for (const relationship of presentationRelationships.getElementsByTagNameNS(
     "*",
@@ -355,7 +355,8 @@ function orderedSlideContents(
     if (id) relationships.set(id, relationship);
   }
 
-  const contents: PptxSlideContent[] = [];
+  const contents: PptxSourceAuthoredSlideText[] = [];
+  let extractionFailed = false;
   for (const slide of presentation.getElementsByTagNameNS(
     presentationMainNamespace,
     "sldId",
@@ -374,18 +375,17 @@ function orderedSlideContents(
     const target = relationship.getAttribute("Target");
     if (!target) throw malformed("Presentation slide relationship has no target");
     const slidePath = normalizePartPath("ppt", target);
-    const document = documentsByPath.get(slidePath);
-    if (!document) throw malformed(`Missing parsed slide part ${slidePath}`);
-    const text = Array.from(
-      document.getElementsByTagNameNS(drawingMainNamespace, "p"),
-      (paragraph) => Array.from(
-        paragraph.getElementsByTagNameNS(drawingMainNamespace, "t"),
-        (run) => run.textContent ?? "",
-      ).join(""),
-    ).filter((paragraph) => paragraph.trim().length > 0);
-    contents.push({ slideId: Number(rawIdentity), text });
+    const text = sourceAuthoredTextByPath.get(slidePath);
+    if (text === undefined) throw malformed(`Missing parsed slide part ${slidePath}`);
+    if (extractionFailed) continue;
+    if (text === null) {
+      extractionFailed = true;
+      contents.length = 0;
+    } else {
+      contents.push({ slideId: Number(rawIdentity), text });
+    }
   }
-  return contents;
+  return extractionFailed ? undefined : contents;
 }
 
 async function inspectXmlParts(
@@ -396,20 +396,33 @@ async function inspectXmlParts(
   presentationRelationships: Document;
   contentTypes: Document;
   declaredFonts: readonly string[];
-  documentsByPath: ReadonlyMap<string, Document>;
+  sourceAuthoredTextByPath: ReadonlyMap<string, readonly string[] | null>;
 }> {
   let presentation: Document | undefined;
   let presentationRelationships: Document | undefined;
   let contentTypes: Document | undefined;
   const referencesByOwner = new Map<string, RelationshipReferences>();
-  const documentsByPath = new Map<string, Document>();
+  const sourceAuthoredTextByPath = new Map<string, readonly string[] | null>();
   const declaredFonts = new Set<string>();
   const documentParts = Object.values(zip.files).filter(
     (part) => !part.dir && part.name.endsWith(".xml"),
   );
   for (const part of documentParts) {
     const document = await readXml(part, signal);
-    documentsByPath.set(part.name, document);
+    if (/^ppt\/slides\/slide\d+\.xml$/.test(part.name)) {
+      try {
+        const text = Array.from(
+          document.getElementsByTagNameNS(drawingMainNamespace, "p"),
+          (paragraph) => Array.from(
+            paragraph.getElementsByTagNameNS(drawingMainNamespace, "t"),
+            (run) => run.textContent ?? "",
+          ).join(""),
+        ).filter((paragraph) => paragraph.trim().length > 0);
+        sourceAuthoredTextByPath.set(part.name, text);
+      } catch {
+        sourceAuthoredTextByPath.set(part.name, null);
+      }
+    }
     if (part.name === "ppt/presentation.xml") presentation = document;
     else if (part.name === "[Content_Types].xml") contentTypes = document;
     referencesByOwner.set(part.name, collectRelationshipReferences(document));
@@ -456,7 +469,7 @@ async function inspectXmlParts(
     contentTypes,
     declaredFonts: [...declaredFonts].sort((left, right) =>
       left.localeCompare(right, "en")),
-    documentsByPath,
+    sourceAuthoredTextByPath,
   };
 }
 
@@ -497,7 +510,7 @@ export async function inspectPptxPackage(
     presentationRelationships,
     contentTypes,
     declaredFonts,
-    documentsByPath,
+    sourceAuthoredTextByPath,
   } = await inspectXmlParts(zip, signal);
   rejectUnsafeActiveContent(zip, contentTypes);
   signal.throwIfAborted();
@@ -509,10 +522,10 @@ export async function inspectPptxPackage(
     );
   }
   const slideIdentities = orderedSlideIdentities(presentation);
-  const slideContents = orderedSlideContents(
+  const sourceAuthoredSlideText = optionalOrderedSourceAuthoredSlideText(
     presentation,
     presentationRelationships,
-    documentsByPath,
+    sourceAuthoredTextByPath,
   );
 
   const unsupportedMediaPattern = /\.(?:svg|emf|wmf|pdf)$/i;
@@ -522,7 +535,7 @@ export async function inspectPptxPackage(
   return {
     declaredFonts,
     slideIdentities,
-    slideContents,
+    sourceAuthoredSlideText,
     warningCategories: hasUnsupportedMedia ? ["unsupported-content"] : [],
   };
 }

@@ -24,8 +24,8 @@ and rendered content. Copying the summary writes it only to the local clipboard.
 Compatibility-check results exist only for the current view lifecycle and are
 not persisted as a document archive.
 
-Slide text search is local to one open presentation and one view lifecycle.
-The query, source-authored text extracted from slide XML, normalized text,
+Slide content search is local to one open presentation and one view lifecycle.
+The query, source-authored slide text read from slide XML, normalized text,
 snippets, and results are not written to plugin data, diagnostics, logs,
 Markdown, or the source presentation. Search performance evidence contains
 only elapsed time and mounted-result counts.

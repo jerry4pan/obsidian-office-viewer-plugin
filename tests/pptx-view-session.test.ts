@@ -5,18 +5,18 @@ import { PptxOpenError } from "../src/pptx-open-error";
 import type {
   PptxRendererAdapter,
   PptxRendererSession,
-  PptxSlideContent,
+  PptxSourceAuthoredSlideText,
 } from "../src/renderer/pptx-renderer-adapter";
 
 function makeRenderer(
   slideCount = 1,
   slideIdentities?: readonly number[],
-  slideContents?: readonly PptxSlideContent[],
+  sourceAuthoredSlideText?: readonly PptxSourceAuthoredSlideText[],
 ) {
   const rendererSession: PptxRendererSession = {
     slideCount,
     slideIdentities,
-    slideContents,
+    sourceAuthoredSlideText,
     slideWidth: 960,
     slideHeight: 540,
     capabilities: { thumbnails: false, prefetch: false },
@@ -111,7 +111,7 @@ describe("PptxViewSession", () => {
       '[data-action="slide-search-result"]',
     );
     expect(result?.textContent).toContain("Slide 2");
-    expect(result?.textContent).toContain("2 matches");
+    expect(result?.textContent).toContain("Matches: 2");
     result?.click();
 
     await vi.waitFor(() => {
@@ -267,6 +267,89 @@ describe("PptxViewSession", () => {
     session.dispose();
   });
 
+  it("restores thumbnail mode when the search query is cleared", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Needle"] }],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const rail = root.querySelector<HTMLElement>(
+      ".pptx-viewer__thumbnail-rail",
+    )!;
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    input.value = "needle";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(rail.dataset.searchHasQuery).toBe("true");
+
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(rail.dataset.searchOpen).toBeUndefined();
+    expect(rail.dataset.searchHasQuery).toBeUndefined();
+    expect(root.querySelector('[data-action="thumbnail-slide"]')).not.toBeNull();
+    session.dispose();
+  });
+
+  it("bounds query input and keeps search setup failure non-fatal", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Needle"] }],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    expect(input.maxLength).toBe(200);
+    input.value = "x".repeat(250);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(input.value).toHaveLength(200);
+    session.dispose();
+
+    const failingRoot = document.createElement("div");
+    const failing = makeRenderer(
+      1,
+      [512],
+      [{ slideId: 512, text: ["Needle"] }],
+    );
+    const normalize = vi.spyOn(String.prototype, "normalize").mockImplementation(() => {
+      throw new Error("search normalization unavailable");
+    });
+    const failingSession = new PptxViewSession(
+      failingRoot,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      failing.adapter,
+    );
+
+    await expect(failingSession.open("deck.pptx")).resolves.toBeUndefined();
+    normalize.mockRestore();
+    expect(failingRoot.dataset.state).toBe("ready");
+    expect(failingRoot.querySelector('[data-action="open-slide-search"]'))
+      .toBeNull();
+    failingSession.dispose();
+  });
+
   it("keeps slide search state independent between workspace panes", async () => {
     const firstRoot = document.createElement("div");
     const secondRoot = document.createElement("div");
@@ -420,16 +503,111 @@ describe("PptxViewSession", () => {
     session.dispose();
   });
 
+  it.each([
+    [
+      "en",
+      "Search slide text",
+      "Matching slides",
+      "Matching slides: 51",
+      "Showing 1–50 of 51",
+      "Previous search results",
+      "Next search results",
+      "No matching slide text. Images and speaker notes are not searched.",
+    ],
+    [
+      "zh-CN",
+      "搜索幻灯片文字",
+      "匹配的幻灯片",
+      "找到 51 张幻灯片",
+      "显示第 1–50 项，共 51 项",
+      "上一组搜索结果",
+      "下一组搜索结果",
+      "未在幻灯片文字中找到结果；图片和讲者备注尚未搜索。",
+    ],
+    [
+      "zh-TW",
+      "搜尋投影片文字",
+      "相符的投影片",
+      "找到 51 張投影片",
+      "顯示第 1–50 項，共 51 項",
+      "上一組搜尋結果",
+      "下一組搜尋結果",
+      "在投影片文字中找不到結果；尚未搜尋圖片和講者備註。",
+    ],
+  ] as const)(
+    "localizes the complete search surface for %s",
+    async (
+      language,
+      searchLabel,
+      resultsLabel,
+      resultCount,
+      resultRange,
+      previousResults,
+      nextResults,
+      noResults,
+    ) => {
+      const root = document.createElement("div");
+      const slides = Array.from({ length: 51 }, (_, index) => ({
+        slideId: 256 + index,
+        text: [`Needle ${index + 1}`],
+      }));
+      const { adapter } = makeRenderer(
+        slides.length,
+        slides.map(({ slideId }) => slideId),
+        slides,
+      );
+      const session = new PptxViewSession(
+        root,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        adapter,
+        { messages: createMessageTranslator(language) },
+      );
+      await session.open("deck.pptx");
+      const searchButton = root.querySelector<HTMLButtonElement>(
+        '[data-action="open-slide-search"]',
+      )!;
+      expect(searchButton.getAttribute("aria-label")).toBe(searchLabel);
+      searchButton.click();
+      const input = root.querySelector<HTMLInputElement>(
+        '[data-action="slide-search-input"]',
+      )!;
+      expect(input.getAttribute("aria-label")).toBe(searchLabel);
+      expect(root.querySelector('[role="list"]')?.getAttribute("aria-label"))
+        .toBe(resultsLabel);
+      expect(
+        root.querySelector('[data-action="previous-search-results"]')
+          ?.getAttribute("aria-label"),
+      ).toBe(previousResults);
+      expect(
+        root.querySelector('[data-action="next-search-results"]')
+          ?.getAttribute("aria-label"),
+      ).toBe(nextResults);
+
+      input.value = "needle";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(root.querySelector(".pptx-viewer__slide-search-summary")?.textContent)
+        .toBe(resultCount);
+      expect(root.querySelector(".pptx-viewer__slide-search-range")?.textContent)
+        .toBe(resultRange);
+
+      input.value = "missing";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(root.querySelector(".pptx-viewer__slide-search-summary")?.textContent)
+        .toBe(noResults);
+      session.dispose();
+    },
+  );
+
   it("bounds mounted search results and measures large-deck query latency", async () => {
     const root = document.createElement("div");
-    const slideContents = Array.from({ length: 200 }, (_, index) => ({
+    const sourceAuthoredSlideText = Array.from({ length: 200 }, (_, index) => ({
       slideId: 256 + index,
       text: [`Needle on stress slide ${index + 1}`],
     }));
     const { adapter } = makeRenderer(
-      slideContents.length,
-      slideContents.map(({ slideId }) => slideId),
-      slideContents,
+      sourceAuthoredSlideText.length,
+      sourceAuthoredSlideText.map(({ slideId }) => slideId),
+      sourceAuthoredSlideText,
     );
     const session = new PptxViewSession(
       root,

@@ -28,7 +28,7 @@ describe("PPTX package preflight", () => {
     ).resolves.toEqual({
       declaredFonts: ["Arial"],
       slideIdentities: [256],
-      slideContents: [{
+      sourceAuthoredSlideText: [{
         slideId: 256,
         text: ["Obsidian PPTX smoke test"],
       }],
@@ -47,7 +47,7 @@ describe("PPTX package preflight", () => {
     expect(inspection.slideIdentities).toHaveLength(50);
     expect(new Set(inspection.slideIdentities).size).toBe(50);
     expect(inspection.slideIdentities.slice(0, 3)).toEqual([256, 257, 258]);
-    expect(inspection.slideContents.map(({ slideId }) => slideId))
+    expect(inspection.sourceAuthoredSlideText!.map(({ slideId }) => slideId))
       .toEqual(inspection.slideIdentities);
   });
 
@@ -84,7 +84,7 @@ describe("PPTX package preflight", () => {
       await zip.generateAsync({ type: "arraybuffer" }),
       new AbortController().signal,
     );
-    const text = inspection.slideContents[0]?.text ?? [];
+    const text = inspection.sourceAuthoredSlideText![0]?.text ?? [];
 
     expect(text).toContain("Regional performance");
     expect(text).toContain("FY26 plan");
@@ -92,6 +92,26 @@ describe("PPTX package preflight", () => {
     expect(text).not.toContain("Chart only secret");
     expect(text).not.toContain("Notes only secret");
     expect(text).not.toContain("Master only secret");
+  });
+
+  it("keeps optional source-authored text extraction failure non-fatal", async () => {
+    const original = Document.prototype.getElementsByTagNameNS;
+    vi.spyOn(Document.prototype, "getElementsByTagNameNS").mockImplementation(
+      function (this: Document, namespace, localName) {
+        if (localName === "p" && this.documentElement?.localName === "sld") {
+          throw new Error("optional text extraction failed");
+        }
+        return original.call(this, namespace, localName);
+      },
+    );
+
+    await expect(inspectPptxPackage(
+      await loadFixture("tests/fixtures/minimal.pptx"),
+      new AbortController().signal,
+    )).resolves.toMatchObject({
+      slideIdentities: [256],
+      sourceAuthoredSlideText: undefined,
+    });
   });
 
   it("rejects duplicate native slide identities", async () => {

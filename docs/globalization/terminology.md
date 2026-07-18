@@ -12,8 +12,8 @@
 Use this table for plugin-owned user-facing messages. Obsidian-owned terms
 follow the upstream
 [Obsidian translations](https://github.com/obsidianmd/obsidian-translations);
-the remaining terms are Office Viewer translation decisions approved by the
-human review recorded in Issue #20.
+approved terms below are Office Viewer translation decisions retained by their
+listed human-review authority. Draft terms are separated and marked pending.
 
 ## Protected identifiers
 
@@ -50,6 +50,18 @@ mappings for pull request #29 on 2026-07-18.
 | Slide reference | 幻灯片引用 | 投影片引用 | Office Viewer, approved in #29 |
 | Slide embed | 幻灯片嵌入 | 投影片嵌入 | Office Viewer, approved in #29 |
 | Open presentation | 打开演示文稿 | 開啟簡報 | Office Viewer, approved in #29 |
+
+## Pending Slide content search terminology
+
+These mappings are implementation drafts and are not approved until the
+reviewer fields in `m3-message-review.md` identify proficient human approval
+for the reviewed commit.
+
+| English source term | Simplified Chinese | Traditional Chinese | Authority |
+| --- | --- | --- | --- |
+| Slide content search | 搜索幻灯片文字 | 搜尋投影片文字 | Pending human review |
+| Source-authored slide text | 源幻灯片文字 | 來源投影片文字 | Pending human review |
+| Slide search result | 匹配的幻灯片 | 相符的投影片 | Pending human review |
 
 ## Review rules
 

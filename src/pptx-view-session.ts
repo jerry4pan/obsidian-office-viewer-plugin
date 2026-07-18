@@ -602,7 +602,7 @@ export class PptxViewSession<FileRef> {
       });
       this.thumbnailRail = rail;
       rail.start(viewController.state.currentSlideIndex);
-      const searchableSlides = rendererSession.slideContents;
+      const searchableSlides = rendererSession.sourceAuthoredSlideText;
       if (searchableSlides?.length === rendererSession.slideCount) {
         let thumbnailsCollapsedBeforeSearch = false;
         const setThumbnailsCollapsed = (collapsed: boolean) => {
@@ -611,67 +611,78 @@ export class PptxViewSession<FileRef> {
           if (!collapsed) rail?.refresh();
           updateMountedCount();
         };
-        const createdSearchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
-          messages: this.messages,
-          currentSlideIndex: () => viewController.state.currentSlideIndex,
-          onNavigate: (slideId) => {
-            const targetIndex = rendererSession.slideIdentities?.indexOf(slideId) ?? -1;
-            if (targetIndex >= 0) navigate(targetIndex);
-          },
-          onDismiss: () => closeSearch(),
-        });
-        searchRail = createdSearchRail;
-        const searchButton = headerActions.createEl("button", {
-          type: "button",
-          text: "⌕",
-          title: this.messages.text("search.open"),
-          attr: {
-            "data-action": "open-slide-search",
-            "aria-label": this.messages.text("search.open"),
-            "aria-pressed": "false",
-          },
-        });
-        const updateSearchButton = () => {
-          searchButton.setAttribute("aria-pressed", String(createdSearchRail.isOpen));
-          searchButton.title = this.messages.text(
-            createdSearchRail.isOpen ? "search.close" : "search.open",
-          );
-          searchButton.setAttribute(
-            "aria-label",
-            this.messages.text(
-              createdSearchRail.isOpen ? "search.close" : "search.open",
-            ),
-          );
-        };
-        openSearch = () => {
-          if (searchRail?.isOpen) {
-            searchRail.open();
-            return;
-          }
-          thumbnailsCollapsedBeforeSearch =
-            this.root.dataset.thumbnailsCollapsed === "true";
-          thumbnailScrollTopBeforeSearch = thumbnailRoot.scrollTop;
-          if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(false);
-          searchRail?.open();
-          updateSearchButton();
-        };
-        closeSearch = () => {
-          if (!searchRail?.isOpen) return;
-          searchRail.close();
-          thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
-          if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(true);
-          updateSearchButton();
-          searchButton.focus();
-        };
-        const toggleSearch = () => {
-          if (searchRail?.isOpen) closeSearch();
-          else openSearch();
-        };
-        searchButton.addEventListener("click", toggleSearch);
-        this.runCleanups.add(() => {
-          searchButton.removeEventListener("click", toggleSearch);
-          createdSearchRail.dispose();
-        });
+        let createdSearchRail: SlideSearchRail | null = null;
+        try {
+          createdSearchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
+            messages: this.messages,
+            currentSlideIndex: () => viewController.state.currentSlideIndex,
+            onNavigate: (slideId) => {
+              const targetIndex = rendererSession.slideIdentities?.indexOf(slideId) ?? -1;
+              if (targetIndex >= 0) navigate(targetIndex);
+            },
+            onDismiss: () => closeSearch(),
+          });
+        } catch {
+          // Optional search setup must not invalidate an otherwise readable deck.
+        }
+        if (createdSearchRail !== null) {
+          const activeSearchRail = createdSearchRail;
+          searchRail = activeSearchRail;
+          const searchButton = headerActions.createEl("button", {
+            type: "button",
+            text: "⌕",
+            title: this.messages.text("search.open"),
+            attr: {
+              "data-action": "open-slide-search",
+              "aria-label": this.messages.text("search.open"),
+              "aria-pressed": "false",
+            },
+          });
+          const updateSearchButton = () => {
+            searchButton.setAttribute(
+              "aria-pressed",
+              String(activeSearchRail.isOpen),
+            );
+            searchButton.title = this.messages.text(
+              activeSearchRail.isOpen ? "search.close" : "search.open",
+            );
+            searchButton.setAttribute(
+              "aria-label",
+              this.messages.text(
+                activeSearchRail.isOpen ? "search.close" : "search.open",
+              ),
+            );
+          };
+          openSearch = () => {
+            if (searchRail?.isOpen) {
+              searchRail.open();
+              return;
+            }
+            thumbnailsCollapsedBeforeSearch =
+              this.root.dataset.thumbnailsCollapsed === "true";
+            thumbnailScrollTopBeforeSearch = thumbnailRoot.scrollTop;
+            if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(false);
+            searchRail?.open();
+            updateSearchButton();
+          };
+          closeSearch = () => {
+            if (!searchRail?.isOpen) return;
+            searchRail.close();
+            thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
+            if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(true);
+            updateSearchButton();
+            searchButton.focus();
+          };
+          const toggleSearch = () => {
+            if (searchRail?.isOpen) closeSearch();
+            else openSearch();
+          };
+          searchButton.addEventListener("click", toggleSearch);
+          this.runCleanups.add(() => {
+            searchButton.removeEventListener("click", toggleSearch);
+            activeSearchRail.dispose();
+          });
+        }
       }
       const railResizer = new ThumbnailRailResizer(
         readingBody,
