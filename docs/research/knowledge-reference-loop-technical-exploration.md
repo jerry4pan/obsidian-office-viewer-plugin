@@ -294,11 +294,27 @@ the consecutive-clean counter; the two accepted runs above were collected only
 afterward. It is preserved as environmental-variance evidence rather than
 discarded or treated as a passing run.
 
+### WPS Office compatibility observation
+
+A maintainer completed the same insert, reorder, title-edit, normal-save,
+close/reopen, and deletion sequence with WPS Office 12.1.24031 on macOS 14.8.7
+(darwin-arm64; AutoSave state was not recorded). The deterministic verifier
+passed every check:
+
+- baseline identities: `256` through `267`;
+- edited identities: `256, 257, 261, 258, 259, 260, 268, 262, 263, 264, 265, 266, 267`;
+- deleted identities: `256, 257, 258, 259, 260, 268, 262, 263, 264, 265, 266, 267`.
+
+The target identity `261` therefore survived the WPS edit round trip at current
+ordinal 3 and disappeared after deletion without changing the remaining
+original identities. This is positive non-blocking editor-compatibility
+evidence. It does not satisfy the explicitly agreed Microsoft PowerPoint gate.
+
 ### Acceptance audit
 
 | Gate | Current evidence | Status |
 | --- | --- | --- |
-| PowerPoint insert/reorder/edit/normal-save preserves the target identity | Manual protocol and deterministic verifier are ready; PowerPoint is absent on this machine and no maintainer artifacts have been supplied | **PENDING — blocking** |
+| PowerPoint insert/reorder/edit/normal-save preserves the target identity | The same protocol passes in WPS Office 12.1.24031, but Microsoft PowerPoint is absent and no PowerPoint-produced artifacts have been supplied | **PENDING — blocking** |
 | Deleted/regenerated identity never falls back to ordinal | Preflight uniqueness, stale viewer/embed unit tests, installed stale reference and embed cases | PASS |
 | One shared canonical fragment contract | Formatter/parser malformed and encoded-path tests; installed reference and embed share it | PASS |
 | Native Obsidian current/split/restart/rename navigation | Installed current leaf, split leaf, restart, duplicate basename, and native rename-update probes | PASS |
