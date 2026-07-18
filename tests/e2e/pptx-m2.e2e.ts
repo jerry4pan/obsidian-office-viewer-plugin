@@ -319,6 +319,19 @@ describe("M2 installed PPTX reading experience", () => {
       "![[performance/stress-200-slides.pptx#slide-id=455&slide=200",
     );
 
+    await input.setValue("Notes-only marker 001");
+    const notesOnly = root.$('[data-action="slide-search-notes-match"]');
+    await expect(notesOnly).toExist();
+    expect(Number(await rail.getAttribute("data-last-search-ms")))
+      .toBeLessThanOrEqual(1_000);
+    await expect(rail).toHaveAttribute("data-mounted-search-result-count", "1");
+    await notesOnly.click();
+    await waitForPage(root, 1, 200);
+    await expect(root).toHaveAttribute("data-notes-collapsed", "false");
+    await expect(root.$(".pptx-viewer__notes-highlight")).toHaveText(
+      "Notes-only marker 001",
+    );
+
     const persisted = await browser.executeObsidian(async ({ app }) => {
       const plugin = (app as unknown as {
         plugins: { plugins: Record<string, unknown> };
@@ -327,6 +340,7 @@ describe("M2 installed PPTX reading experience", () => {
     });
     expect(persisted.toLocaleLowerCase()).not.toContain("café");
     expect(persisted).not.toContain("繁體中文搜尋標記");
+    expect(persisted).not.toContain("Notes-only marker");
     expect(JSON.stringify(await browser.execute((viewer) => viewer.dataset, root)))
       .not.toContain("spacing marker");
 

@@ -63,6 +63,16 @@ reviewing commit `e62eb4a`; the durable review record is in
 | Source-authored slide text | 源幻灯片文字 | 來源投影片文字 | Office Viewer, approved for `e62eb4a` |
 | Slide search result | 匹配的幻灯片 | 相符的投影片 | Office Viewer, approved for `e62eb4a` |
 
+## Approved speaker-note and Presentation content search terminology
+
+| English source term | Simplified Chinese | Traditional Chinese | Authority |
+| --- | --- | --- | --- |
+| Speaker notes | 讲者备注 | 講者備註 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Speaker note content | 讲者备注内容 | 講者備註內容 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Presentation content search | 搜索演示文稿内容 | 搜尋簡報內容 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Slide text | 幻灯片文字 | 投影片文字 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Search scope | 搜索范围 | 搜尋範圍 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+
 ## Review rules
 
 - Prefer natural sentence structure over word-for-word translation.

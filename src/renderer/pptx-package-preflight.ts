@@ -4,6 +4,7 @@ import { PptxOpenError } from "../pptx-open-error";
 import type {
   PptxCompatibilityWarningCategory,
   PptxSourceAuthoredSlideText,
+  PptxSpeakerNoteContent,
 } from "./pptx-renderer-adapter";
 import { isOoxmlSlideId } from "../slide-identity";
 
@@ -38,12 +39,22 @@ const hyperlinkRelationshipType =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 const slideRelationshipType =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
+const notesSlideRelationshipType =
+  "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide";
 const officeRelationshipNamespace =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const drawingMainNamespace =
   "http://schemas.openxmlformats.org/drawingml/2006/main";
 const presentationMainNamespace =
   "http://schemas.openxmlformats.org/presentationml/2006/main";
+const notesBodyPlaceholderType = "body";
+const excludedNotesPlaceholderTypes = new Set([
+  "hdr",
+  "ftr",
+  "dt",
+  "sldNum",
+  "sldImg",
+]);
 
 interface RelationshipReferences {
   readonly hyperlinkIds: Set<string>;
@@ -74,6 +85,7 @@ export interface PptxPackageInspection {
   readonly declaredFonts: readonly string[];
   readonly slideIdentities: readonly number[];
   readonly sourceAuthoredSlideText?: readonly PptxSourceAuthoredSlideText[];
+  readonly speakerNoteContent?: readonly PptxSpeakerNoteContent[];
   readonly warningCategories: readonly PptxCompatibilityWarningCategory[];
 }
 
@@ -341,11 +353,10 @@ function orderedSlideIdentities(presentation: Document): readonly number[] {
   return identities;
 }
 
-function optionalOrderedSourceAuthoredSlideText(
+function presentationSlidePaths(
   presentation: Document,
   presentationRelationships: Document,
-  sourceAuthoredTextByPath: ReadonlyMap<string, readonly string[] | null>,
-): readonly PptxSourceAuthoredSlideText[] | undefined {
+): readonly { readonly slideId: number; readonly slidePath: string }[] {
   const relationships = new Map<string, Element>();
   for (const relationship of presentationRelationships.getElementsByTagNameNS(
     "*",
@@ -355,8 +366,7 @@ function optionalOrderedSourceAuthoredSlideText(
     if (id) relationships.set(id, relationship);
   }
 
-  const contents: PptxSourceAuthoredSlideText[] = [];
-  let extractionFailed = false;
+  const slides: { slideId: number; slidePath: string }[] = [];
   for (const slide of presentation.getElementsByTagNameNS(
     presentationMainNamespace,
     "sldId",
@@ -374,7 +384,25 @@ function optionalOrderedSourceAuthoredSlideText(
     }
     const target = relationship.getAttribute("Target");
     if (!target) throw malformed("Presentation slide relationship has no target");
-    const slidePath = normalizePartPath("ppt", target);
+    slides.push({
+      slideId: Number(rawIdentity),
+      slidePath: normalizePartPath("ppt", target),
+    });
+  }
+  return slides;
+}
+
+function optionalOrderedSourceAuthoredSlideText(
+  presentation: Document,
+  presentationRelationships: Document,
+  sourceAuthoredTextByPath: ReadonlyMap<string, readonly string[] | null>,
+): readonly PptxSourceAuthoredSlideText[] | undefined {
+  const contents: PptxSourceAuthoredSlideText[] = [];
+  let extractionFailed = false;
+  for (const { slideId, slidePath } of presentationSlidePaths(
+    presentation,
+    presentationRelationships,
+  )) {
     const text = sourceAuthoredTextByPath.get(slidePath);
     if (text === undefined) throw malformed(`Missing parsed slide part ${slidePath}`);
     if (extractionFailed) continue;
@@ -382,8 +410,99 @@ function optionalOrderedSourceAuthoredSlideText(
       extractionFailed = true;
       contents.length = 0;
     } else {
-      contents.push({ slideId: Number(rawIdentity), text });
+      contents.push({ slideId, text });
     }
+  }
+  return extractionFailed ? undefined : contents;
+}
+
+function extractAuthorNoteParagraphs(document: Document): readonly string[] {
+  const paragraphs: string[] = [];
+  for (const shape of document.getElementsByTagNameNS(
+    presentationMainNamespace,
+    "sp",
+  )) {
+    let placeholder: Element | null = null;
+    for (const candidate of shape.getElementsByTagNameNS(
+      presentationMainNamespace,
+      "ph",
+    )) {
+      placeholder = candidate;
+      break;
+    }
+    if (placeholder === null) continue;
+    const placeholderType = placeholder.getAttribute("type") ?? "";
+    if (
+      placeholderType !== notesBodyPlaceholderType ||
+      excludedNotesPlaceholderTypes.has(placeholderType)
+    ) {
+      continue;
+    }
+    for (const paragraph of shape.getElementsByTagNameNS(
+      drawingMainNamespace,
+      "p",
+    )) {
+      const text = noteParagraphText(paragraph);
+      if (text.trim().length > 0) paragraphs.push(text);
+    }
+  }
+  return paragraphs;
+}
+
+function noteParagraphText(paragraph: Element): string {
+  let text = "";
+  const append = (node: Node): void => {
+    if (node.nodeType !== 1) return;
+    const element = node as Element;
+    if (element.namespaceURI === drawingMainNamespace) {
+      if (element.localName === "br") {
+        text += "\n";
+        return;
+      }
+      if (element.localName === "tab") {
+        text += "\t";
+        return;
+      }
+      if (element.localName === "t") {
+        text += element.textContent ?? "";
+        return;
+      }
+    }
+    for (const child of element.childNodes) append(child);
+  };
+  for (const child of paragraph.childNodes) append(child);
+  return text;
+}
+
+function optionalOrderedSpeakerNoteContent(
+  presentation: Document,
+  presentationRelationships: Document,
+  notesPathBySlidePath: ReadonlyMap<string, string | null>,
+  speakerNoteParagraphsByPath: ReadonlyMap<string, readonly string[] | null>,
+): readonly PptxSpeakerNoteContent[] | undefined {
+  const contents: PptxSpeakerNoteContent[] = [];
+  let extractionFailed = false;
+  for (const { slideId, slidePath } of presentationSlidePaths(
+    presentation,
+    presentationRelationships,
+  )) {
+    if (extractionFailed) continue;
+    const notesPath = notesPathBySlidePath.get(slidePath) ?? null;
+    if (notesPath === null) {
+      contents.push({ slideId, paragraphs: [] });
+      continue;
+    }
+    const paragraphs = speakerNoteParagraphsByPath.get(notesPath);
+    if (paragraphs === undefined) {
+      contents.push({ slideId, paragraphs: [] });
+      continue;
+    }
+    if (paragraphs === null) {
+      extractionFailed = true;
+      contents.length = 0;
+      continue;
+    }
+    contents.push({ slideId, paragraphs });
   }
   return extractionFailed ? undefined : contents;
 }
@@ -397,15 +516,67 @@ async function inspectXmlParts(
   contentTypes: Document;
   declaredFonts: readonly string[];
   sourceAuthoredTextByPath: ReadonlyMap<string, readonly string[] | null>;
+  speakerNoteParagraphsByPath: ReadonlyMap<string, readonly string[] | null>;
+  notesPathBySlidePath: ReadonlyMap<string, string | null>;
 }> {
   let presentation: Document | undefined;
   let presentationRelationships: Document | undefined;
   let contentTypes: Document | undefined;
   const referencesByOwner = new Map<string, RelationshipReferences>();
   const sourceAuthoredTextByPath = new Map<string, readonly string[] | null>();
+  const speakerNoteParagraphsByPath = new Map<string, readonly string[] | null>();
+  const notesPathBySlidePath = new Map<string, string | null>();
   const declaredFonts = new Set<string>();
+
+  const relationshipParts = Object.values(zip.files).filter(
+    (part) => !part.dir && part.name.endsWith(".rels"),
+  );
+  const relationshipDocuments: {
+    readonly part: JSZipObject;
+    readonly document: Document;
+  }[] = [];
+  for (const part of relationshipParts) {
+    const document = await readXml(part, signal);
+    relationshipDocuments.push({ part, document });
+    if (part.name === "ppt/_rels/presentation.xml.rels") {
+      presentationRelationships = document;
+    }
+    const ownerPath = relationshipOwnerPartPath(part.name);
+    if (ownerPath === null) continue;
+    let notesPath: string | null = null;
+    const baseDirectory = relationshipOwnerDirectory(part.name);
+    for (const relationship of document.getElementsByTagNameNS(
+      "*",
+      "Relationship",
+    )) {
+      if (relationship.getAttribute("Type") !== notesSlideRelationshipType) {
+        continue;
+      }
+      const target = relationship.getAttribute("Target");
+      if (!target) throw malformed(`Relationship in ${part.name} has no target`);
+      notesPath = normalizePartPath(baseDirectory, target);
+      break;
+    }
+    if (notesPath !== null) notesPathBySlidePath.set(ownerPath, notesPath);
+  }
+
+  const notePartPaths = new Set(
+    [...notesPathBySlidePath.values()].filter(
+      (path): path is string => path !== null,
+    ),
+  );
+  let inspectedXmlBytes = Object.values(zip.files)
+    .filter(
+      (part) =>
+        !part.dir &&
+        (part.name.endsWith(".xml") || part.name.endsWith(".rels")),
+    )
+    .reduce((total, part) => total + uncompressedSize(part), 0);
   const documentParts = Object.values(zip.files).filter(
-    (part) => !part.dir && part.name.endsWith(".xml"),
+    (part) =>
+      !part.dir &&
+      part.name.endsWith(".xml") &&
+      !notePartPaths.has(part.name),
   );
   for (const part of documentParts) {
     const document = await readXml(part, signal);
@@ -448,14 +619,38 @@ async function inspectXmlParts(
       }
     }
   }
-  const relationshipParts = Object.values(zip.files).filter(
-    (part) => !part.dir && part.name.endsWith(".rels"),
-  );
-  for (const part of relationshipParts) {
-    const document = await readXml(part, signal);
-    if (part.name === "ppt/_rels/presentation.xml.rels") {
-      presentationRelationships = document;
+
+  for (const path of notePartPaths) {
+    const part = zip.file(path);
+    if (!part) continue;
+    if (!path.endsWith(".xml") && !path.endsWith(".rels")) {
+      const size = uncompressedSize(part);
+      if (size > maxPreflightXmlPartBytes) {
+        throw resourceExhausted(
+          `OOXML part ${part.name} exceeds the safe size limit`,
+        );
+      }
+      inspectedXmlBytes += size;
+      if (inspectedXmlBytes > maxPreflightXmlBytes) {
+        throw resourceExhausted(
+          "The PPTX package contains too much XML to inspect safely",
+        );
+      }
     }
+    try {
+      const document = await readXml(part, signal);
+      speakerNoteParagraphsByPath.set(
+        path,
+        extractAuthorNoteParagraphs(document),
+      );
+      referencesByOwner.set(path, collectRelationshipReferences(document));
+    } catch {
+      signal.throwIfAborted();
+      speakerNoteParagraphsByPath.set(path, null);
+    }
+  }
+
+  for (const { part, document } of relationshipDocuments) {
     verifyRelationships(zip, part, document, referencesByOwner);
   }
   if (!presentation) throw malformed("Missing presentation XML");
@@ -470,6 +665,8 @@ async function inspectXmlParts(
     declaredFonts: [...declaredFonts].sort((left, right) =>
       left.localeCompare(right, "en")),
     sourceAuthoredTextByPath,
+    speakerNoteParagraphsByPath,
+    notesPathBySlidePath,
   };
 }
 
@@ -511,6 +708,8 @@ export async function inspectPptxPackage(
     contentTypes,
     declaredFonts,
     sourceAuthoredTextByPath,
+    speakerNoteParagraphsByPath,
+    notesPathBySlidePath,
   } = await inspectXmlParts(zip, signal);
   rejectUnsafeActiveContent(zip, contentTypes);
   signal.throwIfAborted();
@@ -527,6 +726,12 @@ export async function inspectPptxPackage(
     presentationRelationships,
     sourceAuthoredTextByPath,
   );
+  const speakerNoteContent = optionalOrderedSpeakerNoteContent(
+    presentation,
+    presentationRelationships,
+    notesPathBySlidePath,
+    speakerNoteParagraphsByPath,
+  );
 
   const unsupportedMediaPattern = /\.(?:svg|emf|wmf|pdf)$/i;
   const hasUnsupportedMedia = Object.values(zip.files).some(
@@ -536,6 +741,7 @@ export async function inspectPptxPackage(
     declaredFonts,
     slideIdentities,
     sourceAuthoredSlideText,
+    speakerNoteContent,
     warningCategories: hasUnsupportedMedia ? ["unsupported-content"] : [],
   };
 }

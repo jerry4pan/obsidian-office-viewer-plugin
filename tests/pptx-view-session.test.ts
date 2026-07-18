@@ -6,17 +6,20 @@ import type {
   PptxRendererAdapter,
   PptxRendererSession,
   PptxSourceAuthoredSlideText,
+  PptxSpeakerNoteContent,
 } from "../src/renderer/pptx-renderer-adapter";
 
 function makeRenderer(
   slideCount = 1,
   slideIdentities?: readonly number[],
   sourceAuthoredSlideText?: readonly PptxSourceAuthoredSlideText[],
+  speakerNoteContent?: readonly PptxSpeakerNoteContent[],
 ) {
   const rendererSession: PptxRendererSession = {
     slideCount,
     slideIdentities,
     sourceAuthoredSlideText,
+    speakerNoteContent,
     slideWidth: 960,
     slideHeight: 540,
     capabilities: { thumbnails: false, prefetch: false },
@@ -459,6 +462,36 @@ describe("PptxViewSession", () => {
     root.remove();
   });
 
+  it("keeps slide-only search labels when speaker-note entries are all empty", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Current needle"] },
+        { slideId: 257, text: ["Other needle"] },
+      ],
+      [
+        { slideId: 256, paragraphs: [] },
+        { slideId: 257, paragraphs: [] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    expect(
+      root.querySelector('[data-action="open-slide-search"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("Search slide text");
+    expect(root.querySelector('[data-search-scope="all"]')).toBeNull();
+    session.dispose();
+  });
+
   it("announces trustworthy no-result coverage and the current result", async () => {
     const root = document.createElement("div");
     const { adapter } = makeRenderer(
@@ -684,6 +717,13 @@ describe("PptxViewSession", () => {
         "aria-label",
       ),
     ).toBe("切换幻灯片缩略图");
+    expect(root.querySelector('[data-action="toggle-notes"]')?.textContent)
+      .toBe("讲者备注");
+    expect(
+      root.querySelector('[data-action="toggle-notes"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("切换讲者备注");
     expect(root.querySelector('[data-action="toggle-fullscreen"]')?.textContent)
       .toBe("全屏");
     expect(
@@ -741,6 +781,13 @@ describe("PptxViewSession", () => {
         "aria-label",
       ),
     ).toBe("切換投影片縮圖");
+    expect(root.querySelector('[data-action="toggle-notes"]')?.textContent)
+      .toBe("講者備註");
+    expect(
+      root.querySelector('[data-action="toggle-notes"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("切換講者備註");
     expect(root.querySelector('[data-action="toggle-fullscreen"]')?.textContent)
       .toBe("全螢幕");
     expect(
@@ -2520,5 +2567,532 @@ describe("PptxViewSession", () => {
 
     expect(rendererSession.dispose).toHaveBeenCalledOnce();
     expect(root.childElementCount).toBe(0);
+  });
+
+  it("keeps the speaker-notes panel collapsed until toggled and preserves that choice while navigating", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      undefined,
+      [
+        {
+          slideId: 256,
+          paragraphs: ["AUTHOR_NOTE_P1", "AUTHOR_NOTE_P2"],
+        },
+        { slideId: 257, paragraphs: [] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    const toggle = root.querySelector<HTMLButtonElement>(
+      '[data-action="toggle-notes"]',
+    );
+    const panel = root.querySelector<HTMLElement>(".pptx-viewer__notes-panel");
+    expect(toggle).not.toBeNull();
+    expect(panel).not.toBeNull();
+    expect(root.dataset.notesCollapsed).toBe("true");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(panel?.getAttribute("aria-hidden")).toBe("true");
+    expect(panel?.getAttribute("aria-label")).toBe("Speaker notes");
+    expect(
+      root.querySelector('[data-notes-state="ready"]')?.textContent,
+    ).toContain("AUTHOR_NOTE_P1");
+    expect(
+      root.querySelector('[data-notes-state="ready"]')?.textContent,
+    ).toContain("AUTHOR_NOTE_P2");
+
+    toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(root.dataset.notesCollapsed).toBe("false");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.getAttribute("aria-hidden")).toBe("false");
+
+    root.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(root.querySelector('[data-notes-state="empty"]')?.textContent)
+        .toBe("This slide has no speaker notes.")
+    );
+    expect(root.dataset.notesCollapsed).toBe("false");
+
+    await session.open("other.pptx");
+    expect(root.dataset.notesCollapsed).toBe("true");
+    expect(
+      root.querySelector('[data-action="toggle-notes"]')?.getAttribute(
+        "aria-expanded",
+      ),
+    ).toBe("false");
+
+    session.dispose();
+    expect(root.querySelector(".pptx-viewer__notes-panel")).toBeNull();
+  });
+
+  it("announces unavailable speaker notes when optional extraction failed", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(1, [256], undefined, undefined);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    expect(
+      root.querySelector('[data-notes-state="unavailable"]')?.textContent,
+    ).toBe("Speaker notes are unavailable for this presentation.");
+    session.dispose();
+  });
+
+  it("copies current-slide speaker notes with the canonical slide reference", async () => {
+    const root = document.createElement("div");
+    const copyNotes = vi.fn(async () => {});
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Slide one"] },
+        { slideId: 257, text: ["Slide two"] },
+      ],
+      [
+        { slideId: 256, paragraphs: ["Note A", "Note B"] },
+        { slideId: 257, paragraphs: [] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        slideReferences: {
+          copy: vi.fn(async () => {}),
+          copyNotes,
+        },
+      },
+    );
+    await session.open("deck.pptx");
+
+    const copyButton = root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-speaker-notes"]',
+    );
+    expect(copyButton?.disabled).toBe(false);
+    copyButton?.click();
+    await vi.waitFor(() => expect(copyNotes).toHaveBeenCalledOnce());
+    expect(copyNotes).toHaveBeenCalledWith(
+      "deck.pptx",
+      { slideId: 256, createdSlideNumber: 1 },
+      ["Note A", "Note B"],
+    );
+    expect(root.querySelector(".pptx-viewer__action-status")?.textContent)
+      .toBe("Speaker notes copied with slide reference.");
+
+    root.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector<HTMLButtonElement>(
+          '[data-action="copy-speaker-notes"]',
+        )?.disabled,
+      ).toBe(true)
+    );
+    session.dispose();
+  });
+
+  it("reports a clipboard failure without changing the current speaker notes", async () => {
+    const root = document.createElement("div");
+    const copyNotes = vi.fn(async () => {
+      throw new Error("clipboard unavailable");
+    });
+    const { adapter, rendererSession } = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Slide one"] }],
+      [{ slideId: 256, paragraphs: ["Note A", "Note B"] }],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        slideReferences: {
+          copy: vi.fn(async () => {}),
+          copyNotes,
+        },
+      },
+    );
+    await session.open("deck.pptx");
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-speaker-notes"]',
+    )!.click();
+    await vi.waitFor(() =>
+      expect(root.querySelector(".pptx-viewer__action-status")?.textContent)
+        .toBe("Unable to copy the speaker notes.")
+    );
+    expect(copyNotes).toHaveBeenCalledWith(
+      "deck.pptx",
+      { slideId: 256, createdSlideNumber: 1 },
+      ["Note A", "Note B"],
+    );
+    expect(rendererSession.renderSlide).toHaveBeenCalledTimes(1);
+    expect(root.querySelector('[data-notes-state="ready"]')?.textContent)
+      .toContain("Note A");
+    expect(
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="copy-speaker-notes"]',
+      )?.disabled,
+    ).toBe(false);
+    session.dispose();
+  });
+
+  it.each([
+    {
+      language: "en",
+      toggle: "Speaker notes",
+      toggleLabel: "Toggle speaker notes",
+      panelLabel: "Speaker notes",
+      empty: "This slide has no speaker notes.",
+      unavailable: "Speaker notes are unavailable for this presentation.",
+      copy: "Copy speaker notes",
+      copied: "Speaker notes copied with slide reference.",
+      copyFailure: "Unable to copy the speaker notes.",
+      searchOpen: "Search presentation content",
+      searchClose: "Close presentation search",
+      searchInput: "Search presentation content",
+      searchPlaceholder: "Search slides and speaker notes",
+      scopeLabel: "Search scope",
+      scopeAll: "All",
+      scopeSlides: "Slides",
+      scopeNotes: "Notes",
+      provenanceSlide: "Slide text",
+      provenanceNotes: "Speaker notes",
+      slideMatchLabel: "Slide 1, slide text matches: 1",
+      notesMatchLabel: "Slide 1, speaker-note matches: 1",
+      noResultsAll:
+        "No matching slide text or speaker notes. Images, charts, and SmartArt are not searched.",
+      noResultsSlides:
+        "No matching slide text. Images, charts, SmartArt, and speaker notes are outside this scope.",
+      noResultsNotes:
+        "No matching speaker notes. Slide text, images, charts, and SmartArt are outside this scope.",
+    },
+    {
+      language: "zh-CN",
+      toggle: "讲者备注",
+      toggleLabel: "切换讲者备注",
+      panelLabel: "讲者备注",
+      empty: "此幻灯片没有讲者备注。",
+      unavailable: "无法提供此演示文稿的讲者备注。",
+      copy: "复制讲者备注",
+      copied: "已复制讲者备注及幻灯片引用。",
+      copyFailure: "无法复制讲者备注。",
+      searchOpen: "搜索演示文稿内容",
+      searchClose: "关闭演示文稿内容搜索",
+      searchInput: "搜索演示文稿内容",
+      searchPlaceholder: "搜索幻灯片与讲者备注",
+      scopeLabel: "搜索范围",
+      scopeAll: "全部",
+      scopeSlides: "幻灯片",
+      scopeNotes: "讲者备注",
+      provenanceSlide: "幻灯片文字",
+      provenanceNotes: "讲者备注",
+      slideMatchLabel: "第 1 张幻灯片，幻灯片文字 1 处匹配",
+      notesMatchLabel: "第 1 张幻灯片，讲者备注 1 处匹配",
+      noResultsAll:
+        "未在幻灯片文字或讲者备注中找到结果；图片、图表和 SmartArt 不在搜索范围内。",
+      noResultsSlides:
+        "未在幻灯片文字中找到结果；图片、图表、SmartArt 和讲者备注不在此范围内。",
+      noResultsNotes:
+        "未在讲者备注中找到结果；幻灯片文字、图片、图表和 SmartArt 不在此范围内。",
+    },
+    {
+      language: "zh-TW",
+      toggle: "講者備註",
+      toggleLabel: "切換講者備註",
+      panelLabel: "講者備註",
+      empty: "此投影片沒有講者備註。",
+      unavailable: "無法提供此簡報的講者備註。",
+      copy: "複製講者備註",
+      copied: "已複製講者備註及投影片引用。",
+      copyFailure: "無法複製講者備註。",
+      searchOpen: "搜尋簡報內容",
+      searchClose: "關閉簡報內容搜尋",
+      searchInput: "搜尋簡報內容",
+      searchPlaceholder: "搜尋投影片與講者備註",
+      scopeLabel: "搜尋範圍",
+      scopeAll: "全部",
+      scopeSlides: "投影片",
+      scopeNotes: "講者備註",
+      provenanceSlide: "投影片文字",
+      provenanceNotes: "講者備註",
+      slideMatchLabel: "第 1 張投影片，投影片文字 1 處相符",
+      notesMatchLabel: "第 1 張投影片，講者備註 1 處相符",
+      noResultsAll:
+        "在投影片文字或講者備註中找不到結果；圖片、圖表和 SmartArt 不在搜尋範圍內。",
+      noResultsSlides:
+        "在投影片文字中找不到結果；圖片、圖表、SmartArt 和講者備註不在此範圍內。",
+      noResultsNotes:
+        "在講者備註中找不到結果；投影片文字、圖片、圖表和 SmartArt 不在此範圍內。",
+    },
+  ] as const)(
+    "renders the complete speaker-note and Presentation search surface in $language",
+    async (expected) => {
+      const root = document.createElement("div");
+      let copyAttempt = 0;
+      const copyNotes = vi.fn(async () => {
+        copyAttempt += 1;
+        if (copyAttempt === 2) throw new Error("clipboard unavailable");
+      });
+      const { adapter } = makeRenderer(
+        2,
+        [256, 257],
+        [
+          { slideId: 256, text: ["Shared author marker"] },
+          { slideId: 257, text: ["Other slide"] },
+        ],
+        [
+          { slideId: 256, paragraphs: ["Shared author marker"] },
+          { slideId: 257, paragraphs: [] },
+        ],
+      );
+      const options = {
+        messages: createMessageTranslator(expected.language),
+        slideReferences: {
+          copy: vi.fn(async () => {}),
+          copyNotes,
+        },
+      };
+      const session = new PptxViewSession(
+        root,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        adapter,
+        options,
+      );
+      await session.open("deck.pptx");
+
+      const toggle = root.querySelector<HTMLButtonElement>(
+        '[data-action="toggle-notes"]',
+      )!;
+      expect(toggle.textContent).toBe(expected.toggle);
+      expect(toggle.getAttribute("aria-label")).toBe(expected.toggleLabel);
+      expect(root.querySelector(".pptx-viewer__notes-panel")?.getAttribute(
+        "aria-label",
+      )).toBe(expected.panelLabel);
+      const copy = root.querySelector<HTMLButtonElement>(
+        '[data-action="copy-speaker-notes"]',
+      )!;
+      expect(copy.getAttribute("aria-label")).toBe(expected.copy);
+      copy.click();
+      await vi.waitFor(() =>
+        expect(root.querySelector(".pptx-viewer__action-status")?.textContent)
+          .toBe(expected.copied)
+      );
+      copy.click();
+      await vi.waitFor(() =>
+        expect(root.querySelector(".pptx-viewer__action-status")?.textContent)
+          .toBe(expected.copyFailure)
+      );
+
+      const searchButton = root.querySelector<HTMLButtonElement>(
+        '[data-action="open-slide-search"]',
+      )!;
+      expect(searchButton.getAttribute("aria-label")).toBe(expected.searchOpen);
+      searchButton.click();
+      expect(searchButton.getAttribute("aria-label")).toBe(expected.searchClose);
+      expect(root.querySelector('[role="search"]')?.getAttribute("aria-label"))
+        .toBe(expected.searchOpen);
+      const input = root.querySelector<HTMLInputElement>(
+        '[data-action="slide-search-input"]',
+      )!;
+      expect(input.getAttribute("aria-label")).toBe(expected.searchInput);
+      expect(input.placeholder).toBe(expected.searchPlaceholder);
+      const scopeGroup = root.querySelector('[role="group"]')!;
+      expect(scopeGroup.getAttribute("aria-label")).toBe(expected.scopeLabel);
+      expect(root.querySelector(
+        '[data-action="search-scope"][data-search-scope="all"]',
+      )?.textContent)
+        .toBe(expected.scopeAll);
+      expect(root.querySelector(
+        '[data-action="search-scope"][data-search-scope="slides"]',
+      )?.textContent)
+        .toBe(expected.scopeSlides);
+      expect(root.querySelector(
+        '[data-action="search-scope"][data-search-scope="notes"]',
+      )?.textContent)
+        .toBe(expected.scopeNotes);
+
+      input.value = "shared author marker";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      const slideMatch = root.querySelector<HTMLElement>(
+        '[data-action="slide-search-slide-match"]',
+      )!;
+      const notesMatch = root.querySelector<HTMLElement>(
+        '[data-action="slide-search-notes-match"]',
+      )!;
+      expect(slideMatch.getAttribute("aria-label"))
+        .toBe(expected.slideMatchLabel);
+      expect(notesMatch.getAttribute("aria-label"))
+        .toBe(expected.notesMatchLabel);
+      expect(slideMatch.querySelector(
+        ".pptx-viewer__slide-search-provenance",
+      )?.textContent).toBe(expected.provenanceSlide);
+      expect(notesMatch.querySelector(
+        ".pptx-viewer__slide-search-provenance",
+      )?.textContent).toBe(expected.provenanceNotes);
+
+      input.value = "missing";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      const summary = root.querySelector(
+        ".pptx-viewer__slide-search-summary",
+      );
+      expect(summary?.textContent).toBe(expected.noResultsAll);
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="search-scope"][data-search-scope="slides"]',
+      )!.click();
+      expect(summary?.textContent).toBe(expected.noResultsSlides);
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="search-scope"][data-search-scope="notes"]',
+      )!.click();
+      expect(summary?.textContent).toBe(expected.noResultsNotes);
+
+      root.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
+      await vi.waitFor(() =>
+        expect(root.querySelector('[data-notes-state="empty"]')?.textContent)
+          .toBe(expected.empty)
+      );
+      session.dispose();
+
+      const unavailableRoot = document.createElement("div");
+      const { adapter: unavailableAdapter } = makeRenderer(
+        1,
+        [256],
+        [{ slideId: 256, text: ["Slide"] }],
+        undefined,
+      );
+      const unavailableSession = new PptxViewSession(
+        unavailableRoot,
+        { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+        unavailableAdapter,
+        { messages: createMessageTranslator(expected.language) },
+      );
+      await unavailableSession.open("unavailable.pptx");
+      expect(
+        unavailableRoot.querySelector(
+          '[data-notes-state="unavailable"]',
+        )?.textContent,
+      ).toBe(expected.unavailable);
+      unavailableSession.dispose();
+    },
+  );
+
+  it("searches notes-only markers, expands the panel, and highlights the match", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const { adapter, rendererSession } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Canvas only"] },
+        { slideId: 257, text: ["Other canvas"] },
+      ],
+      [
+        { slideId: 256, paragraphs: [] },
+        {
+          slideId: 257,
+          paragraphs: ["Hidden NOTE_ONLY marker", "Trailing note"],
+        },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    expect(
+      root.querySelector('[data-action="open-slide-search"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("Search presentation content");
+
+    root.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "f",
+      ctrlKey: true,
+      bubbles: true,
+    }));
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    input.value = "NOTE_ONLY";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(root.querySelector('[data-search-scope="all"]')).not.toBeNull();
+    const notesMatch = root.querySelector<HTMLButtonElement>(
+      '[data-action="slide-search-notes-match"]',
+    );
+    expect(notesMatch?.textContent).toContain("Speaker notes");
+    expect(notesMatch?.textContent).toContain("NOTE_ONLY");
+    notesMatch?.click();
+
+    await vi.waitFor(() => {
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(1);
+    });
+    expect(root.dataset.notesCollapsed).toBe("false");
+    expect(
+      root.querySelector(".pptx-viewer__notes-highlight")?.textContent,
+    ).toBe("NOTE_ONLY");
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-search-scope="slides"]',
+    )?.click();
+    expect(
+      root.querySelector('[data-action="slide-search-notes-match"]'),
+    ).toBeNull();
+    expect(root.querySelector(".pptx-viewer__slide-search-summary")?.textContent)
+      .toContain("outside this scope");
+
+    session.dispose();
+    root.remove();
+  });
+
+  it("highlights the raw note range for a normalized search match", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Canvas only"] }],
+      [{ slideId: 256, paragraphs: ["Before ＡＢＣ\t  target After"] }],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    input.value = "abc target";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="slide-search-notes-match"]',
+    )!.click();
+
+    expect(root.querySelector(".pptx-viewer__notes-highlight")?.textContent)
+      .toBe("ＡＢＣ\t  target");
+    expect(root.dataset.notesCollapsed).toBe("false");
+    session.dispose();
   });
 });

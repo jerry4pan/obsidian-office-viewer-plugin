@@ -15,6 +15,7 @@ import type { DiagnosticEnvironment } from "./diagnostic-summary";
 import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
 import {
   formatSlideReferenceMarkup,
+  formatSpeakerNotesCopyMarkup,
   parseSlideReferenceFragment,
   type SlideReferenceTarget,
 } from "./slide-reference";
@@ -86,6 +87,22 @@ export class PptxFileView extends FileView {
               createdSlideNumber: target.createdSlideNumber,
               embed,
             }));
+          },
+          copyNotes: async (file, target, paragraphs) => {
+            const alias = this.messages.text("reference.alias", {
+              name: file.basename,
+              slide: target.createdSlideNumber,
+            });
+            await navigator.clipboard.writeText(formatSpeakerNotesCopyMarkup(
+              paragraphs,
+              {
+                sourcePath: file.path,
+                alias,
+                slideId: target.slideId,
+                createdSlideNumber: target.createdSlideNumber,
+                embed: false,
+              },
+            ));
           },
         },
       },

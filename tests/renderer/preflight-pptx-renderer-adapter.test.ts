@@ -98,12 +98,56 @@ describe("PreflightPptxRendererAdapter", () => {
       slideId: 256,
       text: ["Obsidian PPTX smoke test"],
     }]);
+    expect(result.speakerNoteContent).toEqual([{
+      slideId: 256,
+      paragraphs: [],
+    }]);
     expect(result.capabilities).toEqual(session.capabilities);
     result.renderThumbnail?.(0, document.createElement("div"), new AbortController().signal);
     await result.prefetchSlide?.(0, new AbortController().signal);
     expect(renderThumbnail).toHaveBeenCalledOnce();
     expect(prefetchSlide).toHaveBeenCalledOnce();
     expect(result.compatibilityWarnings).toEqual([]);
+  });
+
+  it("forwards speaker-note content from project-owned package inspection", async () => {
+    const session = {
+      slideCount: 3,
+      slideWidth: 960,
+      slideHeight: 540,
+      capabilities: { thumbnails: false, prefetch: false },
+      renderSlide: vi.fn(async () => {}),
+      dispose: vi.fn(),
+    };
+    const candidate: PptxRendererAdapter = {
+      open: vi.fn(async () => session),
+    };
+    const buffer = Uint8Array.from(
+      await readFile(path.resolve("tests/fixtures/speaker-notes.pptx")),
+    ).buffer;
+
+    const result = await new PreflightPptxRendererAdapter(candidate).open(
+      buffer,
+      document.createElement("div"),
+      new AbortController().signal,
+    );
+
+    expect(result.slideIdentities).toEqual([256, 257, 258]);
+    expect(result.speakerNoteContent).toEqual([
+      {
+        slideId: 256,
+        paragraphs: [
+          "AUTHOR_NOTE_P1 First author paragraph",
+          "AUTHOR_NOTE_P2 Second author paragraph",
+          "讲者备注标记 NOTE_ZH_HANS",
+          "講者備註標記 NOTE_ZH_HANT",
+        ],
+      },
+      { slideId: 257, paragraphs: [] },
+      { slideId: 258, paragraphs: [] },
+    ]);
+    expect(Object.prototype.hasOwnProperty.call(result, "speakerNoteContent"))
+      .toBe(true);
   });
 
   it("rejects a candidate whose slide count disagrees with inspected identities", async () => {

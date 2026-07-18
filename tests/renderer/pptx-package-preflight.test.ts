@@ -32,7 +32,112 @@ describe("PPTX package preflight", () => {
         slideId: 256,
         text: ["Obsidian PPTX smoke test"],
       }],
+      speakerNoteContent: [{
+        slideId: 256,
+        paragraphs: [],
+      }],
       warningCategories: [],
+    });
+  });
+
+  it("associates author speaker-note paragraphs with stable slide identities", async () => {
+    const inspection = await inspectPptxPackage(
+      await loadFixture("tests/fixtures/speaker-notes.pptx"),
+      new AbortController().signal,
+    );
+
+    expect(inspection.slideIdentities).toEqual([256, 257, 258]);
+    expect(inspection.speakerNoteContent).toEqual([
+      {
+        slideId: 256,
+        paragraphs: [
+          "AUTHOR_NOTE_P1 First author paragraph",
+          "AUTHOR_NOTE_P2 Second author paragraph",
+          "讲者备注标记 NOTE_ZH_HANS",
+          "講者備註標記 NOTE_ZH_HANT",
+        ],
+      },
+      { slideId: 257, paragraphs: [] },
+      { slideId: 258, paragraphs: [] },
+    ]);
+    const joined = inspection.speakerNoteContent!
+      .flatMap(({ paragraphs }) => paragraphs)
+      .join("\n");
+    expect(joined).not.toContain("DECOY_NOTES_MASTER_HEADER");
+    expect(joined).not.toContain("DECOY_NOTES_MASTER_FOOTER");
+    expect(joined).not.toContain("DECOY_NOTES_MASTER_DATE");
+    expect(joined).not.toContain("DECOY_SLIDE_NUMBER");
+  });
+
+  it("follows the notes relationship instead of assuming a conventional part name", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/speaker-notes.pptx"),
+    );
+    const notes = zip.file("ppt/notesSlides/notesSlide1.xml")!;
+    zip.file("ppt/custom/author-notes.data", await notes.async("uint8array"));
+    const relationships = zip.file("ppt/slides/_rels/slide1.xml.rels")!;
+    zip.file(
+      "ppt/slides/_rels/slide1.xml.rels",
+      (await relationships.async("text")).replace(
+        "../notesSlides/notesSlide1.xml",
+        "../custom/author-notes.data",
+      ),
+    );
+
+    const inspection = await inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    );
+
+    expect(inspection.speakerNoteContent?.[0]?.paragraphs).toContain(
+      "AUTHOR_NOTE_P1 First author paragraph",
+    );
+  });
+
+  it("preserves explicit line breaks inside a speaker-note paragraph", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/speaker-notes.pptx"),
+    );
+    const notes = zip.file("ppt/notesSlides/notesSlide1.xml")!;
+    zip.file(
+      "ppt/notesSlides/notesSlide1.xml",
+      (await notes.async("text")).replace(
+        "AUTHOR_NOTE_P1 First author paragraph</a:t>",
+        "AUTHOR_NOTE_P1 First</a:t></a:r><a:br/><a:r><a:t>author paragraph</a:t>",
+      ),
+    );
+
+    const inspection = await inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    );
+
+    expect(inspection.speakerNoteContent?.[0]?.paragraphs[0]).toBe(
+      "AUTHOR_NOTE_P1 First\nauthor paragraph",
+    );
+  });
+
+  it("keeps optional speaker-note extraction failure non-fatal", async () => {
+    const original = Document.prototype.getElementsByTagNameNS;
+    vi.spyOn(Document.prototype, "getElementsByTagNameNS").mockImplementation(
+      function (this: Document, namespace, localName) {
+        if (
+          localName === "sp" &&
+          this.documentElement?.localName === "notes"
+        ) {
+          throw new Error("optional note extraction failed");
+        }
+        return original.call(this, namespace, localName);
+      },
+    );
+
+    await expect(inspectPptxPackage(
+      await loadFixture("tests/fixtures/speaker-notes.pptx"),
+      new AbortController().signal,
+    )).resolves.toMatchObject({
+      slideIdentities: [256, 257, 258],
+      speakerNoteContent: undefined,
+      sourceAuthoredSlideText: expect.any(Array),
     });
   });
 

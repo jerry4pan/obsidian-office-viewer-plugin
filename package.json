@@ -1,6 +1,6 @@
 {
   "name": "obsidian-office-viewer-plugin",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Local, read-only PPTX viewing for Obsidian.",
   "main": "main.js",
   "type": "module",
@@ -13,6 +13,8 @@
     "fixtures:performance:regenerate": "node scripts/generate-performance-fixtures.mjs --force",
     "fixtures": "node scripts/generate-minimal-fixture.mjs",
     "fixtures:regenerate": "node scripts/generate-minimal-fixture.mjs --force",
+    "fixtures:speaker-notes": "node scripts/generate-speaker-notes-fixture.mjs",
+    "fixtures:speaker-notes:regenerate": "node scripts/generate-speaker-notes-fixture.mjs --force",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node esbuild.config.mjs production",
     "build:aiden": "node scripts/run-renderer-candidate.mjs aiden build",
@@ -22,7 +24,7 @@
     "test:compatibility:aiden": "node scripts/run-renderer-candidate.mjs aiden test:compatibility",
     "test:compatibility:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:compatibility",
     "test:e2e": "npm run fixtures:failure && npm run build && wdio run wdio.conf.mts && node scripts/run-degraded-e2e.mjs && npm run test:e2e:multilingual",
-    "test:e2e:multilingual": "npm run build && wdio run wdio.multilingual.conf.mts",
+    "test:e2e:multilingual": "npm run fixtures:speaker-notes && npm run build && wdio run wdio.multilingual.conf.mts",
     "test:e2e:aiden": "node scripts/run-renderer-candidate.mjs aiden test:e2e",
     "test:e2e:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:e2e",
     "test:performance": "npm run fixtures:performance && npm run build && wdio run wdio.performance.conf.mts",
@@ -35,7 +37,7 @@
     "release:check:publish": "node scripts/run-check-publish-release.mjs",
     "release:package": "npm run build && node scripts/package-release.mjs",
     "test:release": "npm run release:package && node scripts/prepare-release-test.mjs && wdio run wdio.release.conf.mts",
-    "verify": "npm run fixtures && npm run fixtures:compatibility && npm run fixtures:performance && npm run fixtures:failure && npm test"
+    "verify": "npm run fixtures && npm run fixtures:speaker-notes && npm run fixtures:compatibility && npm run fixtures:performance && npm run fixtures:failure && npm test"
   },
   "keywords": [
     "obsidian",
