@@ -26,6 +26,7 @@ import {
 } from "./thumbnail-rail-sizing";
 import { ThumbnailRailResizer } from "./thumbnail-rail-resizer";
 import type { SlideReferenceTarget } from "./slide-reference";
+import type { SlideSearchSnippet } from "./slide-content-search";
 import { SlideSearchRail } from "./slide-search-rail";
 
 export interface VaultBinaryReader<FileRef> {
@@ -78,6 +79,11 @@ export interface PptxViewOptions<FileRef> {
       file: FileRef,
       target: SlideReferenceTarget,
       embed: boolean,
+    ): Promise<void>;
+    copyNotes?(
+      file: FileRef,
+      target: SlideReferenceTarget,
+      paragraphs: readonly string[],
     ): Promise<void>;
   };
 }
@@ -319,8 +325,21 @@ export class PptxViewSession<FileRef> {
             "aria-label": this.messages.text("reference.copyEmbed"),
           },
         });
+    const copyNotesButton =
+      this.options.slideReferences?.copyNotes === undefined
+        ? null
+        : headerActions.createEl("button", {
+            type: "button",
+            text: "≡",
+            title: this.messages.text("notes.copy"),
+            attr: {
+              "data-action": "copy-speaker-notes",
+              "aria-label": this.messages.text("notes.copy"),
+            },
+          });
     if (copyReferenceButton) copyReferenceButton.disabled = true;
     if (copyEmbedButton) copyEmbedButton.disabled = true;
+    if (copyNotesButton) copyNotesButton.disabled = true;
 
     const actionStatus = this.root.createDiv({
       cls: "pptx-viewer__action-status",
@@ -407,15 +426,56 @@ export class PptxViewSession<FileRef> {
         generation === this.generation &&
         !controller.signal.aborted &&
         this.rendererSession === rendererSession;
+      let notesHighlight: {
+        readonly slideId: number;
+        readonly snippet: SlideSearchSnippet;
+      } | null = null;
+      let currentNoteParagraphs: readonly string[] = [];
+      const updateCopyNotesAvailability = () => {
+        if (!copyNotesButton) return;
+        copyNotesButton.disabled =
+          copyTarget === null || currentNoteParagraphs.length === 0;
+      };
+      const renderHighlightedParagraph = (
+        container: HTMLElement,
+        paragraph: string,
+        highlight: SlideSearchSnippet | null,
+      ) => {
+        const node = container.createEl("p", {
+          cls: "pptx-viewer__notes-paragraph",
+        });
+        if (highlight === null || !paragraph.includes(highlight.match)) {
+          node.textContent = paragraph;
+          return;
+        }
+        const matchIndex = paragraph.indexOf(highlight.match);
+        if (matchIndex < 0) {
+          node.textContent = paragraph;
+          return;
+        }
+        if (matchIndex > 0) {
+          node.append(document.createTextNode(paragraph.slice(0, matchIndex)));
+        }
+        node.createEl("mark", {
+          cls: "pptx-viewer__notes-highlight",
+          text: highlight.match,
+        });
+        const afterStart = matchIndex + highlight.match.length;
+        if (afterStart < paragraph.length) {
+          node.append(document.createTextNode(paragraph.slice(afterStart)));
+        }
+      };
       const renderSpeakerNotes = (slideIndex: number) => {
         notesContent.replaceChildren();
         const noteEntries = rendererSession.speakerNoteContent;
         if (noteEntries === undefined) {
+          currentNoteParagraphs = [];
           notesContent.createDiv({
             cls: "pptx-viewer__notes-message",
             text: this.messages.text("notes.unavailable"),
             attr: { "data-notes-state": "unavailable" },
           });
+          updateCopyNotesAvailability();
           return;
         }
         const slideId = rendererSession.slideIdentities?.[slideIndex];
@@ -425,24 +485,30 @@ export class PptxViewSession<FileRef> {
             ? undefined
             : noteEntries.find((note) => note.slideId === slideId);
         const paragraphs = entry?.paragraphs ?? [];
+        currentNoteParagraphs = paragraphs;
         if (paragraphs.length === 0) {
           notesContent.createDiv({
             cls: "pptx-viewer__notes-message",
             text: this.messages.text("notes.empty"),
             attr: { "data-notes-state": "empty" },
           });
+          updateCopyNotesAvailability();
           return;
         }
         const list = notesContent.createDiv({
           cls: "pptx-viewer__notes-paragraphs",
           attr: { "data-notes-state": "ready" },
         });
+        const highlightForSlide =
+          notesHighlight !== null &&
+          slideId !== undefined &&
+          notesHighlight.slideId === slideId
+            ? notesHighlight.snippet
+            : null;
         for (const paragraph of paragraphs) {
-          list.createEl("p", {
-            cls: "pptx-viewer__notes-paragraph",
-            text: paragraph,
-          });
+          renderHighlightedParagraph(list, paragraph, highlightForSlide);
         }
+        updateCopyNotesAvailability();
       };
       const queue = new RenderTaskQueue();
       this.backgroundQueue = queue;
@@ -464,6 +530,7 @@ export class PptxViewSession<FileRef> {
         jumpButton.disabled = false;
         if (copyReferenceButton) copyReferenceButton.disabled = copyTarget === null;
         if (copyEmbedButton) copyEmbedButton.disabled = copyTarget === null;
+        updateCopyNotesAvailability();
       };
       const updateMountedCount = () => {
         this.root.dataset.mountedThumbnailCount = String(rail?.mountedCount ?? 0);
@@ -524,6 +591,7 @@ export class PptxViewSession<FileRef> {
           jumpButton.disabled = pending;
           if (copyReferenceButton) copyReferenceButton.disabled = true;
           if (copyEmbedButton) copyEmbedButton.disabled = true;
+          if (copyNotesButton) copyNotesButton.disabled = true;
           if (!pending) restoreControlState();
         },
         commitSlide: (index) => {
@@ -554,11 +622,11 @@ export class PptxViewSession<FileRef> {
             thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
           }
           searchRail?.setCurrentSlide(index);
-          renderSpeakerNotes(index);
           const slideId = rendererSession.slideIdentities?.[index];
           copyTarget = slideId === undefined
             ? null
             : { slideId, createdSlideNumber: index + 1 };
+          renderSpeakerNotes(index);
           updateMountedCount();
           this.root.dataset.state = "ready";
           this.setLifecyclePhase("ready");
@@ -575,8 +643,11 @@ export class PptxViewSession<FileRef> {
           if (!isCurrentRun()) return;
           if (initialCommitPending) initialRenderFailed = true;
           copyTarget = null;
+          currentNoteParagraphs = [];
+          notesHighlight = null;
           if (copyReferenceButton) copyReferenceButton.disabled = true;
           if (copyEmbedButton) copyEmbedButton.disabled = true;
+          if (copyNotesButton) copyNotesButton.disabled = true;
           navigationStartedAt = undefined;
           pageInput.value = String(viewController.state.currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
@@ -688,6 +759,9 @@ export class PptxViewSession<FileRef> {
       const searchableSlides = rendererSession.sourceAuthoredSlideText;
       if (searchableSlides?.length === rendererSession.slideCount) {
         let thumbnailsCollapsedBeforeSearch = false;
+        const presentationSearchAvailable =
+          rendererSession.speakerNoteContent?.length ===
+            rendererSession.slideCount;
         const setThumbnailsCollapsed = (collapsed: boolean) => {
           this.root.dataset.thumbnailsCollapsed = String(collapsed);
           toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
@@ -698,10 +772,22 @@ export class PptxViewSession<FileRef> {
         try {
           createdSearchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
             messages: this.messages,
+            speakerNoteContent: rendererSession.speakerNoteContent,
             currentSlideIndex: () => viewController.state.currentSlideIndex,
-            onNavigate: (slideId) => {
+            onNavigate: (slideId, intent) => {
               const targetIndex = rendererSession.slideIdentities?.indexOf(slideId) ?? -1;
-              if (targetIndex >= 0) navigate(targetIndex);
+              if (targetIndex < 0) return;
+              if (intent?.surface === "speaker-notes" && intent.highlight) {
+                notesHighlight = { slideId, snippet: intent.highlight };
+                setNotesCollapsed(false);
+              } else {
+                notesHighlight = null;
+              }
+              if (targetIndex === viewController.state.currentSlideIndex) {
+                renderSpeakerNotes(targetIndex);
+                return;
+              }
+              navigate(targetIndex);
             },
             onDismiss: () => closeSearch(),
           });
@@ -711,13 +797,19 @@ export class PptxViewSession<FileRef> {
         if (createdSearchRail !== null) {
           const activeSearchRail = createdSearchRail;
           searchRail = activeSearchRail;
+          const searchOpenKey = presentationSearchAvailable
+            ? "search.openPresentation"
+            : "search.open";
+          const searchCloseKey = presentationSearchAvailable
+            ? "search.closePresentation"
+            : "search.close";
           const searchButton = headerActions.createEl("button", {
             type: "button",
             text: "⌕",
-            title: this.messages.text("search.open"),
+            title: this.messages.text(searchOpenKey),
             attr: {
               "data-action": "open-slide-search",
-              "aria-label": this.messages.text("search.open"),
+              "aria-label": this.messages.text(searchOpenKey),
               "aria-pressed": "false",
             },
           });
@@ -727,12 +819,12 @@ export class PptxViewSession<FileRef> {
               String(activeSearchRail.isOpen),
             );
             searchButton.title = this.messages.text(
-              activeSearchRail.isOpen ? "search.close" : "search.open",
+              activeSearchRail.isOpen ? searchCloseKey : searchOpenKey,
             );
             searchButton.setAttribute(
               "aria-label",
               this.messages.text(
-                activeSearchRail.isOpen ? "search.close" : "search.open",
+                activeSearchRail.isOpen ? searchCloseKey : searchOpenKey,
               ),
             );
           };
@@ -864,8 +956,34 @@ export class PptxViewSession<FileRef> {
           },
         );
       };
+      const copySpeakerNotes = () => {
+        const target = copyTarget;
+        const paragraphs = currentNoteParagraphs;
+        if (
+          target === null ||
+          paragraphs.length === 0 ||
+          !isCurrentRun() ||
+          this.options.slideReferences?.copyNotes === undefined
+        ) {
+          return;
+        }
+        actionStatus.textContent = "";
+        void this.options.slideReferences.copyNotes(file, target, paragraphs).then(
+          () => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = this.messages.text("notes.copied");
+            }
+          },
+          () => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = this.messages.text("notes.copyFailure");
+            }
+          },
+        );
+      };
       copyReferenceButton?.addEventListener("click", () => copySlideMarkup(false));
       copyEmbedButton?.addEventListener("click", () => copySlideMarkup(true));
+      copyNotesButton?.addEventListener("click", copySpeakerNotes);
       const fullscreen = this.options.fullscreen ?? createDefaultFullscreenActions();
       let lastKnownFullscreenState = false;
       const applyFullscreenState = (active: boolean) => {

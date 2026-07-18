@@ -24,11 +24,12 @@ and rendered content. Copying the summary writes it only to the local clipboard.
 Compatibility-check results exist only for the current view lifecycle and are
 not persisted as a document archive.
 
-Slide content search is local to one open presentation and one view lifecycle.
-The query, source-authored slide text read from slide XML, normalized text,
-snippets, and results are not written to plugin data, diagnostics, logs,
-Markdown, or the source presentation. Search performance evidence contains
-only elapsed time and mounted-result counts.
+Presentation content search and speaker-note viewing are local to one open
+presentation and one view lifecycle. The query, source-authored slide text and
+speaker-note paragraphs read from package XML, normalized comparable text,
+snippets, highlights, scope choice, and results are not written to plugin data,
+diagnostics, logs, Markdown, or the source presentation. Search performance
+evidence contains only elapsed time and mounted-result counts.
 
 **Open in default application** is an explicit action. After it is selected,
 the operating system and chosen application control any subsequent processing

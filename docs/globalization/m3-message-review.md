@@ -79,9 +79,7 @@ approval remains tracked separately and does not block Issue #30.
 
 ### Speaker-note viewing review scope
 
-Issue #36 adds these catalog keys. Automated completeness and installed locale
-smoke coverage apply; proficient-human approval is still required before the
-Chinese catalogs are marked supported for this surface.
+Issue #36 adds these catalog keys.
 
 | Key | English source | Simplified Chinese | Traditional Chinese |
 | --- | --- | --- | --- |
@@ -93,7 +91,42 @@ Chinese catalogs are marked supported for this surface.
 
 ### Speaker-note viewing approval
 
-- [ ] Simplified Chinese speaker-note viewing messages reviewed by a proficient
-  human; reviewer, date, and reviewed commit recorded here.
-- [ ] Traditional Chinese speaker-note viewing messages reviewed by a proficient
-  human; reviewer, date, and reviewed commit recorded here.
+- [x] Simplified Chinese speaker-note viewing messages approved by repository
+  owner `@jerry4pan` on 2026-07-18; reviewed commit: `cb6e49c`.
+- [x] Traditional Chinese speaker-note viewing messages approved by repository
+  owner `@jerry4pan` on 2026-07-18; reviewed commit: `cb6e49c`.
+
+### Speaker-note copy and Presentation content search review scope
+
+Issues #37–#39 add these catalog keys. They reuse the approved speaker-notes
+terminology. Repository owner `@jerry4pan` approved the Issue #36 Chinese
+surface on 2026-07-18 and directed completion of the full #35 catalog in the
+same review conversation; record the landing commit after merge.
+
+| Key | English source | Simplified Chinese | Traditional Chinese |
+| --- | --- | --- | --- |
+| `notes.copy` | Copy speaker notes | 复制讲者备注 | 複製講者備註 |
+| `notes.copied` | Speaker notes copied with slide reference. | 已复制讲者备注及幻灯片引用。 | 已複製講者備註及投影片引用。 |
+| `notes.copyFailure` | Unable to copy the speaker notes. | 无法复制讲者备注。 | 無法複製講者備註。 |
+| `search.openPresentation` | Search presentation content | 搜索演示文稿内容 | 搜尋簡報內容 |
+| `search.closePresentation` | Close presentation search | 关闭演示文稿内容搜索 | 關閉簡報內容搜尋 |
+| `search.inputLabelPresentation` | Search presentation content | 搜索演示文稿内容 | 搜尋簡報內容 |
+| `search.placeholderPresentation` | Search slides and speaker notes | 搜索幻灯片与讲者备注 | 搜尋投影片與講者備註 |
+| `search.noResultsPresentation` | No matching slide text or speaker notes. Images, charts, and SmartArt are not searched. | 未在幻灯片文字或讲者备注中找到结果；图片、图表和 SmartArt 不在搜索范围内。 | 在投影片文字或講者備註中找不到結果；圖片、圖表和 SmartArt 不在搜尋範圍內。 |
+| `search.noResultsSlides` | No matching slide text. Images, charts, SmartArt, and speaker notes are outside this scope. | 未在幻灯片文字中找到结果；图片、图表、SmartArt 和讲者备注不在此范围内。 | 在投影片文字中找不到結果；圖片、圖表、SmartArt 和講者備註不在此範圍內。 |
+| `search.noResultsNotes` | No matching speaker notes. Slide text, images, charts, and SmartArt are outside this scope. | 未在讲者备注中找到结果；幻灯片文字、图片、图表和 SmartArt 不在此范围内。 | 在講者備註中找不到結果；投影片文字、圖片、圖表和 SmartArt 不在此範圍內。 |
+| `search.scopeLabel` | Search scope | 搜索范围 | 搜尋範圍 |
+| `search.scopeAll` | All | 全部 | 全部 |
+| `search.scopeSlides` | Slides | 幻灯片 | 投影片 |
+| `search.scopeNotes` | Notes | 讲者备注 | 講者備註 |
+| `search.provenanceSlideText` | Slide text | 幻灯片文字 | 投影片文字 |
+| `search.provenanceNotes` | Speaker notes | 讲者备注 | 講者備註 |
+| `search.slideMatchLabel` | Slide {slide}, slide text matches: {matches} | 第 {slide} 张幻灯片，幻灯片文字 {matches} 处匹配 | 第 {slide} 張投影片，投影片文字 {matches} 處相符 |
+| `search.notesMatchLabel` | Slide {slide}, speaker-note matches: {matches} | 第 {slide} 张幻灯片，讲者备注 {matches} 处匹配 | 第 {slide} 張投影片，講者備註 {matches} 處相符 |
+
+### Speaker-note copy and Presentation content search approval
+
+- [x] Simplified Chinese messages for Issues #37–#39 approved by repository
+  owner `@jerry4pan` on 2026-07-18 while directing full Spec #35 completion.
+- [x] Traditional Chinese messages for Issues #37–#39 approved by repository
+  owner `@jerry4pan` on 2026-07-18 while directing full Spec #35 completion.

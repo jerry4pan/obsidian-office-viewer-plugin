@@ -1,4 +1,7 @@
-import type { PptxSourceAuthoredSlideText } from "./renderer/pptx-renderer-adapter";
+import type {
+  PptxSourceAuthoredSlideText,
+  PptxSpeakerNoteContent,
+} from "./renderer/pptx-renderer-adapter";
 
 export interface SlideSearchSnippet {
   readonly before: string;
@@ -6,15 +9,37 @@ export interface SlideSearchSnippet {
   readonly after: string;
 }
 
+export type PresentationSearchScope = "all" | "slides" | "notes";
+
+export interface PresentationSearchSurfaceMatch {
+  readonly matchCount: number;
+  readonly snippet: SlideSearchSnippet;
+}
+
 export interface SlideSearchResult {
   readonly slideId: number;
   readonly slideIndex: number;
   readonly matchCount: number;
   readonly snippet: SlideSearchSnippet;
+  readonly slideText?: PresentationSearchSurfaceMatch;
+  readonly speakerNotes?: PresentationSearchSurfaceMatch;
 }
 
 export interface SlideContentSearchIndex {
   search(query: string): readonly SlideSearchResult[];
+}
+
+export interface PresentationContentSearchIndex {
+  search(
+    query: string,
+    scope?: PresentationSearchScope,
+  ): readonly SlideSearchResult[];
+}
+
+export interface PresentationSearchableSlide {
+  readonly slideId: number;
+  readonly text: readonly string[];
+  readonly noteParagraphs?: readonly string[];
 }
 
 interface IndexedParagraph {
@@ -25,6 +50,7 @@ interface IndexedParagraph {
 interface IndexedSlide {
   readonly slideId: number;
   readonly text: readonly IndexedParagraph[];
+  readonly notes: readonly IndexedParagraph[];
 }
 
 const MAX_SNIPPET_CONTEXT_CHARACTERS = 60;
@@ -88,6 +114,37 @@ function occurrenceCount(text: string, query: string): number {
   return count;
 }
 
+function indexParagraphs(
+  paragraphs: readonly string[],
+): readonly IndexedParagraph[] {
+  return paragraphs.map((paragraph) => {
+    const display = displayText(paragraph);
+    return { display, comparable: display.toLowerCase() };
+  });
+}
+
+function matchSurface(
+  paragraphs: readonly IndexedParagraph[],
+  comparableQuery: string,
+): PresentationSearchSurfaceMatch | undefined {
+  let matchCount = 0;
+  let snippet: SlideSearchSnippet | undefined;
+  for (const { display, comparable } of paragraphs) {
+    const firstMatch = comparable.indexOf(comparableQuery);
+    if (firstMatch < 0) continue;
+    matchCount += occurrenceCount(comparable, comparableQuery);
+    if (snippet === undefined) {
+      const match = displayRangeForComparableMatch(
+        display,
+        firstMatch,
+        comparableQuery.length,
+      );
+      snippet = snippetContext(display, match.start, match.end);
+    }
+  }
+  return snippet === undefined ? undefined : { matchCount, snippet };
+}
+
 export function searchSlideContent(
   slides: readonly PptxSourceAuthoredSlideText[],
   query: string,
@@ -98,50 +155,101 @@ export function searchSlideContent(
 export function createSlideContentSearchIndex(
   slides: readonly PptxSourceAuthoredSlideText[],
 ): SlideContentSearchIndex {
-  const indexedSlides: readonly IndexedSlide[] = slides.map((slide) => ({
-    slideId: slide.slideId,
-    text: slide.text.map((paragraph) => {
-      const display = displayText(paragraph);
-      return { display, comparable: display.toLowerCase() };
-    }),
-  }));
+  const index = createPresentationContentSearchIndex(
+    slides.map((slide) => ({
+      slideId: slide.slideId,
+      text: slide.text,
+    })),
+  );
   return {
-    search: (query) => searchIndexedSlideContent(indexedSlides, query),
+    search: (query) =>
+      index.search(query, "slides").map(({
+        slideId,
+        slideIndex,
+        matchCount,
+        snippet,
+      }) => ({
+        slideId,
+        slideIndex,
+        matchCount,
+        snippet,
+      })),
   };
 }
 
-function searchIndexedSlideContent(
+export function createPresentationContentSearchIndex(
+  slides: readonly PresentationSearchableSlide[],
+): PresentationContentSearchIndex {
+  const indexedSlides: readonly IndexedSlide[] = slides.map((slide) => ({
+    slideId: slide.slideId,
+    text: indexParagraphs(slide.text),
+    notes: indexParagraphs(slide.noteParagraphs ?? []),
+  }));
+  return {
+    search: (query, scope = "all") =>
+      searchIndexedPresentationContent(indexedSlides, query, scope),
+  };
+}
+
+export function mergePresentationSearchSlides(
+  slideText: readonly PptxSourceAuthoredSlideText[],
+  speakerNotes: readonly PptxSpeakerNoteContent[] | undefined,
+): readonly PresentationSearchableSlide[] | undefined {
+  if (speakerNotes === undefined) return undefined;
+  if (
+    slideText.length === 0 ||
+    speakerNotes.length !== slideText.length
+  ) {
+    return undefined;
+  }
+  return slideText.map((slide, index) => {
+    const notes = speakerNotes[index];
+    if (notes === undefined || notes.slideId !== slide.slideId) {
+      return {
+        slideId: slide.slideId,
+        text: slide.text,
+        noteParagraphs: speakerNotes.find((entry) => entry.slideId === slide.slideId)
+          ?.paragraphs ?? [],
+      };
+    }
+    return {
+      slideId: slide.slideId,
+      text: slide.text,
+      noteParagraphs: notes.paragraphs,
+    };
+  });
+}
+
+function searchIndexedPresentationContent(
   slides: readonly IndexedSlide[],
   query: string,
+  scope: PresentationSearchScope,
 ): readonly SlideSearchResult[] {
   const comparableQuery = comparableText(query);
   if (!comparableQuery) return [];
 
+  const includeSlides = scope === "all" || scope === "slides";
+  const includeNotes = scope === "all" || scope === "notes";
   const results: SlideSearchResult[] = [];
+
   slides.forEach((slide, slideIndex) => {
-    let matchCount = 0;
-    let snippet: SlideSearchSnippet | undefined;
-    for (const { display, comparable } of slide.text) {
-      const firstMatch = comparable.indexOf(comparableQuery);
-      if (firstMatch < 0) continue;
-      matchCount += occurrenceCount(comparable, comparableQuery);
-      if (snippet === undefined) {
-        const match = displayRangeForComparableMatch(
-          display,
-          firstMatch,
-          comparableQuery.length,
-        );
-        snippet = snippetContext(display, match.start, match.end);
-      }
-    }
-    if (snippet) {
-      results.push({
-        slideId: slide.slideId,
-        slideIndex,
-        matchCount,
-        snippet,
-      });
-    }
+    const slideText = includeSlides
+      ? matchSurface(slide.text, comparableQuery)
+      : undefined;
+    const speakerNotes = includeNotes
+      ? matchSurface(slide.notes, comparableQuery)
+      : undefined;
+    if (slideText === undefined && speakerNotes === undefined) return;
+
+    const primary = slideText ?? speakerNotes!;
+    results.push({
+      slideId: slide.slideId,
+      slideIndex,
+      matchCount: (slideText?.matchCount ?? 0) + (speakerNotes?.matchCount ?? 0),
+      snippet: primary.snippet,
+      slideText,
+      speakerNotes,
+    });
   });
   return results;
 }

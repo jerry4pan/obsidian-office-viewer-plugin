@@ -3,6 +3,7 @@ import {
   formatSlideReferenceFragment,
   formatSlideReferenceLinkTarget,
   formatSlideReferenceMarkup,
+  formatSpeakerNotesCopyMarkup,
   parseSlideReferenceFragment,
   parseSlideReferenceLink,
 } from "../src/slide-reference";
@@ -127,4 +128,19 @@ describe("slide reference fragment", () => {
       })).toThrow();
     },
   );
+
+  it("formats speaker notes with paragraph breaks and the canonical reference", () => {
+    expect(formatSpeakerNotesCopyMarkup(
+      ["First paragraph", "Second paragraph"],
+      {
+        sourcePath: "deck.pptx",
+        alias: "deck — Slide 2",
+        slideId: 257,
+        createdSlideNumber: 2,
+        embed: true,
+      },
+    )).toBe(
+      "First paragraph\n\nSecond paragraph\n\n[[deck.pptx#slide-id=257&slide=2|deck — Slide 2]]",
+    );
+  });
 });

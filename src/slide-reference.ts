@@ -112,3 +112,18 @@ export function formatSlideReferenceMarkup(
   const prefix = input.embed ? "!" : "";
   return `${prefix}[[${formatSlideReferenceLinkTarget(input.sourcePath, input)}|${escapeWikilinkAlias(input.alias)}]]`;
 }
+
+/** Plain note paragraphs followed by the canonical slide reference. */
+export function formatSpeakerNotesCopyMarkup(
+  paragraphs: readonly string[],
+  reference: SlideReferenceMarkupInput,
+): string {
+  if (paragraphs.length === 0) {
+    throw new TypeError("Speaker notes copy requires at least one paragraph");
+  }
+  const body = paragraphs.join("\n\n");
+  return `${body}\n\n${formatSlideReferenceMarkup({
+    ...reference,
+    embed: false,
+  })}`;
+}

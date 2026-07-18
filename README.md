@@ -59,14 +59,24 @@ extract `main.js`, `manifest.json`, and `styles.css` to
   falling back to an ordinal position. Live Preview keeps the canonical
   Markdown syntax editable and does not render the slide inline.
 
-**Slide content search**
-- Press `Cmd+F` or `Ctrl+F` in an open PPTX to search source-authored text in
-  that presentation, then use `Enter` / `Shift+Enter` to move through matches.
-- Search covers visible titles, body text, text boxes, shape text, and table
-  cells. Results stay local to the current view and are never persisted.
-- Images, speaker notes, master/layout text, charts, and SmartArt are not
-  searched. OCR, Vault-wide indexing, and highlighting on the main rendered
-  slide are not currently supported.
+**Speaker notes**
+- Expand the current-slide speaker notes panel to read author note paragraphs
+  without leaving Obsidian. The panel starts collapsed and keeps your choice
+  while you navigate within the same view.
+- Copy speaker notes as plain text with the canonical slide reference when the
+  current slide has usable notes.
+- Notes-master text, headers, footers, dates, and slide numbers are never shown
+  as speaker notes.
+
+**Presentation content search**
+- Press `Cmd+F` or `Ctrl+F` in an open PPTX to search that presentation. When
+  speaker notes are available, search defaults to slides and notes together and
+  offers All / Slides / Notes scope filters for the current view only.
+- Search covers source-authored titles, body text, text boxes, shape text,
+  table cells, and author speaker notes. Results stay local to the current view
+  and are never persisted.
+- Images, master/layout text, charts, SmartArt, OCR, Vault-wide indexing, and
+  highlighting on the main rendered slide are not searched.
 
 **Error handling**
 - Corrupted, encrypted, or otherwise unreadable files show a clear explanation
@@ -221,10 +231,10 @@ byte-identical before uploading the CI artifact.
 - Privacy and security details are in `PRIVACY.md` and `SECURITY.md`.
 - Post-release validation and v0.2 planning are tracked in M4; see the PRD and
   GitHub Issues for current status.
-- Editing, saving, animations, legacy `.ppt` parsing, OCR, speaker-note search,
-  Vault-wide search, main-slide search highlighting, multi-slide or full-deck
-  embeds, inline Live Preview rendering, telemetry, accounts, licensing, and
-  cloud services are out of scope.
+- Editing, saving, animations, legacy `.ppt` parsing, OCR, Vault-wide search,
+  main-slide search highlighting, multi-slide or full-deck embeds, inline Live
+  Preview rendering, telemetry, accounts, licensing, and cloud services are out
+  of scope.
 
 ## Test fixture
 

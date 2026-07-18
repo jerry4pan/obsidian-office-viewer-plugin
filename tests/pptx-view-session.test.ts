@@ -2618,4 +2618,130 @@ describe("PptxViewSession", () => {
     ).toBe("Speaker notes are unavailable for this presentation.");
     session.dispose();
   });
+
+  it("copies current-slide speaker notes with the canonical slide reference", async () => {
+    const root = document.createElement("div");
+    const copyNotes = vi.fn(async () => {});
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Slide one"] },
+        { slideId: 257, text: ["Slide two"] },
+      ],
+      [
+        { slideId: 256, paragraphs: ["Note A", "Note B"] },
+        { slideId: 257, paragraphs: [] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        slideReferences: {
+          copy: vi.fn(async () => {}),
+          copyNotes,
+        },
+      },
+    );
+    await session.open("deck.pptx");
+
+    const copyButton = root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-speaker-notes"]',
+    );
+    expect(copyButton?.disabled).toBe(false);
+    copyButton?.click();
+    await vi.waitFor(() => expect(copyNotes).toHaveBeenCalledOnce());
+    expect(copyNotes).toHaveBeenCalledWith(
+      "deck.pptx",
+      { slideId: 256, createdSlideNumber: 1 },
+      ["Note A", "Note B"],
+    );
+    expect(root.querySelector(".pptx-viewer__action-status")?.textContent)
+      .toBe("Speaker notes copied with slide reference.");
+
+    root.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector<HTMLButtonElement>(
+          '[data-action="copy-speaker-notes"]',
+        )?.disabled,
+      ).toBe(true)
+    );
+    session.dispose();
+  });
+
+  it("searches notes-only markers, expands the panel, and highlights the match", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const { adapter, rendererSession } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Canvas only"] },
+        { slideId: 257, text: ["Other canvas"] },
+      ],
+      [
+        { slideId: 256, paragraphs: [] },
+        {
+          slideId: 257,
+          paragraphs: ["Hidden NOTE_ONLY marker", "Trailing note"],
+        },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    expect(
+      root.querySelector('[data-action="open-slide-search"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("Search presentation content");
+
+    root.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "f",
+      ctrlKey: true,
+      bubbles: true,
+    }));
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    input.value = "NOTE_ONLY";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(root.querySelector('[data-search-scope="all"]')).not.toBeNull();
+    const notesMatch = root.querySelector<HTMLButtonElement>(
+      '[data-action="slide-search-notes-match"]',
+    );
+    expect(notesMatch?.textContent).toContain("Speaker notes");
+    expect(notesMatch?.textContent).toContain("NOTE_ONLY");
+    notesMatch?.click();
+
+    await vi.waitFor(() => {
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(1);
+    });
+    expect(root.dataset.notesCollapsed).toBe("false");
+    expect(
+      root.querySelector(".pptx-viewer__notes-highlight")?.textContent,
+    ).toBe("NOTE_ONLY");
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-search-scope="slides"]',
+    )?.click();
+    expect(
+      root.querySelector('[data-action="slide-search-notes-match"]'),
+    ).toBeNull();
+    expect(root.querySelector(".pptx-viewer__slide-search-summary")?.textContent)
+      .toContain("outside this scope");
+
+    session.dispose();
+    root.remove();
+  });
 });

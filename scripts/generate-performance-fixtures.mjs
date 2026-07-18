@@ -209,6 +209,12 @@ async function buildStress() {
         margin: 0,
       });
     }
+    slide.addNotes(
+      [
+        `Stress speaker note ${slideNumber}`,
+        `Notes-only marker ${String(slideNumber).padStart(3, "0")}`,
+      ].join("\n"),
+    );
   }
   return pptx;
 }
