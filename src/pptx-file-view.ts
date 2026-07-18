@@ -1,4 +1,10 @@
-import { FileView, type App, type TFile, type WorkspaceLeaf } from "obsidian";
+import {
+  FileView,
+  Scope,
+  type App,
+  type TFile,
+  type WorkspaceLeaf,
+} from "obsidian";
 import {
   ENGLISH_MESSAGE_TRANSLATOR,
   type MessageTranslator,
@@ -83,6 +89,10 @@ export class PptxFileView extends FileView {
           },
         },
       },
+    );
+    this.scope = new Scope(this.app.scope);
+    this.scope.register(["Mod"], "f", () =>
+      this.session.openSlideContentSearch() ? false : undefined
     );
   }
 

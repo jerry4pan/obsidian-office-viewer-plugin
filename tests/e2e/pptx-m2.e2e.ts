@@ -230,16 +230,10 @@ describe("M2 installed PPTX reading experience", () => {
     await thumbnails.click();
     await expect(root).toHaveAttribute("data-thumbnails-collapsed", "true");
 
-    expect(await browser.execute((viewer) => {
-      const event = new KeyboardEvent("keydown", {
-        key: "f",
-        ctrlKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
-      viewer.dispatchEvent(event);
-      return event.defaultPrevented;
-    }, root)).toBe(true);
+    await browser.keys([
+      process.platform === "darwin" ? "Meta" : "Control",
+      "f",
+    ]);
     await expect(root).toHaveAttribute("data-thumbnails-collapsed", "false");
     const input = root.$('[data-action="slide-search-input"]');
     await expect(input).toBeFocused();

@@ -112,12 +112,36 @@ export class FileView {
   app: unknown;
   contentEl = document.createElement("div");
   file: { basename?: string } | null = null;
+  scope: Scope | null = null;
 
   constructor(leaf: { app: unknown }) {
     this.app = leaf.app;
   }
 
   setEphemeralState(_state: unknown): void {}
+}
+
+export class Scope {
+  readonly handlers: Array<{
+    modifiers: string[] | null;
+    key: string | null;
+    func: (event: KeyboardEvent, context: unknown) => unknown;
+  }> = [];
+
+  constructor(readonly parent?: unknown) {}
+
+  register(
+    modifiers: string[] | null,
+    key: string | null,
+    func: (event: KeyboardEvent, context: unknown) => unknown,
+  ): { scope: Scope; modifiers: string | null; key: string | null } {
+    this.handlers.push({ modifiers, key, func });
+    return {
+      scope: this,
+      modifiers: modifiers?.join("+") ?? null,
+      key,
+    };
+  }
 }
 
 export class MarkdownRenderChild {

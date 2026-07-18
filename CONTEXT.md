@@ -43,10 +43,25 @@ text boxes, shapes, or table cells. It excludes speaker notes, master or layout
 text, chart or SmartArt data, and text contained in images.
 _Avoid_: Extracted text, All slide text
 
+**Speaker note content**:
+Reader-authored explanatory text associated with one slide but not visible on
+the slide canvas. It is part of the presentation's **Knowledge material** when
+a reader needs to locate, reference, or reuse it; notes-master text, headers,
+footers, dates, and slide numbers are not speaker note content.
+_Avoid_: Notes metadata, All notes text
+
+**Presentation content search**:
+A session-local search within one open PPTX across both **Source-authored slide
+text** and **Speaker note content**. Results remain anchored to one slide and
+identify which content surface matched so notes are never presented as visible
+slide text.
+_Avoid_: All slide text, Vault search
+
 **Slide search result**:
-One slide-level result from **Slide content search**, anchored to the slide's
-stable identity and summarizing one or more matches within that slide. Multiple
-matches do not create separate results for character positions.
+One slide-level result from **Slide content search** or **Presentation content
+search**, anchored to the slide's stable identity and summarizing one or more
+matches within that slide. Multiple matches do not create separate results for
+character positions or content surfaces.
 _Avoid_: Text occurrence, Search hit
 
 **Slide reference**:

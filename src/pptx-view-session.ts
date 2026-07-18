@@ -141,6 +141,7 @@ export class PptxViewSession<FileRef> {
   private diagnosticThumbnails = false;
   private diagnosticPrefetch = false;
   private referenceNavigator: ((target: SlideReferenceTarget) => void) | null = null;
+  private openSlideContentSearchAction: (() => void) | null = null;
 
   constructor(
     private readonly root: HTMLElement,
@@ -157,6 +158,13 @@ export class PptxViewSession<FileRef> {
     });
     root.dataset.state = "empty";
     this.setLifecyclePhase("idle");
+  }
+
+  openSlideContentSearch(): boolean {
+    const openSearch = this.openSlideContentSearchAction;
+    if (openSearch === null) return false;
+    openSearch();
+    return true;
   }
 
   async open(
@@ -673,6 +681,7 @@ export class PptxViewSession<FileRef> {
             updateSearchButton();
             searchButton.focus();
           };
+          this.openSlideContentSearchAction = openSearch;
           const toggleSearch = () => {
             if (searchRail?.isOpen) closeSearch();
             else openSearch();
@@ -1166,6 +1175,7 @@ export class PptxViewSession<FileRef> {
     this.backgroundQueue = null;
     this.rendererSession = null;
     this.referenceNavigator = null;
+    this.openSlideContentSearchAction = null;
     if (this.root.dataset.readyThumbnailCount !== undefined) {
       this.root.dataset.readyThumbnailCount = "0";
     }
