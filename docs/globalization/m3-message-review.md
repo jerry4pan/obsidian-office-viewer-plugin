@@ -76,3 +76,24 @@ and installed locale smoke tests do not replace the approvals below.
 
 Slide content search language readiness is approved. Any unchecked earlier M3
 approval remains tracked separately and does not block Issue #30.
+
+### Speaker-note viewing review scope
+
+Issue #36 adds these catalog keys. Automated completeness and installed locale
+smoke coverage apply; proficient-human approval is still required before the
+Chinese catalogs are marked supported for this surface.
+
+| Key | English source | Simplified Chinese | Traditional Chinese |
+| --- | --- | --- | --- |
+| `notes.toggle` | Speaker notes | 讲者备注 | 講者備註 |
+| `notes.toggleLabel` | Toggle speaker notes | 切换讲者备注 | 切換講者備註 |
+| `notes.panelLabel` | Speaker notes | 讲者备注 | 講者備註 |
+| `notes.empty` | This slide has no speaker notes. | 此幻灯片没有讲者备注。 | 此投影片沒有講者備註。 |
+| `notes.unavailable` | Speaker notes are unavailable for this presentation. | 无法提供此演示文稿的讲者备注。 | 無法提供此簡報的講者備註。 |
+
+### Speaker-note viewing approval
+
+- [ ] Simplified Chinese speaker-note viewing messages reviewed by a proficient
+  human; reviewer, date, and reviewed commit recorded here.
+- [ ] Traditional Chinese speaker-note viewing messages reviewed by a proficient
+  human; reviewer, date, and reviewed commit recorded here.

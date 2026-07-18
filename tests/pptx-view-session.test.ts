@@ -6,17 +6,20 @@ import type {
   PptxRendererAdapter,
   PptxRendererSession,
   PptxSourceAuthoredSlideText,
+  PptxSpeakerNoteContent,
 } from "../src/renderer/pptx-renderer-adapter";
 
 function makeRenderer(
   slideCount = 1,
   slideIdentities?: readonly number[],
   sourceAuthoredSlideText?: readonly PptxSourceAuthoredSlideText[],
+  speakerNoteContent?: readonly PptxSpeakerNoteContent[],
 ) {
   const rendererSession: PptxRendererSession = {
     slideCount,
     slideIdentities,
     sourceAuthoredSlideText,
+    speakerNoteContent,
     slideWidth: 960,
     slideHeight: 540,
     capabilities: { thumbnails: false, prefetch: false },
@@ -684,6 +687,13 @@ describe("PptxViewSession", () => {
         "aria-label",
       ),
     ).toBe("切换幻灯片缩略图");
+    expect(root.querySelector('[data-action="toggle-notes"]')?.textContent)
+      .toBe("讲者备注");
+    expect(
+      root.querySelector('[data-action="toggle-notes"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("切换讲者备注");
     expect(root.querySelector('[data-action="toggle-fullscreen"]')?.textContent)
       .toBe("全屏");
     expect(
@@ -741,6 +751,13 @@ describe("PptxViewSession", () => {
         "aria-label",
       ),
     ).toBe("切換投影片縮圖");
+    expect(root.querySelector('[data-action="toggle-notes"]')?.textContent)
+      .toBe("講者備註");
+    expect(
+      root.querySelector('[data-action="toggle-notes"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("切換講者備註");
     expect(root.querySelector('[data-action="toggle-fullscreen"]')?.textContent)
       .toBe("全螢幕");
     expect(
@@ -2520,5 +2537,85 @@ describe("PptxViewSession", () => {
 
     expect(rendererSession.dispose).toHaveBeenCalledOnce();
     expect(root.childElementCount).toBe(0);
+  });
+
+  it("keeps the speaker-notes panel collapsed until toggled and preserves that choice while navigating", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      undefined,
+      [
+        {
+          slideId: 256,
+          paragraphs: ["AUTHOR_NOTE_P1", "AUTHOR_NOTE_P2"],
+        },
+        { slideId: 257, paragraphs: [] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    const toggle = root.querySelector<HTMLButtonElement>(
+      '[data-action="toggle-notes"]',
+    );
+    const panel = root.querySelector<HTMLElement>(".pptx-viewer__notes-panel");
+    expect(toggle).not.toBeNull();
+    expect(panel).not.toBeNull();
+    expect(root.dataset.notesCollapsed).toBe("true");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(panel?.getAttribute("aria-hidden")).toBe("true");
+    expect(panel?.getAttribute("aria-label")).toBe("Speaker notes");
+    expect(
+      root.querySelector('[data-notes-state="ready"]')?.textContent,
+    ).toContain("AUTHOR_NOTE_P1");
+    expect(
+      root.querySelector('[data-notes-state="ready"]')?.textContent,
+    ).toContain("AUTHOR_NOTE_P2");
+
+    toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(root.dataset.notesCollapsed).toBe("false");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.getAttribute("aria-hidden")).toBe("false");
+
+    root.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(root.querySelector('[data-notes-state="empty"]')?.textContent)
+        .toBe("This slide has no speaker notes.")
+    );
+    expect(root.dataset.notesCollapsed).toBe("false");
+
+    await session.open("other.pptx");
+    expect(root.dataset.notesCollapsed).toBe("true");
+    expect(
+      root.querySelector('[data-action="toggle-notes"]')?.getAttribute(
+        "aria-expanded",
+      ),
+    ).toBe("false");
+
+    session.dispose();
+    expect(root.querySelector(".pptx-viewer__notes-panel")).toBeNull();
+  });
+
+  it("announces unavailable speaker notes when optional extraction failed", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(1, [256], undefined, undefined);
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    expect(
+      root.querySelector('[data-notes-state="unavailable"]')?.textContent,
+    ).toBe("Speaker notes are unavailable for this presentation.");
+    session.dispose();
   });
 });

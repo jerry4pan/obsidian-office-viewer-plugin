@@ -182,6 +182,7 @@ export class PptxViewSession<FileRef> {
 
     this.root.tabIndex = 0;
     this.root.dataset.thumbnailsCollapsed = "false";
+    this.root.dataset.notesCollapsed = "true";
     this.root.dataset.fullscreen = "false";
     this.root.dataset.mountedThumbnailCount = "0";
     this.root.dataset.readyThumbnailCount = "0";
@@ -283,6 +284,18 @@ export class PptxViewSession<FileRef> {
       },
     });
 
+    const notesPanelId = `pptx-viewer-speaker-notes-${this.generation}`;
+    const toggleNotes = controls.createEl("button", {
+      type: "button",
+      text: this.messages.text("notes.toggle"),
+      attr: {
+        "data-action": "toggle-notes",
+        "aria-label": this.messages.text("notes.toggleLabel"),
+        "aria-expanded": "false",
+        "aria-controls": notesPanelId,
+      },
+    });
+
     let copyTarget: SlideReferenceTarget | null = null;
     const copyReferenceButton = this.options.slideReferences === undefined
       ? null
@@ -335,9 +348,33 @@ export class PptxViewSession<FileRef> {
       cls: "pptx-viewer__reading-body",
     });
     const thumbnailRoot = readingBody.createDiv();
-    const slideContainer = readingBody.createDiv({
+    const slideStage = readingBody.createDiv({
+      cls: "pptx-viewer__slide-stage",
+    });
+    const slideContainer = slideStage.createDiv({
       cls: "pptx-viewer__slide",
     });
+    const notesPanel = slideStage.createDiv({
+      cls: "pptx-viewer__notes-panel",
+      attr: {
+        id: notesPanelId,
+        role: "region",
+        "aria-label": this.messages.text("notes.panelLabel"),
+        "aria-hidden": "true",
+      },
+    });
+    const notesContent = notesPanel.createDiv({
+      cls: "pptx-viewer__notes-content",
+      attr: {
+        role: "status",
+        "aria-live": "polite",
+      },
+    });
+    const setNotesCollapsed = (collapsed: boolean) => {
+      this.root.dataset.notesCollapsed = String(collapsed);
+      toggleNotes.setAttribute("aria-expanded", String(!collapsed));
+      notesPanel.setAttribute("aria-hidden", String(collapsed));
+    };
     this.root.dataset.state = "loading";
     this.setLifecyclePhase("reading");
     delete this.root.dataset.errorCategory;
@@ -370,6 +407,43 @@ export class PptxViewSession<FileRef> {
         generation === this.generation &&
         !controller.signal.aborted &&
         this.rendererSession === rendererSession;
+      const renderSpeakerNotes = (slideIndex: number) => {
+        notesContent.replaceChildren();
+        const noteEntries = rendererSession.speakerNoteContent;
+        if (noteEntries === undefined) {
+          notesContent.createDiv({
+            cls: "pptx-viewer__notes-message",
+            text: this.messages.text("notes.unavailable"),
+            attr: { "data-notes-state": "unavailable" },
+          });
+          return;
+        }
+        const slideId = rendererSession.slideIdentities?.[slideIndex];
+        const entry = noteEntries.length === rendererSession.slideCount
+          ? noteEntries[slideIndex]
+          : slideId === undefined
+            ? undefined
+            : noteEntries.find((note) => note.slideId === slideId);
+        const paragraphs = entry?.paragraphs ?? [];
+        if (paragraphs.length === 0) {
+          notesContent.createDiv({
+            cls: "pptx-viewer__notes-message",
+            text: this.messages.text("notes.empty"),
+            attr: { "data-notes-state": "empty" },
+          });
+          return;
+        }
+        const list = notesContent.createDiv({
+          cls: "pptx-viewer__notes-paragraphs",
+          attr: { "data-notes-state": "ready" },
+        });
+        for (const paragraph of paragraphs) {
+          list.createEl("p", {
+            cls: "pptx-viewer__notes-paragraph",
+            text: paragraph,
+          });
+        }
+      };
       const queue = new RenderTaskQueue();
       this.backgroundQueue = queue;
       let initialCommitPending = true;
@@ -480,6 +554,7 @@ export class PptxViewSession<FileRef> {
             thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
           }
           searchRail?.setCurrentSlide(index);
+          renderSpeakerNotes(index);
           const slideId = rendererSession.slideIdentities?.[index];
           copyTarget = slideId === undefined
             ? null
@@ -703,7 +778,7 @@ export class PptxViewSession<FileRef> {
           onCommit: (width) => this.options.thumbnailRail?.recordWidth(width),
         },
       );
-      readingBody.insertBefore(railResizer.element, slideContainer);
+      readingBody.insertBefore(railResizer.element, slideStage);
       this.runCleanups.add(() => railResizer.dispose());
       try {
         const unsubscribe = this.options.thumbnailRail?.subscribeWidth?.(
@@ -763,6 +838,10 @@ export class PptxViewSession<FileRef> {
         toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
         if (!collapsed) rail?.refresh();
         updateMountedCount();
+      });
+      toggleNotes.addEventListener("click", () => {
+        if (!isCurrentRun()) return;
+        setNotesCollapsed(this.root.dataset.notesCollapsed !== "true");
       });
       const copySlideMarkup = (embed: boolean) => {
         const target = copyTarget;
@@ -957,6 +1036,7 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.errorCategory;
     delete this.root.dataset.warningCategories;
     delete this.root.dataset.thumbnailsCollapsed;
+    delete this.root.dataset.notesCollapsed;
     delete this.root.dataset.fullscreen;
     delete this.root.dataset.mountedThumbnailCount;
     delete this.root.dataset.readyThumbnailCount;

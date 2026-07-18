@@ -63,6 +63,18 @@ reviewing commit `e62eb4a`; the durable review record is in
 | Source-authored slide text | 源幻灯片文字 | 來源投影片文字 | Office Viewer, approved for `e62eb4a` |
 | Slide search result | 匹配的幻灯片 | 相符的投影片 | Office Viewer, approved for `e62eb4a` |
 
+## Draft speaker-note viewing terminology
+
+These mappings keep the speaker-notes viewing slice catalog-complete. They
+reuse the already-shipped “speaker notes / 讲者备注 / 講者備註” wording from
+`search.noResults` and remain pending proficient-human approval in
+`m3-message-review.md`.
+
+| English source term | Simplified Chinese | Traditional Chinese | Authority |
+| --- | --- | --- | --- |
+| Speaker notes | 讲者备注 | 講者備註 | Draft for Issue #36; pending human review |
+| Speaker note content | 讲者备注内容 | 講者備註內容 | Draft for Issue #36; pending human review |
+
 ## Review rules
 
 - Prefer natural sentence structure over word-for-word translation.
