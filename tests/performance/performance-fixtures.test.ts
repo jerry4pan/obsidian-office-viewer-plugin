@@ -122,6 +122,14 @@ describe("performance fixture manifest", () => {
       .file("ppt/slides/slide200.xml")
       ?.async("string");
     expect(finalStressSlideXml).toContain("Stress benchmark slide 200");
+    expect(finalStressSlideXml).toContain("Unicode");
+    expect(finalStressSlideXml).toContain("spacing marker Café");
+    expect(
+      await stressInspection.zip.file("ppt/slides/slide198.xml")?.async("string"),
+    ).toContain("简体中文搜索标记");
+    expect(
+      await stressInspection.zip.file("ppt/slides/slide199.xml")?.async("string"),
+    ).toContain("繁體中文搜尋標記");
 
     await runGenerator();
     for (const fixture of performanceFixtureManifest) {

@@ -371,6 +371,7 @@ export class PptxViewSession<FileRef> {
       let searchRail: SlideSearchRail | null = null;
       let openSearch = () => {};
       let closeSearch = () => {};
+      let thumbnailScrollTopBeforeSearch = 0;
       let viewController!: PptxViewerController;
       const restoreControlState = () => {
         const currentSlideIndex = viewController.state.currentSlideIndex;
@@ -467,6 +468,9 @@ export class PptxViewSession<FileRef> {
             ? referenceNoticeText
             : "";
           rail?.setCurrentSlide(index);
+          if (searchRail?.isOpen) {
+            thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
+          }
           searchRail?.setCurrentSlide(index);
           const slideId = rendererSession.slideIdentities?.[index];
           copyTarget = slideId === undefined
@@ -646,6 +650,7 @@ export class PptxViewSession<FileRef> {
           }
           thumbnailsCollapsedBeforeSearch =
             this.root.dataset.thumbnailsCollapsed === "true";
+          thumbnailScrollTopBeforeSearch = thumbnailRoot.scrollTop;
           if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(false);
           searchRail?.open();
           updateSearchButton();
@@ -653,6 +658,7 @@ export class PptxViewSession<FileRef> {
         closeSearch = () => {
           if (!searchRail?.isOpen) return;
           searchRail.close();
+          thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
           if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(true);
           updateSearchButton();
           searchButton.focus();

@@ -5,6 +5,8 @@ import {
 import type { PptxSlideContent } from "./renderer/pptx-renderer-adapter";
 import { searchSlideContent } from "./slide-content-search";
 
+export const MAX_MOUNTED_SEARCH_RESULTS = 50;
+
 export interface SlideSearchRailOptions {
   readonly messages?: MessageTranslator;
   readonly currentSlideIndex: () => number;
@@ -17,8 +19,12 @@ export class SlideSearchRail {
   private readonly input: HTMLInputElement;
   private readonly summary: HTMLElement;
   private readonly results: HTMLElement;
+  private readonly range: HTMLElement;
+  private readonly previousResults: HTMLButtonElement;
+  private readonly nextResults: HTMLButtonElement;
   private readonly messages: MessageTranslator;
   private matches = searchSlideContent([], "");
+  private resultPage = 0;
   private disposed = false;
 
   constructor(
@@ -49,8 +55,35 @@ export class SlideSearchRail {
         "aria-label": this.messages.text("search.resultsLabel"),
       },
     });
+    const pagination = this.panel.createDiv({
+      cls: "pptx-viewer__slide-search-pagination",
+    });
+    this.previousResults = pagination.createEl("button", {
+      type: "button",
+      text: "←",
+      attr: {
+        "aria-label": this.messages.text("search.previousResults"),
+        "data-action": "previous-search-results",
+      },
+    });
+    this.range = pagination.createSpan({
+      cls: "pptx-viewer__slide-search-range",
+      attr: { "aria-live": "polite" },
+    });
+    this.nextResults = pagination.createEl("button", {
+      type: "button",
+      text: "→",
+      attr: {
+        "aria-label": this.messages.text("search.nextResults"),
+        "data-action": "next-search-results",
+      },
+    });
+    this.previousResults.hidden = true;
+    this.nextResults.hidden = true;
     this.input.addEventListener("input", this.onInput);
     this.input.addEventListener("keydown", this.onKeyDown);
+    this.previousResults.addEventListener("click", this.onPreviousResults);
+    this.nextResults.addEventListener("click", this.onNextResults);
     root.append(this.panel);
   }
 
@@ -72,6 +105,17 @@ export class SlideSearchRail {
   }
 
   setCurrentSlide(index: number): void {
+    const resultIndex = this.matches.findIndex(
+      ({ slideIndex }) => slideIndex === index,
+    );
+    const resultPage = resultIndex < 0
+      ? this.resultPage
+      : Math.floor(resultIndex / MAX_MOUNTED_SEARCH_RESULTS);
+    if (resultPage !== this.resultPage) {
+      this.resultPage = resultPage;
+      this.renderResultPage();
+      return;
+    }
     for (const button of this.results.querySelectorAll<HTMLElement>(
       '[data-action="slide-search-result"]',
     )) {
@@ -88,11 +132,34 @@ export class SlideSearchRail {
     this.disposed = true;
     this.input.removeEventListener("input", this.onInput);
     this.input.removeEventListener("keydown", this.onKeyDown);
+    this.previousResults.removeEventListener("click", this.onPreviousResults);
+    this.nextResults.removeEventListener("click", this.onNextResults);
     delete this.root.dataset.searchOpen;
+    delete this.root.dataset.lastSearchMs;
+    delete this.root.dataset.mountedSearchResultCount;
     this.panel.remove();
   }
 
-  private readonly onInput = (): void => this.render();
+  private readonly onInput = (): void => {
+    this.resultPage = 0;
+    this.render();
+  };
+
+  private readonly onPreviousResults = (): void => {
+    if (this.resultPage <= 0) return;
+    this.resultPage -= 1;
+    this.renderResultPage();
+  };
+
+  private readonly onNextResults = (): void => {
+    const lastPage = Math.max(
+      0,
+      Math.ceil(this.matches.length / MAX_MOUNTED_SEARCH_RESULTS) - 1,
+    );
+    if (this.resultPage >= lastPage) return;
+    this.resultPage += 1;
+    this.renderResultPage();
+  };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.key === "Escape") {
@@ -114,18 +181,32 @@ export class SlideSearchRail {
   };
 
   private render(): void {
+    const startedAt = performance.now();
     const query = this.input.value;
     const matches = searchSlideContent(this.slides, query);
     this.matches = matches;
-    this.results.replaceChildren();
     if (!query.trim()) {
       this.summary.textContent = "";
+      this.results.replaceChildren();
+      this.range.textContent = "";
+      this.previousResults.hidden = true;
+      this.nextResults.hidden = true;
+      delete this.root.dataset.lastSearchMs;
+      this.root.dataset.mountedSearchResultCount = "0";
       return;
     }
     this.summary.textContent = matches.length === 0
       ? this.messages.text("search.noResults")
       : this.messages.text("search.resultCount", { count: matches.length });
-    for (const result of matches) {
+    this.renderResultPage();
+    this.root.dataset.lastSearchMs = (performance.now() - startedAt).toFixed(3);
+  }
+
+  private renderResultPage(): void {
+    this.results.replaceChildren();
+    const start = this.resultPage * MAX_MOUNTED_SEARCH_RESULTS;
+    const end = Math.min(start + MAX_MOUNTED_SEARCH_RESULTS, this.matches.length);
+    for (const result of this.matches.slice(start, end)) {
       const item = this.results.createDiv({ attr: { role: "listitem" } });
       const button = item.createEl("button", {
         type: "button",
@@ -162,6 +243,25 @@ export class SlideSearchRail {
         if (!this.disposed) this.options.onNavigate(result.slideId);
       });
     }
-    this.setCurrentSlide(this.options.currentSlideIndex());
+    const hasMultiplePages = this.matches.length > MAX_MOUNTED_SEARCH_RESULTS;
+    this.range.textContent = hasMultiplePages
+      ? this.messages.text("search.resultRange", {
+          start: start + 1,
+          end,
+          count: this.matches.length,
+        })
+      : "";
+    this.previousResults.hidden = !hasMultiplePages;
+    this.nextResults.hidden = !hasMultiplePages;
+    this.previousResults.disabled = start === 0;
+    this.nextResults.disabled = end >= this.matches.length;
+    this.root.dataset.mountedSearchResultCount = String(end - start);
+    for (const button of this.results.querySelectorAll<HTMLElement>(
+      '[data-action="slide-search-result"]',
+    )) {
+      if (Number(button.dataset.slideIndex) === this.options.currentSlideIndex()) {
+        button.setAttribute("aria-current", "page");
+      }
+    }
   }
 }

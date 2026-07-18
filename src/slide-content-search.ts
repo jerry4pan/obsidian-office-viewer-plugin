@@ -13,6 +13,24 @@ export interface SlideSearchResult {
   readonly snippet: SlideSearchSnippet;
 }
 
+const MAX_SNIPPET_CONTEXT_CHARACTERS = 60;
+
+function snippetContext(
+  display: string,
+  matchStart: number,
+  matchLength: number,
+): SlideSearchSnippet {
+  const boundedContext = MAX_SNIPPET_CONTEXT_CHARACTERS - 1;
+  const beforeStart = Math.max(0, matchStart - boundedContext);
+  const afterStart = matchStart + matchLength;
+  const afterEnd = Math.min(display.length, afterStart + boundedContext);
+  return {
+    before: `${beforeStart > 0 ? "…" : ""}${display.slice(beforeStart, matchStart)}`,
+    match: display.slice(matchStart, afterStart),
+    after: `${display.slice(afterStart, afterEnd)}${afterEnd < display.length ? "…" : ""}`,
+  };
+}
+
 function displayText(value: string): string {
   return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
 }
@@ -50,11 +68,7 @@ export function searchSlideContent(
       const firstMatch = comparable.indexOf(comparableQuery);
       if (firstMatch < 0) continue;
       matchCount += occurrenceCount(comparable, comparableQuery);
-      snippet ??= {
-        before: display.slice(0, firstMatch),
-        match: display.slice(firstMatch, firstMatch + comparableQuery.length),
-        after: display.slice(firstMatch + comparableQuery.length),
-      };
+      snippet ??= snippetContext(display, firstMatch, comparableQuery.length);
     }
     if (snippet) {
       results.push({

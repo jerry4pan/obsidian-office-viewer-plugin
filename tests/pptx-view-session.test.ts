@@ -231,6 +231,42 @@ describe("PptxViewSession", () => {
     root.remove();
   });
 
+  it("restores the thumbnail scroll position after search navigation", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["First needle"] },
+        { slideId: 257, text: ["Second needle"] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+    const rail = root.querySelector<HTMLElement>(
+      ".pptx-viewer__thumbnail-rail",
+    )!;
+    rail.scrollTop = 123;
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    rail.scrollTop = 456;
+
+    root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+    }));
+
+    expect(rail.scrollTop).toBe(123);
+    session.dispose();
+  });
+
   it("keeps slide search state independent between workspace panes", async () => {
     const firstRoot = document.createElement("div");
     const secondRoot = document.createElement("div");
@@ -382,6 +418,54 @@ describe("PptxViewSession", () => {
       "Images and speaker notes are not searched.",
     );
     session.dispose();
+  });
+
+  it("bounds mounted search results and measures large-deck query latency", async () => {
+    const root = document.createElement("div");
+    const slideContents = Array.from({ length: 200 }, (_, index) => ({
+      slideId: 256 + index,
+      text: [`Needle on stress slide ${index + 1}`],
+    }));
+    const { adapter } = makeRenderer(
+      slideContents.length,
+      slideContents.map(({ slideId }) => slideId),
+      slideContents,
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("large.pptx");
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    input.value = "needle";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const rail = root.querySelector<HTMLElement>(
+      ".pptx-viewer__thumbnail-rail",
+    )!;
+    expect(root.querySelectorAll('[data-action="slide-search-result"]'))
+      .toHaveLength(50);
+    expect(rail.dataset.mountedSearchResultCount).toBe("50");
+    expect(Number(rail.dataset.lastSearchMs)).toBeGreaterThanOrEqual(0);
+    expect(root.textContent).toContain("Showing 1–50 of 200");
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="next-search-results"]',
+    )!.click();
+    expect(root.textContent).toContain("Showing 51–100 of 200");
+    expect(
+      root.querySelector('[data-action="slide-search-result"]')?.textContent,
+    ).toContain("Slide 51");
+
+    session.dispose();
+    expect(rail.dataset.mountedSearchResultCount).toBeUndefined();
+    expect(rail.dataset.lastSearchMs).toBeUndefined();
   });
 
   it("renders the core reading loop in Simplified Chinese", async () => {

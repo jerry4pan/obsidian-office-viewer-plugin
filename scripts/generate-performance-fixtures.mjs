@@ -5,6 +5,12 @@ import PptxGenJS from "pptxgenjs";
 const fixtureDir = path.resolve("tests/fixtures/performance");
 const vaultDir = path.resolve("tests/vault/performance");
 const force = process.argv.includes("--force");
+const stressMultilingualMarkers = new Map([
+  [197, "English search marker"],
+  [198, "简体中文搜索标记"],
+  [199, "繁體中文搜尋標記"],
+  [200, "Unicode\u00a0  spacing marker Café"],
+]);
 
 await mkdir(fixtureDir, { recursive: true });
 await mkdir(vaultDir, { recursive: true });
@@ -189,6 +195,20 @@ async function buildStress() {
       align: "center",
       margin: 0,
     });
+    const multilingualMarker = stressMultilingualMarkers.get(slideNumber);
+    if (multilingualMarker) {
+      slide.addText(multilingualMarker, {
+        x: 1.25,
+        y: 6.4,
+        w: 10.8,
+        h: 0.4,
+        fontFace: "Arial",
+        fontSize: 14,
+        color: "334155",
+        align: "center",
+        margin: 0,
+      });
+    }
   }
   return pptx;
 }

@@ -40,4 +40,17 @@ describe("Slide content search", () => {
       },
     })]);
   });
+
+  it("bounds snippet context around a match", () => {
+    const results = searchSlideContent([
+      {
+        slideId: 256,
+        text: [`${"a".repeat(500)}NEEDLE${"b".repeat(500)}`],
+      },
+    ], "needle");
+
+    expect(results[0]?.snippet.before.length).toBeLessThanOrEqual(60);
+    expect(results[0]?.snippet.after.length).toBeLessThanOrEqual(60);
+    expect(results[0]?.snippet.match).toBe("NEEDLE");
+  });
 });
