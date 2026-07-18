@@ -221,6 +221,128 @@ describe("M2 installed PPTX reading experience", () => {
     expect(await vaultSha256(STRESS)).toBe(stressBefore);
   });
 
+  it("searches a large multilingual deck locally with bounded installed UI work", async () => {
+    const before = await vaultSha256(STRESS);
+    await obsidianPage.openFile(STRESS);
+    const root = await activeReadyRoot();
+    await waitForPage(root, 1, 200);
+    const thumbnails = root.$('[data-action="toggle-thumbnails"]');
+    await thumbnails.click();
+    await expect(root).toHaveAttribute("data-thumbnails-collapsed", "true");
+
+    expect(await browser.execute((viewer) => {
+      const event = new KeyboardEvent("keydown", {
+        key: "f",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      viewer.dispatchEvent(event);
+      return event.defaultPrevented;
+    }, root)).toBe(true);
+    await expect(root).toHaveAttribute("data-thumbnails-collapsed", "false");
+    const input = root.$('[data-action="slide-search-input"]');
+    await expect(input).toBeFocused();
+
+    await input.setValue("stress benchmark");
+    await browser.waitUntil(
+      async () => browser.execute(
+        (viewer) => viewer.querySelectorAll('[data-action="slide-search-result"]')
+          .length === 50,
+        root,
+      ),
+      { timeout: 10_000, timeoutMsg: "Large-deck search did not settle" },
+    );
+    const rail = root.$(".pptx-viewer__thumbnail-rail");
+    expect(Number(await rail.getAttribute("data-last-search-ms")))
+      .toBeLessThanOrEqual(1_000);
+    await expect(rail).toHaveAttribute("data-mounted-search-result-count", "50");
+    await expect(root).toHaveText(expect.stringContaining("Matching slides: 200"));
+    await expect(root).toHaveText(expect.stringContaining("Showing 1–50 of 200"));
+
+    await browser.execute(() => {
+      const searchInput = document.querySelector<HTMLInputElement>(
+        '.workspace-leaf.mod-active [data-action="slide-search-input"]',
+      );
+      if (!searchInput) throw new Error("Installed slide search input unavailable");
+      searchInput.value = "";
+      searchInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    });
+    expect(await rail.getAttribute("data-search-has-query")).toBeNull();
+    expect(await rail.getAttribute("data-search-open")).toBeNull();
+    await expect(root).toHaveAttribute("data-thumbnails-collapsed", "true");
+    await root.$('[data-action="open-slide-search"]').click();
+    await expect(input).toBeFocused();
+
+    await input.setValue("简体中文搜索标记");
+    const simplified = root.$('[data-action="slide-search-result"]');
+    await expect(simplified).toHaveAttribute("data-slide-index", "197");
+    await expect(simplified).toHaveAttribute(
+      "aria-label",
+      expect.stringContaining("Slide 198"),
+    );
+    await simplified.click();
+    await waitForPage(root, 198, 200);
+
+    await input.setValue("繁體中文搜尋標記");
+    const traditional = root.$('[data-action="slide-search-result"]');
+    await expect(traditional).toHaveAttribute("data-slide-index", "198");
+    await traditional.click();
+    await waitForPage(root, 199, 200);
+
+    await input.setValue("unicode spacing marker café");
+    const normalized = root.$('[data-action="slide-search-result"]');
+    await expect(normalized).toHaveAttribute("data-slide-index", "199");
+    await expect(normalized).toHaveText(expect.stringContaining("Slide 200"));
+    await normalized.click();
+    await waitForPage(root, 200, 200);
+
+    await browser.execute(() => {
+      const probe = window as unknown as { __pptxSearchCopies?: string[] };
+      probe.__pptxSearchCopies = [];
+      Object.defineProperty(navigator.clipboard, "writeText", {
+        configurable: true,
+        value: async (value: string) => {
+          probe.__pptxSearchCopies!.push(value);
+        },
+      });
+    });
+    await root.$('[data-action="copy-slide-reference"]').click();
+    await root.$('[data-action="copy-slide-embed"]').click();
+    await browser.waitUntil(async () => browser.execute(() =>
+      ((window as unknown as { __pptxSearchCopies?: string[] })
+        .__pptxSearchCopies?.length ?? 0) === 2), {
+      timeout: 5_000,
+      timeoutMsg: "Installed search result copy actions did not settle",
+    });
+    const copied = await browser.execute(() =>
+      (window as unknown as { __pptxSearchCopies?: string[] })
+        .__pptxSearchCopies ?? []);
+    expect(copied[0]).toContain(
+      "performance/stress-200-slides.pptx#slide-id=455&slide=200",
+    );
+    expect(copied[1]).toContain(
+      "![[performance/stress-200-slides.pptx#slide-id=455&slide=200",
+    );
+
+    const persisted = await browser.executeObsidian(async ({ app }) => {
+      const plugin = (app as unknown as {
+        plugins: { plugins: Record<string, unknown> };
+      }).plugins.plugins["office-viewer"] as { loadData(): Promise<unknown> };
+      return JSON.stringify(await plugin.loadData());
+    });
+    expect(persisted.toLocaleLowerCase()).not.toContain("café");
+    expect(persisted).not.toContain("繁體中文搜尋標記");
+    expect(JSON.stringify(await browser.execute((viewer) => viewer.dataset, root)))
+      .not.toContain("spacing marker");
+
+    await input.click();
+    await browser.keys(["Escape"]);
+    await expect(root).toHaveAttribute("data-thumbnails-collapsed", "true");
+    expect(await rail.getAttribute("data-search-open")).toBeNull();
+    expect(await vaultSha256(STRESS)).toBe(before);
+  });
+
   it("keeps page, thumbnail scroll, and full-screen state independent across two real workspace leaves", async () => {
     await obsidianPage.openFile(REPRESENTATIVE);
     const first = await activeReadyRoot();
@@ -249,6 +371,26 @@ describe("M2 installed PPTX reading experience", () => {
 
     await waitForPage(firstTagged, 4);
     await waitForPage(secondTagged, 8);
+
+    await firstTagged.$('[data-action="open-slide-search"]').click();
+    const firstSearch = firstTagged.$('[data-action="slide-search-input"]');
+    const secondSearch = secondTagged.$('[data-action="slide-search-input"]');
+    await firstSearch.setValue("unique representative marker 4");
+    await expect(firstTagged.$('[data-action="slide-search-result"]'))
+      .toHaveAttribute("data-slide-index", "3");
+    expect(await secondSearch.getValue()).toBe("");
+    expect(await secondTagged.$$("[data-action=\"slide-search-result\"]"))
+      .toHaveLength(0);
+
+    await secondTagged.$('[data-action="open-slide-search"]').click();
+    await secondSearch.setValue("unique representative marker 8");
+    await expect(secondTagged.$('[data-action="slide-search-result"]'))
+      .toHaveAttribute("data-slide-index", "7");
+    expect(await firstSearch.getValue()).toBe("unique representative marker 4");
+    await firstSearch.click();
+    await browser.keys(["Escape"]);
+    await secondSearch.click();
+    await browser.keys(["Escape"]);
 
     const firstRail = firstTagged.$('[aria-label="Slide thumbnails"]');
     const secondRail = secondTagged.$('[aria-label="Slide thumbnails"]');

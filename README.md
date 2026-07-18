@@ -5,7 +5,7 @@
 A desktop Obsidian plugin for reading local `.pptx` files right inside
 Obsidian — no PDF conversion, no uploads, no network requests.
 
-The latest published release is **0.1.7** on GitHub and in Obsidian Community
+The latest published release is **0.1.8** on GitHub and in Obsidian Community
 Plugins. The `main` branch may contain unreleased changes.
 
 ## Install
@@ -59,6 +59,15 @@ extract `main.js`, `manifest.json`, and `styles.css` to
   falling back to an ordinal position. Live Preview keeps the canonical
   Markdown syntax editable and does not render the slide inline.
 
+**Slide content search**
+- Press `Cmd+F` or `Ctrl+F` in an open PPTX to search source-authored text in
+  that presentation, then use `Enter` / `Shift+Enter` to move through matches.
+- Search covers visible titles, body text, text boxes, shape text, and table
+  cells. Results stay local to the current view and are never persisted.
+- Images, speaker notes, master/layout text, charts, and SmartArt are not
+  searched. OCR, Vault-wide indexing, and highlighting on the main rendered
+  slide are not currently supported.
+
 **Error handling**
 - Corrupted, encrypted, or otherwise unreadable files show a clear explanation
   rather than a blank screen or a cryptic error.
@@ -96,7 +105,8 @@ extract `main.js`, `manifest.json`, and `styles.css` to
 
 **Privacy**
 - Everything stays local. The plugin never uploads files, phones home, or
-  collects telemetry. Source files are never modified.
+  collects telemetry. Source files are never modified, and slide-search
+  queries, source-authored slide text, snippets, and results are not saved.
 
 ## Feedback
 
@@ -183,7 +193,7 @@ supported-extension, license, and required-documentation consistency without
 requiring a version bump on `main`.
 `npm run release:check:publish` adds tag, commit, and GitHub-release guards
 for tagged releases only. Publish releases with the plain manifest version as
-the tag and release name, for example `0.1.7`, not `v0.1.7`; Obsidian matches
+the tag and release name, for example `0.1.8`, not `v0.1.8`; Obsidian matches
 the GitHub release directly against `manifest.json`.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
@@ -211,9 +221,10 @@ byte-identical before uploading the CI artifact.
 - Privacy and security details are in `PRIVACY.md` and `SECURITY.md`.
 - Post-release validation and v0.2 planning are tracked in M4; see the PRD and
   GitHub Issues for current status.
-- Editing, saving, animations, legacy `.ppt` parsing, search, multi-slide or
-  full-deck embeds, inline Live Preview rendering, notes, telemetry, accounts,
-  licensing, and cloud services are out of scope.
+- Editing, saving, animations, legacy `.ppt` parsing, OCR, speaker-note search,
+  Vault-wide search, main-slide search highlighting, multi-slide or full-deck
+  embeds, inline Live Preview rendering, telemetry, accounts, licensing, and
+  cloud services are out of scope.
 
 ## Test fixture
 

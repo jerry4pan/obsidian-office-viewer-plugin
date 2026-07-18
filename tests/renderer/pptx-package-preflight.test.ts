@@ -28,6 +28,10 @@ describe("PPTX package preflight", () => {
     ).resolves.toEqual({
       declaredFonts: ["Arial"],
       slideIdentities: [256],
+      sourceAuthoredSlideText: [{
+        slideId: 256,
+        text: ["Obsidian PPTX smoke test"],
+      }],
       warningCategories: [],
     });
   });
@@ -43,6 +47,71 @@ describe("PPTX package preflight", () => {
     expect(inspection.slideIdentities).toHaveLength(50);
     expect(new Set(inspection.slideIdentities).size).toBe(50);
     expect(inspection.slideIdentities.slice(0, 3)).toEqual([256, 257, 258]);
+    expect(inspection.sourceAuthoredSlideText!.map(({ slideId }) => slideId))
+      .toEqual(inspection.slideIdentities);
+  });
+
+  it("collects only source-authored slide text", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/compatibility/tables-charts.pptx"),
+    );
+    const chart = zip.file("ppt/charts/chart1.xml")!;
+    zip.file(
+      "ppt/charts/chart1.xml",
+      (await chart.async("text")).replace(
+        "<c:v>FY26 plan</c:v>",
+        "<c:v>Chart only secret</c:v>",
+      ),
+    );
+    const notes = zip.file("ppt/notesSlides/notesSlide1.xml")!;
+    zip.file(
+      "ppt/notesSlides/notesSlide1.xml",
+      (await notes.async("text")).replace(
+        "</p:spTree>",
+        "<p:sp><p:txBody><a:p><a:r><a:t>Notes only secret</a:t></a:r></a:p></p:txBody></p:sp></p:spTree>",
+      ),
+    );
+    const master = zip.file("ppt/slideMasters/slideMaster1.xml")!;
+    zip.file(
+      "ppt/slideMasters/slideMaster1.xml",
+      (await master.async("text")).replace(
+        "</p:spTree>",
+        "<p:sp><p:txBody><a:p><a:r><a:t>Master only secret</a:t></a:r></a:p></p:txBody></p:sp></p:spTree>",
+      ),
+    );
+
+    const inspection = await inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    );
+    const text = inspection.sourceAuthoredSlideText![0]?.text ?? [];
+
+    expect(text).toContain("Regional performance");
+    expect(text).toContain("FY26 plan");
+    expect(text).toContain("North");
+    expect(text).not.toContain("Chart only secret");
+    expect(text).not.toContain("Notes only secret");
+    expect(text).not.toContain("Master only secret");
+  });
+
+  it("keeps optional source-authored text extraction failure non-fatal", async () => {
+    const original = Document.prototype.getElementsByTagNameNS;
+    vi.spyOn(Document.prototype, "getElementsByTagNameNS").mockImplementation(
+      function (this: Document, namespace, localName) {
+        if (localName === "p" && this.documentElement?.localName === "sld") {
+          throw new Error("optional text extraction failed");
+        }
+        return original.call(this, namespace, localName);
+      },
+    );
+
+    await expect(inspectPptxPackage(
+      await loadFixture("tests/fixtures/minimal.pptx"),
+      new AbortController().signal,
+    )).resolves.toMatchObject({
+      slideIdentities: [256],
+      sourceAuthoredSlideText: undefined,
+    });
   });
 
   it("rejects duplicate native slide identities", async () => {

@@ -7,6 +7,11 @@ export type PptxCompatibilityWarningCategory =
   | "unsupported-content"
   | "font-substitution";
 
+export interface PptxSourceAuthoredSlideText {
+  readonly slideId: number;
+  readonly text: readonly string[];
+}
+
 export interface PptxRendererResource {
   readonly ready: Promise<void>;
   dispose(): void;
@@ -16,6 +21,8 @@ export interface PptxRendererSession {
   readonly slideCount: number;
   /** Supplied by the project-owned preflight adapter in renderer order. */
   readonly slideIdentities?: readonly number[];
+  /** Source-authored slide text supplied by the project-owned preflight adapter. */
+  readonly sourceAuthoredSlideText?: readonly PptxSourceAuthoredSlideText[];
   readonly slideWidth: number;
   readonly slideHeight: number;
   readonly capabilities: PptxRendererCapabilities;

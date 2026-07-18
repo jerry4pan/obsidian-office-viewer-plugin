@@ -25,6 +25,11 @@ const EXPECTED_UI = {
     diagnostics: "Copy diagnostic summary",
     copyReference: "Copy slide reference",
     copyEmbed: "Copy slide embed",
+    searchOpen: "Search slide text",
+    searchResults: "Matching slides",
+    searchCount: "Matching slides: 1",
+    searchNoResults:
+      "No matching slide text. Images and speaker notes are not searched.",
     embedCurrent: "representative-12-slides — Slide 6",
     openPresentation: "Open presentation",
     pageTotal: "of 12",
@@ -43,6 +48,10 @@ const EXPECTED_UI = {
     diagnostics: "复制诊断摘要",
     copyReference: "复制幻灯片引用",
     copyEmbed: "复制幻灯片嵌入",
+    searchOpen: "搜索幻灯片文字",
+    searchResults: "匹配的幻灯片",
+    searchCount: "找到 1 张幻灯片",
+    searchNoResults: "未在幻灯片文字中找到结果；图片和讲者备注尚未搜索。",
     embedCurrent: "representative-12-slides — 第 6 张幻灯片",
     openPresentation: "打开演示文稿",
     pageTotal: "共 12 页",
@@ -61,6 +70,10 @@ const EXPECTED_UI = {
     diagnostics: "複製診斷摘要",
     copyReference: "複製投影片引用",
     copyEmbed: "複製投影片嵌入",
+    searchOpen: "搜尋投影片文字",
+    searchResults: "相符的投影片",
+    searchCount: "找到 1 張投影片",
+    searchNoResults: "在投影片文字中找不到結果；尚未搜尋圖片和講者備註。",
     embedCurrent: "representative-12-slides — 第 6 張投影片",
     openPresentation: "開啟簡報",
     pageTotal: "共 12 頁",
@@ -79,6 +92,11 @@ const EXPECTED_UI = {
     diagnostics: "Copy diagnostic summary",
     copyReference: "Copy slide reference",
     copyEmbed: "Copy slide embed",
+    searchOpen: "Search slide text",
+    searchResults: "Matching slides",
+    searchCount: "Matching slides: 1",
+    searchNoResults:
+      "No matching slide text. Images and speaker notes are not searched.",
     embedCurrent: "representative-12-slides — Slide 6",
     openPresentation: "Open presentation",
     pageTotal: "of 12",
@@ -188,6 +206,24 @@ describe("multilingual installed smoke", () => {
     await pageInput.setValue("13");
     await root.$('[data-action="jump-to-slide"]').click();
     await expect(root).toHaveText(expect.stringContaining(expected.invalidPage));
+
+    const searchButton = root.$('[data-action="open-slide-search"]');
+    await expect(searchButton).toHaveAttribute("aria-label", expected.searchOpen);
+    await searchButton.click();
+    const searchInput = root.$('[data-action="slide-search-input"]');
+    await expect(searchInput).toHaveAttribute("aria-label", expected.searchOpen);
+    await expect(root.$('[role="list"]')).toHaveAttribute(
+      "aria-label",
+      expected.searchResults,
+    );
+    await searchInput.setValue("unique representative marker 4");
+    await expect(root.$(".pptx-viewer__slide-search-summary"))
+      .toHaveText(expected.searchCount);
+    await searchInput.setValue("missing search marker");
+    await expect(root.$(".pptx-viewer__slide-search-summary"))
+      .toHaveText(expected.searchNoResults);
+    await searchInput.click();
+    await browser.keys(["Escape"]);
 
     await obsidianPage.openFile("embed-note.md");
     await browser.executeObsidian(({ app }) => {

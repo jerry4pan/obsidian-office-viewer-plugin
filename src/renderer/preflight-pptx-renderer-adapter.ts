@@ -4,17 +4,20 @@ import type {
   PptxCompatibilityWarningCategory,
   PptxRendererAdapter,
   PptxRendererSession,
+  PptxSourceAuthoredSlideText,
 } from "./pptx-renderer-adapter";
 
 function withCompatibilityWarnings(
   session: PptxRendererSession,
   slideIdentities: readonly number[],
+  sourceAuthoredSlideText: readonly PptxSourceAuthoredSlideText[] | undefined,
   compatibilityWarnings: readonly PptxCompatibilityWarningCategory[],
   detectCompatibilityWarnings: () => readonly PptxCompatibilityWarningCategory[],
 ): PptxRendererSession {
   const inspected: PptxRendererSession = {
     slideCount: session.slideCount,
     slideIdentities,
+    sourceAuthoredSlideText,
     slideWidth: session.slideWidth,
     slideHeight: session.slideHeight,
     capabilities: session.capabilities,
@@ -98,6 +101,7 @@ export class PreflightPptxRendererAdapter implements PptxRendererAdapter {
       return withCompatibilityWarnings(
         session,
         inspection.slideIdentities,
+        inspection.sourceAuthoredSlideText,
         inspection.warningCategories,
         () => {
           const warnings = new Set(inspection.warningCategories);

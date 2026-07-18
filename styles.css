@@ -229,6 +229,103 @@
   width: 168px;
 }
 
+.pptx-viewer .pptx-viewer__slide-search {
+  background: var(--background-secondary);
+  display: none;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  inset: 0;
+  padding: var(--size-4-2);
+  position: absolute;
+  z-index: 2;
+}
+
+.pptx-viewer .pptx-viewer__thumbnail-rail[data-search-open="true"] {
+  overflow: hidden;
+}
+
+.pptx-viewer
+  .pptx-viewer__thumbnail-rail[data-search-open="true"]
+  .pptx-viewer__slide-search {
+  display: flex;
+}
+
+.pptx-viewer .pptx-viewer__slide-search input {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.pptx-viewer .pptx-viewer__slide-search-summary {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  font-size: var(--font-ui-smaller);
+}
+
+.pptx-viewer .pptx-viewer__slide-search-summary:empty {
+  display: none;
+}
+
+.pptx-viewer .pptx-viewer__slide-search-results {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--size-4-1);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pptx-viewer .pptx-viewer__slide-search-pagination {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--size-4-1);
+  justify-content: space-between;
+}
+
+.pptx-viewer .pptx-viewer__slide-search-range {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+}
+
+.pptx-viewer .pptx-viewer__slide-search-result {
+  align-items: stretch;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-normal);
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--size-4-1);
+  height: auto;
+  min-height: var(--input-height);
+  overflow: visible;
+  padding: var(--size-4-2);
+  text-align: start;
+  white-space: normal;
+  width: 100%;
+}
+
+.pptx-viewer .pptx-viewer__slide-search-result:hover {
+  background: var(--background-modifier-hover);
+}
+
+.pptx-viewer .pptx-viewer__slide-search-result-title {
+  font-weight: var(--font-semibold);
+}
+
+.pptx-viewer .pptx-viewer__slide-search-snippet,
+.pptx-viewer .pptx-viewer__slide-search-match-count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.pptx-viewer .pptx-viewer__slide-search-snippet mark {
+  background: var(--text-highlight-bg);
+  color: var(--text-normal);
+}
+
 .pptx-viewer[data-thumbnails-collapsed="true"] .pptx-viewer__thumbnail-rail {
   display: none;
 }

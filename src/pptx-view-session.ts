@@ -26,6 +26,7 @@ import {
 } from "./thumbnail-rail-sizing";
 import { ThumbnailRailResizer } from "./thumbnail-rail-resizer";
 import type { SlideReferenceTarget } from "./slide-reference";
+import { SlideSearchRail } from "./slide-search-rail";
 
 export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
@@ -367,6 +368,10 @@ export class PptxViewSession<FileRef> {
       let initialRenderFailed = false;
       let navigationStartedAt: number | undefined;
       let rail: ThumbnailRail | null = null;
+      let searchRail: SlideSearchRail | null = null;
+      let openSearch = () => {};
+      let closeSearch = () => {};
+      let thumbnailScrollTopBeforeSearch = 0;
       let viewController!: PptxViewerController;
       const restoreControlState = () => {
         const currentSlideIndex = viewController.state.currentSlideIndex;
@@ -463,6 +468,10 @@ export class PptxViewSession<FileRef> {
             ? referenceNoticeText
             : "";
           rail?.setCurrentSlide(index);
+          if (searchRail?.isOpen) {
+            thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
+          }
+          searchRail?.setCurrentSlide(index);
           const slideId = rendererSession.slideIdentities?.[index];
           copyTarget = slideId === undefined
             ? null
@@ -593,6 +602,88 @@ export class PptxViewSession<FileRef> {
       });
       this.thumbnailRail = rail;
       rail.start(viewController.state.currentSlideIndex);
+      const searchableSlides = rendererSession.sourceAuthoredSlideText;
+      if (searchableSlides?.length === rendererSession.slideCount) {
+        let thumbnailsCollapsedBeforeSearch = false;
+        const setThumbnailsCollapsed = (collapsed: boolean) => {
+          this.root.dataset.thumbnailsCollapsed = String(collapsed);
+          toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
+          if (!collapsed) rail?.refresh();
+          updateMountedCount();
+        };
+        let createdSearchRail: SlideSearchRail | null = null;
+        try {
+          createdSearchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
+            messages: this.messages,
+            currentSlideIndex: () => viewController.state.currentSlideIndex,
+            onNavigate: (slideId) => {
+              const targetIndex = rendererSession.slideIdentities?.indexOf(slideId) ?? -1;
+              if (targetIndex >= 0) navigate(targetIndex);
+            },
+            onDismiss: () => closeSearch(),
+          });
+        } catch {
+          // Optional search setup must not invalidate an otherwise readable deck.
+        }
+        if (createdSearchRail !== null) {
+          const activeSearchRail = createdSearchRail;
+          searchRail = activeSearchRail;
+          const searchButton = headerActions.createEl("button", {
+            type: "button",
+            text: "⌕",
+            title: this.messages.text("search.open"),
+            attr: {
+              "data-action": "open-slide-search",
+              "aria-label": this.messages.text("search.open"),
+              "aria-pressed": "false",
+            },
+          });
+          const updateSearchButton = () => {
+            searchButton.setAttribute(
+              "aria-pressed",
+              String(activeSearchRail.isOpen),
+            );
+            searchButton.title = this.messages.text(
+              activeSearchRail.isOpen ? "search.close" : "search.open",
+            );
+            searchButton.setAttribute(
+              "aria-label",
+              this.messages.text(
+                activeSearchRail.isOpen ? "search.close" : "search.open",
+              ),
+            );
+          };
+          openSearch = () => {
+            if (searchRail?.isOpen) {
+              searchRail.open();
+              return;
+            }
+            thumbnailsCollapsedBeforeSearch =
+              this.root.dataset.thumbnailsCollapsed === "true";
+            thumbnailScrollTopBeforeSearch = thumbnailRoot.scrollTop;
+            if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(false);
+            searchRail?.open();
+            updateSearchButton();
+          };
+          closeSearch = () => {
+            if (!searchRail?.isOpen) return;
+            searchRail.close();
+            thumbnailRoot.scrollTop = thumbnailScrollTopBeforeSearch;
+            if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(true);
+            updateSearchButton();
+            searchButton.focus();
+          };
+          const toggleSearch = () => {
+            if (searchRail?.isOpen) closeSearch();
+            else openSearch();
+          };
+          searchButton.addEventListener("click", toggleSearch);
+          this.runCleanups.add(() => {
+            searchButton.removeEventListener("click", toggleSearch);
+            activeSearchRail.dispose();
+          });
+        }
+      }
       const railResizer = new ThumbnailRailResizer(
         readingBody,
         thumbnailRoot,
@@ -657,6 +748,7 @@ export class PptxViewSession<FileRef> {
       this.root.dataset.state = "ready";
       this.setLifecyclePhase("ready");
       toggleThumbnails.addEventListener("click", () => {
+        if (searchRail?.isOpen) closeSearch();
         const collapsed = this.root.dataset.thumbnailsCollapsed !== "true";
         this.root.dataset.thumbnailsCollapsed = String(collapsed);
         toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
@@ -743,7 +835,24 @@ export class PptxViewSession<FileRef> {
       });
 
       const onKeyDown = (event: KeyboardEvent) => {
-        if (isEditableTarget(event.target) || !isCurrentRun()) return;
+        if (!isCurrentRun()) return;
+        if (
+          searchRail !== null &&
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey &&
+          event.key.toLowerCase() === "f"
+        ) {
+          event.preventDefault();
+          openSearch();
+          return;
+        }
+        if (event.key === "Escape" && searchRail?.isOpen) {
+          event.preventDefault();
+          closeSearch();
+          this.root.focus();
+          return;
+        }
+        if (isEditableTarget(event.target)) return;
         const delta = event.key === "ArrowLeft" || event.key === "PageUp"
           ? -1
           : event.key === "ArrowRight" || event.key === "PageDown"
