@@ -51,17 +51,17 @@ mappings for pull request #29 on 2026-07-18.
 | Slide embed | 幻灯片嵌入 | 投影片嵌入 | Office Viewer, approved in #29 |
 | Open presentation | 打开演示文稿 | 開啟簡報 | Office Viewer, approved in #29 |
 
-## Pending Slide content search terminology
+## Approved Slide content search terminology
 
-These mappings are implementation drafts and are not approved until the
-reviewer fields in `m3-message-review.md` identify proficient human approval
-for the reviewed commit.
+The repository owner approved these mappings in Codex on 2026-07-18 after
+reviewing commit `e62eb4a`; the durable review record is in
+`m3-message-review.md`.
 
 | English source term | Simplified Chinese | Traditional Chinese | Authority |
 | --- | --- | --- | --- |
-| Slide content search | 搜索幻灯片文字 | 搜尋投影片文字 | Pending human review |
-| Source-authored slide text | 源幻灯片文字 | 來源投影片文字 | Pending human review |
-| Slide search result | 匹配的幻灯片 | 相符的投影片 | Pending human review |
+| Slide content search | 搜索幻灯片文字 | 搜尋投影片文字 | Office Viewer, approved for `e62eb4a` |
+| Source-authored slide text | 源幻灯片文字 | 來源投影片文字 | Office Viewer, approved for `e62eb4a` |
+| Slide search result | 匹配的幻灯片 | 相符的投影片 | Office Viewer, approved for `e62eb4a` |
 
 ## Review rules
 
