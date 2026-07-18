@@ -1,7 +1,8 @@
 # PPTX knowledge reference loop technical exploration
 
-- Status: Implementation evidence complete; PowerPoint identity gate pending
+- Status: COMPLETE — technical evidence gate passed; merge and release remain separate maintainer decisions
 - Started: 2026-07-18
+- Completed: 2026-07-18
 - Scope: the first bounded exploration after the v0.1 reading experience
 
 ## Decision log
@@ -310,22 +311,41 @@ ordinal 3 and disappeared after deletion without changing the remaining
 original identities. This is positive non-blocking editor-compatibility
 evidence. It does not satisfy the explicitly agreed Microsoft PowerPoint gate.
 
+### Microsoft PowerPoint identity gate
+
+A maintainer then repeated the protocol with Microsoft PowerPoint for Mac
+16.111 (26071325) on macOS 14.8.7. The installed application bundle reports
+`16.111.26071325`, and the edited package records
+`Microsoft Macintosh PowerPoint` as its producing application. The verifier
+passed all checks with the same identity sequences observed in WPS:
+
+- native target identity `261` survived insertion, reordering to ordinal 3,
+  title editing, normal Save, close, and reopen;
+- the inserted slide received identity `268` without regenerating any original
+  identity;
+- deleting the target removed `261` while preserving every other original
+  identity.
+
+The complete verifier result, editor provenance, timestamps, and SHA-256 hashes
+are retained in `docs/research/powerpoint-slide-id-validation-16.111.json`.
+AutoSave state was not recorded, but the local Desktop copies were explicitly
+saved with the normal Save command; the acceptance result does not depend on
+which AutoSave state was active.
+
 ### Acceptance audit
 
 | Gate | Current evidence | Status |
 | --- | --- | --- |
-| PowerPoint insert/reorder/edit/normal-save preserves the target identity | The same protocol passes in WPS Office 12.1.24031, but Microsoft PowerPoint is absent and no PowerPoint-produced artifacts have been supplied | **PENDING — blocking** |
+| PowerPoint insert/reorder/edit/normal-save preserves the target identity | PowerPoint for Mac 16.111 verifier output, package producer metadata, file hashes, and edited/deleted identity sequences | PASS |
 | Deleted/regenerated identity never falls back to ordinal | Preflight uniqueness, stale viewer/embed unit tests, installed stale reference and embed cases | PASS |
 | One shared canonical fragment contract | Formatter/parser malformed and encoded-path tests; installed reference and embed share it | PASS |
 | Native Obsidian current/split/restart/rename navigation | Installed current leaf, split leaf, restart, duplicate basename, and native rename-update probes | PASS |
 | Reading View public lifecycle | Markdown postprocessor + `MarkdownRenderChild`; viewport, note unload, plugin disable, and native fallback evidence | PASS |
-| Reference copy and exact return | Unit failure/degraded tests plus installed exact clipboard, moved, stale, duplicate-path, split, restart, and rename cases | PASS, conditional on PowerPoint identity gate |
-| Source-backed single-slide embed | Supported/degraded diagnostics, abnormal inputs, external fallback, ten-embed scheduling, locale/theme/accessibility, offline and integrity evidence | PASS, conditional on PowerPoint identity gate |
-| Merge/release decision | D15 forbids merge or release while the blocking identity row is pending | NO-GO pending PowerPoint evidence |
+| Reference copy and exact return | Unit failure/degraded tests plus installed exact clipboard, moved, stale, duplicate-path, split, restart, and rename cases | PASS |
+| Source-backed single-slide embed | Supported/degraded diagnostics, abnormal inputs, external fallback, ten-embed scheduling, locale/theme/accessibility, offline and integrity evidence | PASS |
+| Merge/release decision | Both slices and the blocking identity gate pass | GO for maintainer review/merge; versioning and public release remain separate decisions |
 
-The current machine has no Microsoft PowerPoint installation. The exact manual
-round-trip and a deterministic evidence verifier are committed in
-`docs/research/powerpoint-slide-id-validation.md`. Until that protocol passes,
-Issue #26 remains a no-go/pending gate and the branch must not merge or ship.
-This pending external evidence does not alter M4 #23 or claim user-workflow
-validation.
+The bounded technical exploration is complete. It establishes technical
+feasibility and production-quality automated evidence for the explored slices;
+it does not close M4 #23, claim real-user workflow validation, commit the full
+v0.2 scope, or independently authorize a public release.
