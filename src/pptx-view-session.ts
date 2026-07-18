@@ -368,6 +368,9 @@ export class PptxViewSession<FileRef> {
       let initialRenderFailed = false;
       let navigationStartedAt: number | undefined;
       let rail: ThumbnailRail | null = null;
+      let searchRail: SlideSearchRail | null = null;
+      let openSearch = () => {};
+      let closeSearch = () => {};
       let viewController!: PptxViewerController;
       const restoreControlState = () => {
         const currentSlideIndex = viewController.state.currentSlideIndex;
@@ -464,6 +467,7 @@ export class PptxViewSession<FileRef> {
             ? referenceNoticeText
             : "";
           rail?.setCurrentSlide(index);
+          searchRail?.setCurrentSlide(index);
           const slideId = rendererSession.slideIdentities?.[index];
           copyTarget = slideId === undefined
             ? null
@@ -596,13 +600,23 @@ export class PptxViewSession<FileRef> {
       rail.start(viewController.state.currentSlideIndex);
       const searchableSlides = rendererSession.slideContents;
       if (searchableSlides?.length === rendererSession.slideCount) {
-        const searchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
+        let thumbnailsCollapsedBeforeSearch = false;
+        const setThumbnailsCollapsed = (collapsed: boolean) => {
+          this.root.dataset.thumbnailsCollapsed = String(collapsed);
+          toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
+          if (!collapsed) rail?.refresh();
+          updateMountedCount();
+        };
+        const createdSearchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
           messages: this.messages,
+          currentSlideIndex: () => viewController.state.currentSlideIndex,
           onNavigate: (slideId) => {
             const targetIndex = rendererSession.slideIdentities?.indexOf(slideId) ?? -1;
             if (targetIndex >= 0) navigate(targetIndex);
           },
+          onDismiss: () => closeSearch(),
         });
+        searchRail = createdSearchRail;
         const searchButton = headerActions.createEl("button", {
           type: "button",
           text: "⌕",
@@ -613,22 +627,44 @@ export class PptxViewSession<FileRef> {
             "aria-pressed": "false",
           },
         });
-        const toggleSearch = () => {
-          if (searchRail.isOpen) {
-            searchRail.close();
-          } else {
-            searchRail.open();
-          }
-          searchButton.setAttribute("aria-pressed", String(searchRail.isOpen));
+        const updateSearchButton = () => {
+          searchButton.setAttribute("aria-pressed", String(createdSearchRail.isOpen));
+          searchButton.title = this.messages.text(
+            createdSearchRail.isOpen ? "search.close" : "search.open",
+          );
           searchButton.setAttribute(
             "aria-label",
-            this.messages.text(searchRail.isOpen ? "search.close" : "search.open"),
+            this.messages.text(
+              createdSearchRail.isOpen ? "search.close" : "search.open",
+            ),
           );
+        };
+        openSearch = () => {
+          if (searchRail?.isOpen) {
+            searchRail.open();
+            return;
+          }
+          thumbnailsCollapsedBeforeSearch =
+            this.root.dataset.thumbnailsCollapsed === "true";
+          if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(false);
+          searchRail?.open();
+          updateSearchButton();
+        };
+        closeSearch = () => {
+          if (!searchRail?.isOpen) return;
+          searchRail.close();
+          if (thumbnailsCollapsedBeforeSearch) setThumbnailsCollapsed(true);
+          updateSearchButton();
+          searchButton.focus();
+        };
+        const toggleSearch = () => {
+          if (searchRail?.isOpen) closeSearch();
+          else openSearch();
         };
         searchButton.addEventListener("click", toggleSearch);
         this.runCleanups.add(() => {
           searchButton.removeEventListener("click", toggleSearch);
-          searchRail.dispose();
+          createdSearchRail.dispose();
         });
       }
       const railResizer = new ThumbnailRailResizer(
@@ -695,6 +731,7 @@ export class PptxViewSession<FileRef> {
       this.root.dataset.state = "ready";
       this.setLifecyclePhase("ready");
       toggleThumbnails.addEventListener("click", () => {
+        if (searchRail?.isOpen) closeSearch();
         const collapsed = this.root.dataset.thumbnailsCollapsed !== "true";
         this.root.dataset.thumbnailsCollapsed = String(collapsed);
         toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
@@ -781,7 +818,24 @@ export class PptxViewSession<FileRef> {
       });
 
       const onKeyDown = (event: KeyboardEvent) => {
-        if (isEditableTarget(event.target) || !isCurrentRun()) return;
+        if (!isCurrentRun()) return;
+        if (
+          searchRail !== null &&
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey &&
+          event.key.toLowerCase() === "f"
+        ) {
+          event.preventDefault();
+          openSearch();
+          return;
+        }
+        if (event.key === "Escape" && searchRail?.isOpen) {
+          event.preventDefault();
+          closeSearch();
+          this.root.focus();
+          return;
+        }
+        if (isEditableTarget(event.target)) return;
         const delta = event.key === "ArrowLeft" || event.key === "PageUp"
           ? -1
           : event.key === "ArrowRight" || event.key === "PageDown"

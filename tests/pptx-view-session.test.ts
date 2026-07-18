@@ -119,6 +119,271 @@ describe("PptxViewSession", () => {
     });
   });
 
+  it("opens search from the keyboard and cycles results from the current slide", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const { adapter, rendererSession } = makeRenderer(
+      3,
+      [256, 257, 258],
+      [
+        { slideId: 256, text: ["Needle first"] },
+        { slideId: 257, text: ["Current slide"] },
+        { slideId: 258, text: ["Needle last"] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+      {
+        positions: {
+          initialSlideFor: () => 1,
+          record: vi.fn(),
+        },
+      },
+    );
+    await session.open("deck.pptx");
+
+    root.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "f",
+      ctrlKey: true,
+      bubbles: true,
+    }));
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    expect(document.activeElement).toBe(input);
+    input.value = "needle";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    input.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+    }));
+    await vi.waitFor(() => {
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(2);
+    });
+    input.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+    }));
+    await vi.waitFor(() => {
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(0);
+    });
+    input.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      shiftKey: true,
+      bubbles: true,
+    }));
+    await vi.waitFor(() => {
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(2);
+    });
+
+    input.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+    }));
+    expect(
+      root.querySelector<HTMLElement>(".pptx-viewer__thumbnail-rail")?.dataset
+        .searchOpen,
+    ).toBeUndefined();
+    session.dispose();
+    root.remove();
+  });
+
+  it("temporarily reveals a collapsed thumbnail rail while searching", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const { adapter } = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Needle"] }],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+    const thumbnails = root.querySelector<HTMLButtonElement>(
+      '[data-action="toggle-thumbnails"]',
+    )!;
+    thumbnails.click();
+    expect(root.dataset.thumbnailsCollapsed).toBe("true");
+
+    root.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "f",
+      metaKey: true,
+      bubbles: true,
+    }));
+    expect(root.dataset.thumbnailsCollapsed).toBe("false");
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    input.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+    }));
+
+    expect(root.dataset.thumbnailsCollapsed).toBe("true");
+    expect(thumbnails.getAttribute("aria-expanded")).toBe("false");
+    session.dispose();
+    root.remove();
+  });
+
+  it("keeps slide search state independent between workspace panes", async () => {
+    const firstRoot = document.createElement("div");
+    const secondRoot = document.createElement("div");
+    document.body.append(firstRoot, secondRoot);
+    const first = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Alpha only"] }],
+    );
+    const second = makeRenderer(
+      1,
+      [512],
+      [{ slideId: 512, text: ["Beta only"] }],
+    );
+    const adapter: PptxRendererAdapter = {
+      open: vi.fn()
+        .mockImplementationOnce(first.adapter.open)
+        .mockImplementationOnce(second.adapter.open),
+    };
+    const reader = { readBinary: vi.fn(async () => new ArrayBuffer(1)) };
+    const firstSession = new PptxViewSession(firstRoot, reader, adapter);
+    const secondSession = new PptxViewSession(secondRoot, reader, adapter);
+    await Promise.all([
+      firstSession.open("first.pptx"),
+      secondSession.open("second.pptx"),
+    ]);
+
+    firstRoot.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const firstInput = firstRoot.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    firstInput.value = "alpha";
+    firstInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const secondInput = secondRoot.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    expect(secondInput.value).toBe("");
+    expect(secondRoot.querySelector('[data-action="slide-search-result"]'))
+      .toBeNull();
+    expect(
+      secondRoot.querySelector<HTMLElement>(".pptx-viewer__thumbnail-rail")
+        ?.dataset.searchOpen,
+    ).toBeUndefined();
+
+    firstSession.dispose();
+    secondSession.dispose();
+    firstRoot.remove();
+    secondRoot.remove();
+  });
+
+  it("clears search content and listeners when reopening or disposing", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const first = makeRenderer(
+      1,
+      [256],
+      [{ slideId: 256, text: ["Private query needle"] }],
+    );
+    const second = makeRenderer(
+      1,
+      [512],
+      [{ slideId: 512, text: ["Replacement slide"] }],
+    );
+    const adapter: PptxRendererAdapter = {
+      open: vi.fn()
+        .mockImplementationOnce(first.adapter.open)
+        .mockImplementationOnce(second.adapter.open),
+    };
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("first.pptx");
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const oldInput = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    oldInput.value = "private query";
+    oldInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(JSON.stringify(session.getPerformanceDiagnostics()))
+      .not.toContain("private query");
+
+    await session.open("second.pptx");
+
+    expect(oldInput.isConnected).toBe(false);
+    const newInput = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    expect(newInput.value).toBe("");
+    oldInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.textContent).not.toContain("Private query needle");
+
+    session.dispose();
+    expect(root.childElementCount).toBe(0);
+    root.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "f",
+      ctrlKey: true,
+      bubbles: true,
+    }));
+    expect(root.childElementCount).toBe(0);
+    root.remove();
+  });
+
+  it("announces trustworthy no-result coverage and the current result", async () => {
+    const root = document.createElement("div");
+    const { adapter } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Current needle"] },
+        { slideId: 257, text: ["Other needle"] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="open-slide-search"]',
+    )!.click();
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    )!;
+    expect(input.getAttribute("aria-label")).toBe("Search slide text");
+    expect(root.querySelector('[role="search"]')?.getAttribute("aria-label"))
+      .toBe("Search slide text");
+    expect(root.querySelector('[role="list"]')?.getAttribute("aria-label"))
+      .toBe("Matching slides");
+
+    input.value = "needle";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.querySelector('[role="status"]')?.textContent).not.toBeNull();
+    expect(
+      root.querySelector('[data-action="slide-search-result"]')
+        ?.getAttribute("aria-current"),
+    ).toBe("page");
+
+    input.value = "missing";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.textContent).toContain(
+      "Images and speaker notes are not searched.",
+    );
+    session.dispose();
+  });
+
   it("renders the core reading loop in Simplified Chinese", async () => {
     const root = document.createElement("div");
     let finishRead!: (bytes: ArrayBuffer) => void;

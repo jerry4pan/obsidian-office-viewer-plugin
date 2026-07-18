@@ -7,7 +7,9 @@ import { searchSlideContent } from "./slide-content-search";
 
 export interface SlideSearchRailOptions {
   readonly messages?: MessageTranslator;
+  readonly currentSlideIndex: () => number;
   readonly onNavigate: (slideId: number) => void;
+  readonly onDismiss: () => void;
 }
 
 export class SlideSearchRail {
@@ -16,6 +18,7 @@ export class SlideSearchRail {
   private readonly summary: HTMLElement;
   private readonly results: HTMLElement;
   private readonly messages: MessageTranslator;
+  private matches = searchSlideContent([], "");
   private disposed = false;
 
   constructor(
@@ -47,6 +50,7 @@ export class SlideSearchRail {
       },
     });
     this.input.addEventListener("input", this.onInput);
+    this.input.addEventListener("keydown", this.onKeyDown);
     root.append(this.panel);
   }
 
@@ -67,19 +71,52 @@ export class SlideSearchRail {
     this.render();
   }
 
+  setCurrentSlide(index: number): void {
+    for (const button of this.results.querySelectorAll<HTMLElement>(
+      '[data-action="slide-search-result"]',
+    )) {
+      if (Number(button.dataset.slideIndex) === index) {
+        button.setAttribute("aria-current", "page");
+      } else {
+        button.removeAttribute("aria-current");
+      }
+    }
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.input.removeEventListener("input", this.onInput);
+    this.input.removeEventListener("keydown", this.onKeyDown);
     delete this.root.dataset.searchOpen;
     this.panel.remove();
   }
 
   private readonly onInput = (): void => this.render();
 
+  private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.options.onDismiss();
+      return;
+    }
+    if (event.key !== "Enter" || this.matches.length === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const current = this.options.currentSlideIndex();
+    const target = event.shiftKey
+      ? [...this.matches].reverse().find(({ slideIndex }) => slideIndex < current) ??
+        this.matches.at(-1)
+      : this.matches.find(({ slideIndex }) => slideIndex > current) ??
+        this.matches[0];
+    if (target) this.options.onNavigate(target.slideId);
+  };
+
   private render(): void {
     const query = this.input.value;
     const matches = searchSlideContent(this.slides, query);
+    this.matches = matches;
     this.results.replaceChildren();
     if (!query.trim()) {
       this.summary.textContent = "";
@@ -89,14 +126,14 @@ export class SlideSearchRail {
       ? this.messages.text("search.noResults")
       : this.messages.text("search.resultCount", { count: matches.length });
     for (const result of matches) {
-      const button = this.results.createEl("button", {
+      const item = this.results.createDiv({ attr: { role: "listitem" } });
+      const button = item.createEl("button", {
         type: "button",
         cls: "pptx-viewer__slide-search-result",
         attr: {
           "data-action": "slide-search-result",
           "data-slide-id": String(result.slideId),
           "data-slide-index": String(result.slideIndex),
-          role: "listitem",
           "aria-label": this.messages.text("search.resultLabel", {
             slide: result.slideIndex + 1,
             matches: result.matchCount,
@@ -125,5 +162,6 @@ export class SlideSearchRail {
         if (!this.disposed) this.options.onNavigate(result.slideId);
       });
     }
+    this.setCurrentSlide(this.options.currentSlideIndex());
   }
 }
