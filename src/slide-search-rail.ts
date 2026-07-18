@@ -487,21 +487,24 @@ export class SlideSearchRail {
         ),
       },
     });
-    button.createSpan({
-      cls: "pptx-viewer__slide-search-provenance",
+    const head = button.createDiv({
+      cls: "pptx-viewer__slide-search-surface-head",
+    });
+    head.createSpan({
+      cls: `pptx-viewer__slide-search-provenance pptx-viewer__slide-search-provenance--${surface}`,
       text: this.messages.text(
         surface === "speaker-notes"
           ? "search.provenanceNotes"
           : "search.provenanceSlideText",
       ),
     });
-    this.appendSnippet(button, match.snippet);
-    button.createSpan({
+    head.createSpan({
       cls: "pptx-viewer__slide-search-match-count",
       text: this.messages.text("search.matchCount", {
         count: match.matchCount,
       }),
     });
+    this.appendSnippet(button, match.snippet);
     button.addEventListener("click", () => {
       if (this.disposed) return;
       this.options.onNavigate(result.slideId, {

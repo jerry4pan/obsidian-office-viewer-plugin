@@ -235,48 +235,84 @@
   color: var(--text-on-accent);
 }
 
-.pptx-viewer .pptx-viewer__slide-search-result--presentation {
+.pptx-viewer
+  .pptx-viewer__slide-search-results
+  .pptx-viewer__slide-search-result--presentation {
   align-items: stretch;
   display: flex;
   flex-direction: column;
-  gap: var(--size-2-2);
-  padding: var(--size-4-2);
+  gap: var(--size-2-1);
+  min-height: 0;
+  padding: var(--size-2-3) var(--size-2-3) var(--size-2-2);
   text-align: left;
 }
 
 .pptx-viewer .pptx-viewer__slide-search-result-title-button {
   background: transparent;
   border: none;
-  color: inherit;
+  color: var(--text-normal);
   cursor: pointer;
-  padding: 0;
+  display: block;
+  padding: var(--size-2-1) var(--size-2-1) 0;
   text-align: left;
   width: 100%;
 }
 
+.pptx-viewer
+  .pptx-viewer__slide-search-result-title-button
+  .pptx-viewer__slide-search-result-title {
+  display: block;
+  text-align: left;
+}
+
 .pptx-viewer .pptx-viewer__slide-search-surface {
-  align-items: flex-start;
+  align-items: stretch;
   background: transparent;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-s);
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
   color: inherit;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: var(--size-2-1);
-  padding: var(--size-2-2) var(--size-4-2);
+  padding: var(--size-2-1) var(--size-2-2);
   text-align: left;
   width: 100%;
+}
+
+.pptx-viewer
+  .pptx-viewer__slide-search-surface[data-action="slide-search-slide-match"] {
+  border-left-color: var(--color-accent);
+}
+
+.pptx-viewer
+  .pptx-viewer__slide-search-surface[data-action="slide-search-notes-match"] {
+  border-left-color: var(--text-accent-hover, var(--color-orange, var(--color-accent)));
 }
 
 .pptx-viewer .pptx-viewer__slide-search-surface:hover {
   background: var(--background-modifier-hover);
 }
 
+.pptx-viewer .pptx-viewer__slide-search-surface-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--size-2-2);
+  justify-content: space-between;
+}
+
 .pptx-viewer .pptx-viewer__slide-search-provenance {
+  border-radius: var(--radius-s);
   color: var(--text-muted);
+  flex: 0 0 auto;
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-medium);
+}
+
+.pptx-viewer .pptx-viewer__slide-search-surface-head
+  .pptx-viewer__slide-search-match-count {
+  flex: 0 0 auto;
 }
 
 .pptx-viewer[data-state="error"] .pptx-viewer__status {
