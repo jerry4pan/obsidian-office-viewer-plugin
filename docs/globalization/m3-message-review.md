@@ -92,16 +92,18 @@ Issue #36 adds these catalog keys.
 ### Speaker-note viewing approval
 
 - [x] Simplified Chinese speaker-note viewing messages approved by repository
-  owner `@jerry4pan` on 2026-07-18; reviewed commit: `cb6e49c`.
+  owner `@jerry4pan` on 2026-07-18 and reconfirmed with the complete
+  speaker-note catalog; reviewed commit: `975ef9e`.
 - [x] Traditional Chinese speaker-note viewing messages approved by repository
-  owner `@jerry4pan` on 2026-07-18; reviewed commit: `cb6e49c`.
+  owner `@jerry4pan` on 2026-07-18 and reconfirmed with the complete
+  speaker-note catalog; reviewed commit: `975ef9e`.
 
 ### Speaker-note copy and Presentation content search review scope
 
 Issues #37–#39 add these catalog keys. They reuse the approved speaker-notes
-terminology. Repository owner `@jerry4pan` approved the Issue #36 Chinese
-surface on 2026-07-18 and directed completion of the full #35 catalog in the
-same review conversation; record the landing commit after merge.
+terminology. Repository owner `@jerry4pan` reviewed the complete English,
+Simplified Chinese, and Traditional Chinese catalog at commit `975ef9e` and
+explicitly approved both Chinese catalogs on 2026-07-18.
 
 | Key | English source | Simplified Chinese | Traditional Chinese |
 | --- | --- | --- | --- |
@@ -127,6 +129,6 @@ same review conversation; record the landing commit after merge.
 ### Speaker-note copy and Presentation content search approval
 
 - [x] Simplified Chinese messages for Issues #37–#39 approved by repository
-  owner `@jerry4pan` on 2026-07-18 while directing full Spec #35 completion.
+  owner `@jerry4pan` on 2026-07-18; reviewed commit: `975ef9e`.
 - [x] Traditional Chinese messages for Issues #37–#39 approved by repository
-  owner `@jerry4pan` on 2026-07-18 while directing full Spec #35 completion.
+  owner `@jerry4pan` on 2026-07-18; reviewed commit: `975ef9e`.

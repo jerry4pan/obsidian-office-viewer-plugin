@@ -2,6 +2,10 @@ import type {
   PptxSourceAuthoredSlideText,
   PptxSpeakerNoteContent,
 } from "./renderer/pptx-renderer-adapter";
+import {
+  hasUsableSpeakerNoteContent,
+  indexSpeakerNoteContent,
+} from "./speaker-note-content";
 
 export interface SlideSearchSnippet {
   readonly before: string;
@@ -54,6 +58,54 @@ interface IndexedSlide {
 }
 
 const MAX_SNIPPET_CONTEXT_CHARACTERS = 60;
+const graphemeSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
+interface RawTextRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+function mappedDisplayText(value: string): {
+  readonly display: string;
+  readonly rawRanges: readonly RawTextRange[];
+} {
+  let display = "";
+  const rawRanges: RawTextRange[] = [];
+  for (const segment of graphemeSegmenter.segment(value)) {
+    const normalized = segment.segment.normalize("NFKC");
+    const rawRange = {
+      start: segment.index,
+      end: segment.index + segment.segment.length,
+    };
+    for (const symbol of normalized) {
+      if (/\s/u.test(symbol)) {
+        if (display.length === 0) continue;
+        if (display.endsWith(" ")) {
+          const last = rawRanges.at(-1);
+          if (last) rawRanges[rawRanges.length - 1] = {
+            start: last.start,
+            end: rawRange.end,
+          };
+          continue;
+        }
+        display += " ";
+        rawRanges.push(rawRange);
+        continue;
+      }
+      display += symbol;
+      for (let offset = 0; offset < symbol.length; offset += 1) {
+        rawRanges.push(rawRange);
+      }
+    }
+  }
+  if (display.endsWith(" ")) {
+    display = display.slice(0, -1);
+    rawRanges.pop();
+  }
+  return { display, rawRanges };
+}
 
 function snippetContext(
   display: string,
@@ -100,6 +152,25 @@ function displayText(value: string): string {
 
 function comparableText(value: string): string {
   return displayText(value).toLowerCase();
+}
+
+export function normalizedDisplayMatchRange(
+  value: string,
+  normalizedMatch: string,
+): RawTextRange | null {
+  const mapped = mappedDisplayText(value);
+  const comparableMatch = comparableText(normalizedMatch);
+  if (!comparableMatch) return null;
+  const comparableStart = mapped.display.toLowerCase().indexOf(comparableMatch);
+  if (comparableStart < 0) return null;
+  const displayRange = displayRangeForComparableMatch(
+    mapped.display,
+    comparableStart,
+    comparableMatch.length,
+  );
+  const start = mapped.rawRanges[displayRange.start]?.start;
+  const end = mapped.rawRanges[displayRange.end - 1]?.end;
+  return start === undefined || end === undefined ? null : { start, end };
 }
 
 function occurrenceCount(text: string, query: string): number {
@@ -195,29 +266,22 @@ export function mergePresentationSearchSlides(
   slideText: readonly PptxSourceAuthoredSlideText[],
   speakerNotes: readonly PptxSpeakerNoteContent[] | undefined,
 ): readonly PresentationSearchableSlide[] | undefined {
-  if (speakerNotes === undefined) return undefined;
   if (
     slideText.length === 0 ||
-    speakerNotes.length !== slideText.length
+    !hasUsableSpeakerNoteContent(speakerNotes)
   ) {
     return undefined;
   }
-  return slideText.map((slide, index) => {
-    const notes = speakerNotes[index];
-    if (notes === undefined || notes.slideId !== slide.slideId) {
-      return {
-        slideId: slide.slideId,
-        text: slide.text,
-        noteParagraphs: speakerNotes.find((entry) => entry.slideId === slide.slideId)
-          ?.paragraphs ?? [],
-      };
-    }
-    return {
-      slideId: slide.slideId,
-      text: slide.text,
-      noteParagraphs: notes.paragraphs,
-    };
-  });
+  const notesBySlideId = indexSpeakerNoteContent(
+    slideText.map(({ slideId }) => slideId),
+    speakerNotes,
+  );
+  if (notesBySlideId === undefined) return undefined;
+  return slideText.map((slide) => ({
+    slideId: slide.slideId,
+    text: slide.text,
+    noteParagraphs: notesBySlideId.get(slide.slideId) ?? [],
+  }));
 }
 
 function searchIndexedPresentationContent(

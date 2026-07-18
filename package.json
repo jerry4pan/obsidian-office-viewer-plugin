@@ -24,7 +24,7 @@
     "test:compatibility:aiden": "node scripts/run-renderer-candidate.mjs aiden test:compatibility",
     "test:compatibility:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:compatibility",
     "test:e2e": "npm run fixtures:failure && npm run build && wdio run wdio.conf.mts && node scripts/run-degraded-e2e.mjs && npm run test:e2e:multilingual",
-    "test:e2e:multilingual": "npm run build && wdio run wdio.multilingual.conf.mts",
+    "test:e2e:multilingual": "npm run fixtures:speaker-notes && npm run build && wdio run wdio.multilingual.conf.mts",
     "test:e2e:aiden": "node scripts/run-renderer-candidate.mjs aiden test:e2e",
     "test:e2e:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:e2e",
     "test:performance": "npm run fixtures:performance && npm run build && wdio run wdio.performance.conf.mts",

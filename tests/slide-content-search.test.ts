@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createPresentationContentSearchIndex,
   createSlideContentSearchIndex,
+  mergePresentationSearchSlides,
+  normalizedDisplayMatchRange,
   searchSlideContent,
 } from "../src/slide-content-search";
 
@@ -103,6 +105,21 @@ describe("Slide content search", () => {
 });
 
 describe("Presentation content search", () => {
+  it("keeps slide-only search when every notes entry is empty", () => {
+    expect(
+      mergePresentationSearchSlides(
+        [
+          { slideId: 256, text: ["Slide A"] },
+          { slideId: 257, text: ["Slide B"] },
+        ],
+        [
+          { slideId: 256, paragraphs: [] },
+          { slideId: 257, paragraphs: [] },
+        ],
+      ),
+    ).toBeUndefined();
+  });
+
   const slides = [
     {
       slideId: 256,
@@ -209,5 +226,20 @@ describe("Presentation content search", () => {
       match: "讲者备注标记",
       after: " NOTE_ZH_HANS",
     });
+  });
+
+  it("maps normalized Unicode and collapsed whitespace matches back to raw text", () => {
+    const raw = "Before ＡＢＣ\t  target After";
+    const result = createPresentationContentSearchIndex([{
+      slideId: 256,
+      text: [],
+      noteParagraphs: [raw],
+    }]).search("abc target");
+    const normalizedMatch = result[0]?.speakerNotes?.snippet.match;
+
+    expect(normalizedMatch).toBe("ABC target");
+    const range = normalizedDisplayMatchRange(raw, normalizedMatch!);
+    expect(range).not.toBeNull();
+    expect(raw.slice(range!.start, range!.end)).toBe("ＡＢＣ\t  target");
   });
 });

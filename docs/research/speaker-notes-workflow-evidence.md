@@ -31,14 +31,22 @@ npx wdio run wdio.conf.mts --spec tests/e2e/open-pptx.e2e.ts --spec tests/e2e/pp
 - Installed evidence covers source SHA-256 integrity, offline/network guard,
   no persisted query/note text, and two-leaf isolation
 
+## Combined implementation authorization
+
+Repository owner `@jerry4pan` explicitly authorized this branch on 2026-07-18
+to implement the combined Spec #35 scope mapped by Issues #36–#40. This
+supersedes the earlier sequential-ticket assumption for this branch; the
+individual issues remain the acceptance and traceability map and are not
+implicitly closed by this authorization.
+
 ## Known limitations
 
 - Rich-text styling inside notes is intentionally out of contract
 - Main rendered-slide search highlighting remains out of scope
 - Direct Markdown insertion remains out of scope
-- Chinese catalog approval for the #37–#39 keys was recorded by the repository
-  owner while directing full Spec #35 completion; keep the review matrix in
-  `docs/globalization/m3-message-review.md` as the durable record
+- The repository owner approved the exact Simplified and Traditional Chinese
+  catalog at reviewed commit `975ef9e`; the review matrix in
+  `docs/globalization/m3-message-review.md` is the durable record
 
 ## Non-claims
 

@@ -67,11 +67,11 @@ reviewing commit `e62eb4a`; the durable review record is in
 
 | English source term | Simplified Chinese | Traditional Chinese | Authority |
 | --- | --- | --- | --- |
-| Speaker notes | 讲者备注 | 講者備註 | Office Viewer, approved by `@jerry4pan` for `cb6e49c` |
-| Speaker note content | 讲者备注内容 | 講者備註內容 | Office Viewer, approved by `@jerry4pan` for `cb6e49c` |
-| Presentation content search | 搜索演示文稿内容 | 搜尋簡報內容 | Office Viewer, approved by `@jerry4pan` for Spec #35 |
-| Slide text | 幻灯片文字 | 投影片文字 | Office Viewer, approved by `@jerry4pan` for Spec #35 |
-| Search scope | 搜索范围 | 搜尋範圍 | Office Viewer, approved by `@jerry4pan` for Spec #35 |
+| Speaker notes | 讲者备注 | 講者備註 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Speaker note content | 讲者备注内容 | 講者備註內容 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Presentation content search | 搜索演示文稿内容 | 搜尋簡報內容 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Slide text | 幻灯片文字 | 投影片文字 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
+| Search scope | 搜索范围 | 搜尋範圍 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
 
 ## Review rules
 

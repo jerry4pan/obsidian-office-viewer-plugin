@@ -69,6 +69,54 @@ describe("PPTX package preflight", () => {
     expect(joined).not.toContain("DECOY_SLIDE_NUMBER");
   });
 
+  it("follows the notes relationship instead of assuming a conventional part name", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/speaker-notes.pptx"),
+    );
+    const notes = zip.file("ppt/notesSlides/notesSlide1.xml")!;
+    zip.file("ppt/custom/author-notes.data", await notes.async("uint8array"));
+    const relationships = zip.file("ppt/slides/_rels/slide1.xml.rels")!;
+    zip.file(
+      "ppt/slides/_rels/slide1.xml.rels",
+      (await relationships.async("text")).replace(
+        "../notesSlides/notesSlide1.xml",
+        "../custom/author-notes.data",
+      ),
+    );
+
+    const inspection = await inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    );
+
+    expect(inspection.speakerNoteContent?.[0]?.paragraphs).toContain(
+      "AUTHOR_NOTE_P1 First author paragraph",
+    );
+  });
+
+  it("preserves explicit line breaks inside a speaker-note paragraph", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/speaker-notes.pptx"),
+    );
+    const notes = zip.file("ppt/notesSlides/notesSlide1.xml")!;
+    zip.file(
+      "ppt/notesSlides/notesSlide1.xml",
+      (await notes.async("text")).replace(
+        "AUTHOR_NOTE_P1 First author paragraph</a:t>",
+        "AUTHOR_NOTE_P1 First</a:t></a:r><a:br/><a:r><a:t>author paragraph</a:t>",
+      ),
+    );
+
+    const inspection = await inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    );
+
+    expect(inspection.speakerNoteContent?.[0]?.paragraphs[0]).toBe(
+      "AUTHOR_NOTE_P1 First\nauthor paragraph",
+    );
+  });
+
   it("keeps optional speaker-note extraction failure non-fatal", async () => {
     const original = Document.prototype.getElementsByTagNameNS;
     vi.spyOn(Document.prototype, "getElementsByTagNameNS").mockImplementation(

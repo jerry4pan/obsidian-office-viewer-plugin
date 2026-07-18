@@ -442,14 +442,36 @@ function extractAuthorNoteParagraphs(document: Document): readonly string[] {
       drawingMainNamespace,
       "p",
     )) {
-      const text = Array.from(
-        paragraph.getElementsByTagNameNS(drawingMainNamespace, "t"),
-        (run) => run.textContent ?? "",
-      ).join("");
+      const text = noteParagraphText(paragraph);
       if (text.trim().length > 0) paragraphs.push(text);
     }
   }
   return paragraphs;
+}
+
+function noteParagraphText(paragraph: Element): string {
+  let text = "";
+  const append = (node: Node): void => {
+    if (node.nodeType !== 1) return;
+    const element = node as Element;
+    if (element.namespaceURI === drawingMainNamespace) {
+      if (element.localName === "br") {
+        text += "\n";
+        return;
+      }
+      if (element.localName === "tab") {
+        text += "\t";
+        return;
+      }
+      if (element.localName === "t") {
+        text += element.textContent ?? "";
+        return;
+      }
+    }
+    for (const child of element.childNodes) append(child);
+  };
+  for (const child of paragraph.childNodes) append(child);
+  return text;
 }
 
 function optionalOrderedSpeakerNoteContent(
@@ -505,8 +527,56 @@ async function inspectXmlParts(
   const speakerNoteParagraphsByPath = new Map<string, readonly string[] | null>();
   const notesPathBySlidePath = new Map<string, string | null>();
   const declaredFonts = new Set<string>();
+
+  const relationshipParts = Object.values(zip.files).filter(
+    (part) => !part.dir && part.name.endsWith(".rels"),
+  );
+  const relationshipDocuments: {
+    readonly part: JSZipObject;
+    readonly document: Document;
+  }[] = [];
+  for (const part of relationshipParts) {
+    const document = await readXml(part, signal);
+    relationshipDocuments.push({ part, document });
+    if (part.name === "ppt/_rels/presentation.xml.rels") {
+      presentationRelationships = document;
+    }
+    const ownerPath = relationshipOwnerPartPath(part.name);
+    if (ownerPath === null) continue;
+    let notesPath: string | null = null;
+    const baseDirectory = relationshipOwnerDirectory(part.name);
+    for (const relationship of document.getElementsByTagNameNS(
+      "*",
+      "Relationship",
+    )) {
+      if (relationship.getAttribute("Type") !== notesSlideRelationshipType) {
+        continue;
+      }
+      const target = relationship.getAttribute("Target");
+      if (!target) throw malformed(`Relationship in ${part.name} has no target`);
+      notesPath = normalizePartPath(baseDirectory, target);
+      break;
+    }
+    if (notesPath !== null) notesPathBySlidePath.set(ownerPath, notesPath);
+  }
+
+  const notePartPaths = new Set(
+    [...notesPathBySlidePath.values()].filter(
+      (path): path is string => path !== null,
+    ),
+  );
+  let inspectedXmlBytes = Object.values(zip.files)
+    .filter(
+      (part) =>
+        !part.dir &&
+        (part.name.endsWith(".xml") || part.name.endsWith(".rels")),
+    )
+    .reduce((total, part) => total + uncompressedSize(part), 0);
   const documentParts = Object.values(zip.files).filter(
-    (part) => !part.dir && part.name.endsWith(".xml"),
+    (part) =>
+      !part.dir &&
+      part.name.endsWith(".xml") &&
+      !notePartPaths.has(part.name),
   );
   for (const part of documentParts) {
     const document = await readXml(part, signal);
@@ -522,16 +592,6 @@ async function inspectXmlParts(
         sourceAuthoredTextByPath.set(part.name, text);
       } catch {
         sourceAuthoredTextByPath.set(part.name, null);
-      }
-    }
-    if (/^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(part.name)) {
-      try {
-        speakerNoteParagraphsByPath.set(
-          part.name,
-          extractAuthorNoteParagraphs(document),
-        );
-      } catch {
-        speakerNoteParagraphsByPath.set(part.name, null);
       }
     }
     if (part.name === "ppt/presentation.xml") presentation = document;
@@ -559,32 +619,38 @@ async function inspectXmlParts(
       }
     }
   }
-  const relationshipParts = Object.values(zip.files).filter(
-    (part) => !part.dir && part.name.endsWith(".rels"),
-  );
-  for (const part of relationshipParts) {
-    const document = await readXml(part, signal);
-    if (part.name === "ppt/_rels/presentation.xml.rels") {
-      presentationRelationships = document;
-    }
-    const ownerPath = relationshipOwnerPartPath(part.name);
-    if (ownerPath !== null && /^ppt\/slides\/slide\d+\.xml$/.test(ownerPath)) {
-      let notesPath: string | null = null;
-      const baseDirectory = relationshipOwnerDirectory(part.name);
-      for (const relationship of document.getElementsByTagNameNS(
-        "*",
-        "Relationship",
-      )) {
-        if (relationship.getAttribute("Type") !== notesSlideRelationshipType) {
-          continue;
-        }
-        const target = relationship.getAttribute("Target");
-        if (!target) throw malformed(`Relationship in ${part.name} has no target`);
-        notesPath = normalizePartPath(baseDirectory, target);
-        break;
+
+  for (const path of notePartPaths) {
+    const part = zip.file(path);
+    if (!part) continue;
+    if (!path.endsWith(".xml") && !path.endsWith(".rels")) {
+      const size = uncompressedSize(part);
+      if (size > maxPreflightXmlPartBytes) {
+        throw resourceExhausted(
+          `OOXML part ${part.name} exceeds the safe size limit`,
+        );
       }
-      notesPathBySlidePath.set(ownerPath, notesPath);
+      inspectedXmlBytes += size;
+      if (inspectedXmlBytes > maxPreflightXmlBytes) {
+        throw resourceExhausted(
+          "The PPTX package contains too much XML to inspect safely",
+        );
+      }
     }
+    try {
+      const document = await readXml(part, signal);
+      speakerNoteParagraphsByPath.set(
+        path,
+        extractAuthorNoteParagraphs(document),
+      );
+      referencesByOwner.set(path, collectRelationshipReferences(document));
+    } catch {
+      signal.throwIfAborted();
+      speakerNoteParagraphsByPath.set(path, null);
+    }
+  }
+
+  for (const { part, document } of relationshipDocuments) {
     verifyRelationships(zip, part, document, referencesByOwner);
   }
   if (!presentation) throw malformed("Missing presentation XML");

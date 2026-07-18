@@ -26,8 +26,15 @@ import {
 } from "./thumbnail-rail-sizing";
 import { ThumbnailRailResizer } from "./thumbnail-rail-resizer";
 import type { SlideReferenceTarget } from "./slide-reference";
-import type { SlideSearchSnippet } from "./slide-content-search";
+import {
+  normalizedDisplayMatchRange,
+  type SlideSearchSnippet,
+} from "./slide-content-search";
 import { SlideSearchRail } from "./slide-search-rail";
+import {
+  hasUsableSpeakerNoteContent,
+  indexSpeakerNoteContent,
+} from "./speaker-note-content";
 
 export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
@@ -430,6 +437,10 @@ export class PptxViewSession<FileRef> {
         readonly slideId: number;
         readonly snippet: SlideSearchSnippet;
       } | null = null;
+      const notesBySlideId = indexSpeakerNoteContent(
+        rendererSession.slideIdentities ?? [],
+        rendererSession.speakerNoteContent,
+      );
       let currentNoteParagraphs: readonly string[] = [];
       const updateCopyNotesAvailability = () => {
         if (!copyNotesButton) return;
@@ -444,31 +455,34 @@ export class PptxViewSession<FileRef> {
         const node = container.createEl("p", {
           cls: "pptx-viewer__notes-paragraph",
         });
-        if (highlight === null || !paragraph.includes(highlight.match)) {
+        if (highlight === null) {
           node.textContent = paragraph;
           return;
         }
-        const matchIndex = paragraph.indexOf(highlight.match);
-        if (matchIndex < 0) {
+        const matchRange = normalizedDisplayMatchRange(
+          paragraph,
+          highlight.match,
+        );
+        if (matchRange === null) {
           node.textContent = paragraph;
           return;
         }
-        if (matchIndex > 0) {
-          node.append(document.createTextNode(paragraph.slice(0, matchIndex)));
+        if (matchRange.start > 0) {
+          node.append(
+            document.createTextNode(paragraph.slice(0, matchRange.start)),
+          );
         }
         node.createEl("mark", {
           cls: "pptx-viewer__notes-highlight",
-          text: highlight.match,
+          text: paragraph.slice(matchRange.start, matchRange.end),
         });
-        const afterStart = matchIndex + highlight.match.length;
-        if (afterStart < paragraph.length) {
-          node.append(document.createTextNode(paragraph.slice(afterStart)));
+        if (matchRange.end < paragraph.length) {
+          node.append(document.createTextNode(paragraph.slice(matchRange.end)));
         }
       };
       const renderSpeakerNotes = (slideIndex: number) => {
         notesContent.replaceChildren();
-        const noteEntries = rendererSession.speakerNoteContent;
-        if (noteEntries === undefined) {
+        if (notesBySlideId === undefined) {
           currentNoteParagraphs = [];
           notesContent.createDiv({
             cls: "pptx-viewer__notes-message",
@@ -479,12 +493,9 @@ export class PptxViewSession<FileRef> {
           return;
         }
         const slideId = rendererSession.slideIdentities?.[slideIndex];
-        const entry = noteEntries.length === rendererSession.slideCount
-          ? noteEntries[slideIndex]
-          : slideId === undefined
-            ? undefined
-            : noteEntries.find((note) => note.slideId === slideId);
-        const paragraphs = entry?.paragraphs ?? [];
+        const paragraphs = slideId === undefined
+          ? []
+          : notesBySlideId.get(slideId) ?? [];
         currentNoteParagraphs = paragraphs;
         if (paragraphs.length === 0) {
           notesContent.createDiv({
@@ -761,7 +772,8 @@ export class PptxViewSession<FileRef> {
         let thumbnailsCollapsedBeforeSearch = false;
         const presentationSearchAvailable =
           rendererSession.speakerNoteContent?.length ===
-            rendererSession.slideCount;
+            rendererSession.slideCount &&
+          hasUsableSpeakerNoteContent(rendererSession.speakerNoteContent);
         const setThumbnailsCollapsed = (collapsed: boolean) => {
           this.root.dataset.thumbnailsCollapsed = String(collapsed);
           toggleThumbnails.setAttribute("aria-expanded", String(!collapsed));
