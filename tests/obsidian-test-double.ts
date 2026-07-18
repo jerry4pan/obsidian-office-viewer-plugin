@@ -8,6 +8,7 @@ export class Plugin {
   registerView = vi.fn();
   registerExtensions = vi.fn();
   registerEvent = vi.fn();
+  registerMarkdownPostProcessor = vi.fn();
   addSettingTab = vi.fn();
   loadData = vi.fn(async (): Promise<unknown> => undefined);
   saveData = vi.fn(async (_data: unknown): Promise<void> => undefined);
@@ -114,5 +115,19 @@ export class FileView {
 
   constructor(leaf: { app: unknown }) {
     this.app = leaf.app;
+  }
+
+  setEphemeralState(_state: unknown): void {}
+}
+
+export class MarkdownRenderChild {
+  constructor(public containerEl: HTMLElement) {}
+  onload(): void {}
+  onunload(): void {}
+  load(): void {
+    this.onload();
+  }
+  unload(): void {
+    this.onunload();
   }
 }

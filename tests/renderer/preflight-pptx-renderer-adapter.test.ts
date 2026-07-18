@@ -69,7 +69,7 @@ describe("PreflightPptxRendererAdapter", () => {
     const renderThumbnail = vi.fn();
     const prefetchSlide = vi.fn(async () => {});
     const session = {
-      slideCount: 2,
+      slideCount: 1,
       slideWidth: 960,
       slideHeight: 540,
       capabilities: { thumbnails: true, prefetch: true },
@@ -93,12 +93,39 @@ describe("PreflightPptxRendererAdapter", () => {
 
     expect(result.slideWidth).toBe(960);
     expect(result.slideHeight).toBe(540);
+    expect(result.slideIdentities).toEqual([256]);
     expect(result.capabilities).toEqual(session.capabilities);
     result.renderThumbnail?.(0, document.createElement("div"), new AbortController().signal);
-    await result.prefetchSlide?.(1, new AbortController().signal);
+    await result.prefetchSlide?.(0, new AbortController().signal);
     expect(renderThumbnail).toHaveBeenCalledOnce();
     expect(prefetchSlide).toHaveBeenCalledOnce();
     expect(result.compatibilityWarnings).toEqual([]);
+  });
+
+  it("rejects a candidate whose slide count disagrees with inspected identities", async () => {
+    const dispose = vi.fn();
+    const candidate: PptxRendererAdapter = {
+      open: vi.fn(async () => ({
+        slideCount: 2,
+        slideWidth: 960,
+        slideHeight: 540,
+        capabilities: { thumbnails: false, prefetch: false },
+        renderSlide: vi.fn(async () => {}),
+        dispose,
+      })),
+    };
+    const safeBuffer = Uint8Array.from(
+      await readFile(path.resolve("tests/fixtures/minimal.pptx")),
+    ).buffer;
+
+    await expect(
+      new PreflightPptxRendererAdapter(candidate).open(
+        safeBuffer,
+        document.createElement("div"),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ category: "incompatible" });
+    expect(dispose).toHaveBeenCalledOnce();
   });
 
   it("blocks active content before invoking a candidate renderer", async () => {

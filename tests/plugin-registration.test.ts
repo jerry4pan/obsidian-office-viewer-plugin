@@ -153,6 +153,10 @@ describe("OfficeViewerPlugin", () => {
       "pptx-viewer",
     );
     expect(plugin.addSettingTab).toHaveBeenCalledOnce();
+    expect(plugin.registerMarkdownPostProcessor).toHaveBeenCalledWith(
+      expect.any(Function),
+      100,
+    );
     expect(vault.on).toHaveBeenCalledWith("rename", expect.any(Function));
     expect(vault.on).toHaveBeenCalledWith("delete", expect.any(Function));
     expect(plugin.registerEvent).toHaveBeenCalledTimes(2);
@@ -247,6 +251,73 @@ describe("OfficeViewerPlugin", () => {
             }),
           },
         }),
+      );
+    });
+  });
+
+  it("resolves ephemeral slide references before saved position and copies canonical markup", async () => {
+    const source = await representativeFixtureBuffer();
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const vault = {
+      readBinary: vi.fn(async () => source),
+      on: vi.fn(() => ({ off: vi.fn() })),
+    };
+    const app = { vault };
+    const plugin = new OfficeViewerPlugin(app as never, {} as never);
+    vi.mocked(plugin.loadData).mockResolvedValue({
+      schemaVersion: 1,
+      settings: { rememberReadingPosition: true },
+      positions: {
+        "folder/deck.pptx": {
+          path: "folder/deck.pptx",
+          size: 42,
+          mtime: 10,
+          slideIndex: 1,
+          updatedAt: 1,
+        },
+      },
+    });
+    await plugin.onload();
+    const factory = vi.mocked(plugin.registerView).mock.calls[0]?.[1];
+    const view = factory?.({ app } as never) as unknown as {
+      contentEl: HTMLElement;
+      setEphemeralState(state: unknown): void;
+      onLoadFile(file: unknown): Promise<void>;
+    };
+    const file = Object.assign(new TFile(), {
+      path: "folder/deck.pptx",
+      stat: { size: 42, mtime: 10 },
+      basename: "deck",
+      extension: "pptx",
+    });
+
+    view.setEphemeralState({ subpath: "#slide-id=261&slide=4" });
+    await view.onLoadFile(file);
+
+    const root = view.contentEl.querySelector<HTMLElement>(".pptx-viewer")!;
+    expect(root.textContent).toContain("6 / 12");
+    expect(root.textContent).toContain(
+      "created for slide 4; the same slide is now slide 6",
+    );
+    expect(root.dataset.referenceSlideId).toBe("261");
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-slide-reference"]',
+    )!.click();
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        "[[folder/deck.pptx#slide-id=261&slide=6|deck — Slide 6]]",
+      );
+    });
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-slide-embed"]',
+    )!.click();
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        "![[folder/deck.pptx#slide-id=261&slide=6|deck — Slide 6]]",
       );
     });
   });

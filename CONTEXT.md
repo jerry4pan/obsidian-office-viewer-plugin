@@ -19,6 +19,39 @@ location later. A new document format is useful only when this loop works; a
 standalone preview is not the completed journey.
 _Avoid_: Preview flow, Open-file flow
 
+**Knowledge reference loop technical exploration**:
+A bounded engineering phase that tests the technical feasibility of supporting
+the **Knowledge reference loop** for **Knowledge material**. It may finish while
+post-release validation remains open, but it does not establish real-reader
+workflow value or commit the project to ship a complete v0.2 product.
+_Avoid_: v0.2 implementation, Workflow validation, M4 completion
+
+**Slide reference**:
+A source-preserving Obsidian reference to one precise slide in a PPTX
+**Knowledge material**. It follows the slide's stable identity when the source
+presentation is reordered and distinguishes the creation-time ordinal from the
+current ordinal. Following it returns the reader to that presentation and
+slide, while a deleted target is reported as unavailable rather than silently
+redirected to the same ordinal position.
+_Avoid_: Page link, Deep link, PPTX link
+
+**Slide embed**:
+An inline, read-only view of the current local source slide identified by a
+**Slide reference** inside an Obsidian note. It reflects source changes when the
+note is viewed again and preserves the source relationship instead of becoming
+an unrelated screenshot or copied asset.
+_Avoid_: Screenshot, Image attachment, Full-deck embed
+
+## Example dialogue
+
+> **Developer:** Does opening another Office format advance the Knowledge
+> reference loop?
+>
+> **Domain expert:** Not by itself. First use Knowledge reference loop technical
+> exploration to prove that a Slide reference and Slide embed can safely return
+> to a precise location. Real-reader workflow value still needs separate
+> validation.
+
 ## Globalization
 
 **Supported locale**:

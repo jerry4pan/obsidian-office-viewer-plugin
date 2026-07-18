@@ -1,4 +1,10 @@
-import { apiVersion, getLanguage, Plugin, TFile } from "obsidian";
+import {
+  apiVersion,
+  getLanguage,
+  Plugin,
+  TFile,
+  type MarkdownRenderChild,
+} from "obsidian";
 import manifest from "../manifest.json" with { type: "json" };
 import releaseContract from "../release-contract.json" with { type: "json" };
 import { createMessageTranslator } from "./i18n";
@@ -9,6 +15,10 @@ import {
   type FileFingerprint,
 } from "./office-viewer-data-store";
 import { reportNonFatalError } from "./report-error";
+import { processPptxSlideEmbeds } from "./pptx-slide-embed";
+import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
+import { SlideEmbedScheduler } from "./slide-embed-scheduler";
+import { createExternalOpenAction } from "./external-open";
 
 function fingerprint(file: TFile): FileFingerprint {
   return {
@@ -21,6 +31,8 @@ function fingerprint(file: TFile): FileFingerprint {
 export default class OfficeViewerPlugin extends Plugin {
   private readonly views = new Set<PptxFileView>();
   private store: OfficeViewerDataStore | undefined;
+  private embedScheduler: SlideEmbedScheduler | undefined;
+  private readonly embedChildren = new Set<MarkdownRenderChild>();
   private unloading = false;
 
   override async onload(): Promise<void> {
@@ -50,6 +62,8 @@ export default class OfficeViewerPlugin extends Plugin {
       await store.dispose().catch(() => undefined);
       return;
     }
+    const embedScheduler = new SlideEmbedScheduler(2);
+    this.embedScheduler = embedScheduler;
 
     this.addSettingTab(
       new OfficeViewerSettingTab(this.app, this, store, messages),
@@ -89,6 +103,22 @@ export default class OfficeViewerPlugin extends Plugin {
       this.views.add(view);
       return view;
     });
+    const embedRenderer = createPptxRendererAdapter();
+    const openExternally = createExternalOpenAction(this.app);
+    this.registerMarkdownPostProcessor((element, context) => {
+      processPptxSlideEmbeds(element, context, {
+        app: this.app,
+        renderer: embedRenderer,
+        scheduler: embedScheduler,
+        messages,
+        showDiagnostics: () => store.settings.diagnosticSummary,
+        openExternally,
+        lifecycle: {
+          register: (child) => this.embedChildren.add(child),
+          unregister: (child) => this.embedChildren.delete(child),
+        },
+      });
+    }, 100);
     this.registerExtensions([...releaseContract.supportedExtensions], PPTX_VIEW_TYPE);
   }
 
@@ -96,6 +126,10 @@ export default class OfficeViewerPlugin extends Plugin {
     this.unloading = true;
     for (const view of [...this.views]) view.dispose();
     this.views.clear();
+    for (const child of [...this.embedChildren]) child.unload();
+    this.embedChildren.clear();
+    this.embedScheduler?.dispose();
+    this.embedScheduler = undefined;
     const store = this.store;
     this.store = undefined;
     if (store !== undefined) {

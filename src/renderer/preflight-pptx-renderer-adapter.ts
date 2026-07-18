@@ -1,4 +1,5 @@
 import { inspectPptxPackage } from "./pptx-package-preflight";
+import { PptxOpenError } from "../pptx-open-error";
 import type {
   PptxCompatibilityWarningCategory,
   PptxRendererAdapter,
@@ -7,11 +8,13 @@ import type {
 
 function withCompatibilityWarnings(
   session: PptxRendererSession,
+  slideIdentities: readonly number[],
   compatibilityWarnings: readonly PptxCompatibilityWarningCategory[],
   detectCompatibilityWarnings: () => readonly PptxCompatibilityWarningCategory[],
 ): PptxRendererSession {
   const inspected: PptxRendererSession = {
     slideCount: session.slideCount,
+    slideIdentities,
     slideWidth: session.slideWidth,
     slideHeight: session.slideHeight,
     capabilities: session.capabilities,
@@ -85,8 +88,16 @@ export class PreflightPptxRendererAdapter implements PptxRendererAdapter {
       const inspection = await inspectPptxPackage(buffer, signal);
       signal.throwIfAborted();
       const session = await this.renderer.open(buffer, container, signal);
+      if (session.slideCount !== inspection.slideIdentities.length) {
+        session.dispose();
+        throw new PptxOpenError(
+          "incompatible",
+          "The renderer slide order disagrees with inspected presentation metadata",
+        );
+      }
       return withCompatibilityWarnings(
         session,
+        inspection.slideIdentities,
         inspection.warningCategories,
         () => {
           const warnings = new Set(inspection.warningCategories);

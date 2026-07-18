@@ -7,9 +7,13 @@ import type {
   PptxRendererSession,
 } from "../src/renderer/pptx-renderer-adapter";
 
-function makeRenderer(slideCount = 1) {
+function makeRenderer(
+  slideCount = 1,
+  slideIdentities?: readonly number[],
+) {
   const rendererSession: PptxRendererSession = {
     slideCount,
+    slideIdentities,
     slideWidth: 960,
     slideHeight: 540,
     capabilities: { thumbnails: false, prefetch: false },
@@ -1044,6 +1048,94 @@ describe("PptxViewSession", () => {
     expect(root.dataset.state).toBe("ready");
     expect(root.textContent).toContain("1 / 3");
     expect(root.textContent).toContain("Obsidian PPTX smoke test");
+  });
+
+  it("opens a stable slide identity, discloses reordering, and copies canonical targets", async () => {
+    const root = document.createElement("div");
+    const reader = { readBinary: vi.fn(async () => new ArrayBuffer(8)) };
+    const { adapter, rendererSession } = makeRenderer(3, [256, 300, 512]);
+    const copy = vi.fn(async () => {});
+    const positions = {
+      initialSlideFor: vi.fn(() => 0),
+      record: vi.fn(),
+    };
+    const session = new PptxViewSession(root, reader, adapter, {
+      positions,
+      slideReferences: { copy },
+    });
+
+    await session.open("deck.pptx", {
+      slideId: 512,
+      createdSlideNumber: 2,
+    });
+
+    expect(rendererSession.renderSlide).toHaveBeenCalledWith(2);
+    expect(root.dataset.referenceSlideId).toBe("512");
+    expect(root.dataset.referenceCreatedSlide).toBe("2");
+    expect(root.dataset.referenceCurrentSlide).toBe("3");
+    expect(root.textContent).toContain(
+      "This reference was created for slide 2; the same slide is now slide 3.",
+    );
+    expect(positions.initialSlideFor).toHaveBeenCalledOnce();
+
+    expect(root.querySelector(
+      '[data-action="copy-slide-reference"]',
+    )?.getAttribute("aria-label")).toBe("Copy slide reference");
+    expect(root.querySelector(
+      '[data-action="copy-slide-embed"]',
+    )?.getAttribute("aria-label")).toBe("Copy slide embed");
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-slide-reference"]',
+    )!.click();
+    await vi.waitFor(() => expect(copy).toHaveBeenCalledWith(
+      "deck.pptx",
+      { slideId: 512, createdSlideNumber: 3 },
+      false,
+    ));
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-slide-embed"]',
+    )!.click();
+    await vi.waitFor(() => expect(copy).toHaveBeenLastCalledWith(
+      "deck.pptx",
+      { slideId: 512, createdSlideNumber: 3 },
+      true,
+    ));
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-action="previous-slide"]',
+    )!.click();
+    await vi.waitFor(() => expect(root.textContent).toContain("2 / 3"));
+    expect(root.querySelector(".pptx-viewer__reference-notice")?.textContent)
+      .toBe("");
+    root.querySelector<HTMLButtonElement>('[data-action="next-slide"]')!.click();
+    await vi.waitFor(() => expect(root.textContent).toContain("3 / 3"));
+    expect(root.querySelector(".pptx-viewer__reference-notice")?.textContent)
+      .toContain("created for slide 2");
+  });
+
+  it("fails a missing stable identity honestly without ordinal fallback", async () => {
+    const root = document.createElement("div");
+    const reader = { readBinary: vi.fn(async () => new ArrayBuffer(8)) };
+    const { adapter, rendererSession } = makeRenderer(3, [256, 300, 512]);
+    const session = new PptxViewSession(root, reader, adapter, {
+      openExternally: vi.fn(async () => {}),
+      slideReferences: { copy: vi.fn(async () => {}) },
+    });
+
+    await session.open("deck.pptx", {
+      slideId: 999,
+      createdSlideNumber: 2,
+    });
+
+    expect(rendererSession.renderSlide).not.toHaveBeenCalled();
+    expect(rendererSession.dispose).toHaveBeenCalledOnce();
+    expect(root.dataset.state).toBe("stale-reference");
+    expect(root.textContent).toContain(
+      "The referenced slide is no longer available in this presentation.",
+    );
+    expect(root.querySelector('[data-action="open-presentation"]')).not.toBeNull();
+    expect(root.querySelector('[data-action="open-externally"]')).not.toBeNull();
   });
 
   it("exposes full-open timings and navigates with product controls", async () => {

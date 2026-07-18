@@ -27,8 +27,45 @@ describe("PPTX package preflight", () => {
       ),
     ).resolves.toEqual({
       declaredFonts: ["Arial"],
+      slideIdentities: [256],
       warningCategories: [],
     });
+  });
+
+  it("reports ordered unique native slide identities", async () => {
+    const inspection = await inspectPptxPackage(
+      await loadFixture(
+        "tests/fixtures/performance/m2-representative-50-slides.pptx",
+      ),
+      new AbortController().signal,
+    );
+
+    expect(inspection.slideIdentities).toHaveLength(50);
+    expect(new Set(inspection.slideIdentities).size).toBe(50);
+    expect(inspection.slideIdentities.slice(0, 3)).toEqual([256, 257, 258]);
+  });
+
+  it("rejects duplicate native slide identities", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture(
+        "tests/fixtures/performance/representative-12-slides.pptx",
+      ),
+    );
+    const presentation = zip.file("ppt/presentation.xml")!;
+    const xml = await presentation.async("text");
+    const ids = [...xml.matchAll(/<p:sldId\b[^>]*\bid="(\d+)"/g)];
+    expect(ids.length).toBeGreaterThan(1);
+    zip.file(
+      "ppt/presentation.xml",
+      xml.replace(`id="${ids[1]![1]}"`, `id="${ids[0]![1]}"`),
+    );
+
+    await expect(
+      inspectPptxPackage(
+        await zip.generateAsync({ type: "arraybuffer" }),
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ category: "malformed" });
   });
 
   it("reports known unsupported media without exposing document content", async () => {

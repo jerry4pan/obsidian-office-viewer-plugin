@@ -25,6 +25,7 @@ import {
   thumbnailPreviewWidth,
 } from "./thumbnail-rail-sizing";
 import { ThumbnailRailResizer } from "./thumbnail-rail-resizer";
+import type { SlideReferenceTarget } from "./slide-reference";
 
 export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
@@ -70,6 +71,13 @@ export interface PptxViewOptions<FileRef> {
     rememberReadingPosition(): boolean;
     enabled(): boolean;
     copy(summary: string): Promise<void>;
+  };
+  slideReferences?: {
+    copy(
+      file: FileRef,
+      target: SlideReferenceTarget,
+      embed: boolean,
+    ): Promise<void>;
   };
 }
 
@@ -149,7 +157,10 @@ export class PptxViewSession<FileRef> {
     this.setLifecyclePhase("idle");
   }
 
-  async open(file: FileRef): Promise<void> {
+  async open(
+    file: FileRef,
+    referenceTarget?: SlideReferenceTarget,
+  ): Promise<void> {
     this.teardownOpenResources();
     this.clearTimings();
     this.resetDiagnosticState();
@@ -164,6 +175,9 @@ export class PptxViewSession<FileRef> {
     this.root.dataset.fullscreen = "false";
     this.root.dataset.mountedThumbnailCount = "0";
     this.root.dataset.readyThumbnailCount = "0";
+    delete this.root.dataset.referenceSlideId;
+    delete this.root.dataset.referenceCreatedSlide;
+    delete this.root.dataset.referenceCurrentSlide;
 
     this.root.replaceChildren();
 
@@ -175,9 +189,16 @@ export class PptxViewSession<FileRef> {
       text: this.messages.text("viewer.loading"),
       attr: { role: "status", "aria-live": "polite" },
     });
+    const headerActions = header.createDiv({
+      cls: "pptx-viewer__header-actions",
+    });
 
     const compatibility = this.root.createDiv({
       cls: "pptx-viewer__compatibility",
+      attr: { role: "note" },
+    });
+    const referenceNotice = this.root.createDiv({
+      cls: "pptx-viewer__reference-notice",
       attr: { role: "note" },
     });
 
@@ -252,6 +273,32 @@ export class PptxViewSession<FileRef> {
       },
     });
 
+    let copyTarget: SlideReferenceTarget | null = null;
+    const copyReferenceButton = this.options.slideReferences === undefined
+      ? null
+      : headerActions.createEl("button", {
+          type: "button",
+          text: "↗",
+          title: this.messages.text("reference.copy"),
+          attr: {
+            "data-action": "copy-slide-reference",
+            "aria-label": this.messages.text("reference.copy"),
+          },
+        });
+    const copyEmbedButton = this.options.slideReferences === undefined
+      ? null
+      : headerActions.createEl("button", {
+          type: "button",
+          text: "⊞",
+          title: this.messages.text("reference.copyEmbed"),
+          attr: {
+            "data-action": "copy-slide-embed",
+            "aria-label": this.messages.text("reference.copyEmbed"),
+          },
+        });
+    if (copyReferenceButton) copyReferenceButton.disabled = true;
+    if (copyEmbedButton) copyEmbedButton.disabled = true;
+
     const actionStatus = this.root.createDiv({
       cls: "pptx-viewer__action-status",
       attr: { role: "status", "aria-live": "polite" },
@@ -265,14 +312,13 @@ export class PptxViewSession<FileRef> {
     if (openExternally) controls.append(openExternally);
     const diagnosticButton = this.createDiagnosticButton(actionStatus);
     if (diagnosticButton) {
-      diagnosticButton.classList.add("pptx-viewer__diagnostic-shortcut");
       diagnosticButton.textContent = "⧉";
       diagnosticButton.setAttribute(
         "aria-label",
         this.messages.text("diagnostics.copy"),
       );
       diagnosticButton.title = this.messages.text("diagnostics.copy");
-      header.append(diagnosticButton);
+      headerActions.append(diagnosticButton);
     }
 
     const readingBody = this.root.createDiv({
@@ -328,6 +374,8 @@ export class PptxViewSession<FileRef> {
           currentSlideIndex >= rendererSession.slideCount - 1;
         pageInput.disabled = false;
         jumpButton.disabled = false;
+        if (copyReferenceButton) copyReferenceButton.disabled = copyTarget === null;
+        if (copyEmbedButton) copyEmbedButton.disabled = copyTarget === null;
       };
       const updateMountedCount = () => {
         this.root.dataset.mountedThumbnailCount = String(rail?.mountedCount ?? 0);
@@ -345,6 +393,8 @@ export class PptxViewSession<FileRef> {
         void viewController.navigate(targetIndex);
       };
       let initialSlideIndex = 0;
+      let referenceNoticeSlideIndex: number | null = null;
+      let referenceNoticeText = "";
       try {
         initialSlideIndex = this.options.positions?.initialSlideFor(
           file,
@@ -353,6 +403,30 @@ export class PptxViewSession<FileRef> {
       } catch {
         // Persistence is optional; private storage failures must not block reading.
       }
+      if (referenceTarget !== undefined) {
+        const referenceIndex = rendererSession.slideIdentities?.indexOf(
+          referenceTarget.slideId,
+        ) ?? -1;
+        if (referenceIndex < 0) {
+          this.teardownOpenResources();
+          this.showMissingReference(file, generation);
+          return;
+        }
+        initialSlideIndex = referenceIndex;
+        referenceNoticeSlideIndex = referenceIndex;
+        this.root.dataset.referenceSlideId = String(referenceTarget.slideId);
+        this.root.dataset.referenceCreatedSlide = String(
+          referenceTarget.createdSlideNumber,
+        );
+        this.root.dataset.referenceCurrentSlide = String(referenceIndex + 1);
+        if (referenceTarget.createdSlideNumber !== referenceIndex + 1) {
+          referenceNoticeText = this.messages.text("reference.moved", {
+            created: referenceTarget.createdSlideNumber,
+            current: referenceIndex + 1,
+          });
+          referenceNotice.textContent = referenceNoticeText;
+        }
+      }
       viewController = new PptxViewerController(rendererSession, queue, {
         setNavigationPending: (pending) => {
           if (!isCurrentRun()) return;
@@ -360,6 +434,8 @@ export class PptxViewSession<FileRef> {
           nextButton.disabled = pending;
           pageInput.disabled = pending;
           jumpButton.disabled = pending;
+          if (copyReferenceButton) copyReferenceButton.disabled = true;
+          if (copyEmbedButton) copyEmbedButton.disabled = true;
           if (!pending) restoreControlState();
         },
         commitSlide: (index) => {
@@ -382,7 +458,14 @@ export class PptxViewSession<FileRef> {
             current: index + 1,
             total: rendererSession.slideCount,
           });
+          referenceNotice.textContent = index === referenceNoticeSlideIndex
+            ? referenceNoticeText
+            : "";
           rail?.setCurrentSlide(index);
+          const slideId = rendererSession.slideIdentities?.[index];
+          copyTarget = slideId === undefined
+            ? null
+            : { slideId, createdSlideNumber: index + 1 };
           updateMountedCount();
           this.root.dataset.state = "ready";
           this.setLifecyclePhase("ready");
@@ -398,6 +481,9 @@ export class PptxViewSession<FileRef> {
         reportNavigationFailure: (index) => {
           if (!isCurrentRun()) return;
           if (initialCommitPending) initialRenderFailed = true;
+          copyTarget = null;
+          if (copyReferenceButton) copyReferenceButton.disabled = true;
+          if (copyEmbedButton) copyEmbedButton.disabled = true;
           navigationStartedAt = undefined;
           pageInput.value = String(viewController.state.currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
@@ -548,6 +634,29 @@ export class PptxViewSession<FileRef> {
         if (!collapsed) rail?.refresh();
         updateMountedCount();
       });
+      const copySlideMarkup = (embed: boolean) => {
+        const target = copyTarget;
+        if (target === null || !isCurrentRun()) return;
+        actionStatus.textContent = "";
+        void this.options.slideReferences?.copy(file, target, embed).then(
+          () => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = this.messages.text(
+                embed ? "reference.embedCopied" : "reference.copied",
+              );
+            }
+          },
+          () => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = this.messages.text(
+                "reference.copyFailure",
+              );
+            }
+          },
+        );
+      };
+      copyReferenceButton?.addEventListener("click", () => copySlideMarkup(false));
+      copyEmbedButton?.addEventListener("click", () => copySlideMarkup(true));
       const fullscreen = this.options.fullscreen ?? createDefaultFullscreenActions();
       let lastKnownFullscreenState = false;
       const applyFullscreenState = (active: boolean) => {
@@ -698,6 +807,9 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.fullscreen;
     delete this.root.dataset.mountedThumbnailCount;
     delete this.root.dataset.readyThumbnailCount;
+    delete this.root.dataset.referenceSlideId;
+    delete this.root.dataset.referenceCreatedSlide;
+    delete this.root.dataset.referenceCurrentSlide;
   }
 
   private showError(
@@ -752,6 +864,39 @@ export class PptxViewSession<FileRef> {
     this.root.dataset.errorCategory = error.category;
     this.diagnosticError = error.category;
     delete this.root.dataset.warningCategories;
+  }
+
+  private showMissingReference(file: FileRef, generation: number): void {
+    this.root.replaceChildren();
+    const panel = this.root.createDiv({ cls: "pptx-viewer__error" });
+    panel.createDiv({
+      cls: "pptx-viewer__status",
+      text: this.messages.text("reference.missing"),
+      attr: { role: "status" },
+    });
+    const actions = panel.createDiv({ cls: "pptx-viewer__actions" });
+    const openPresentation = actions.createEl("button", {
+      type: "button",
+      text: this.messages.text("reference.openPresentation"),
+      attr: { "data-action": "open-presentation" },
+    });
+    openPresentation.addEventListener("click", () => {
+      void this.open(file);
+    });
+    const actionStatus = panel.createDiv({
+      cls: "pptx-viewer__action-status",
+      attr: { role: "status", "aria-live": "polite" },
+    });
+    const openExternally = this.createExternalOpenButton(
+      file,
+      generation,
+      actionStatus,
+    );
+    if (openExternally) actions.append(openExternally);
+    this.root.dataset.state = "stale-reference";
+    delete this.root.dataset.errorCategory;
+    delete this.root.dataset.warningCategories;
+    this.setLifecyclePhase("degraded");
   }
 
   private createExternalOpenButton(

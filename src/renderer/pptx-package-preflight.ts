@@ -64,6 +64,7 @@ function resourceExhausted(message: string): PptxOpenError {
 
 export interface PptxPackageInspection {
   readonly declaredFonts: readonly string[];
+  readonly slideIdentities: readonly number[];
   readonly warningCategories: readonly PptxCompatibilityWarningCategory[];
 }
 
@@ -307,6 +308,28 @@ function rejectUnsafeActiveContent(
   }
 }
 
+function orderedSlideIdentities(presentation: Document): readonly number[] {
+  const identities: number[] = [];
+  const seen = new Set<number>();
+  for (const slide of presentation.getElementsByTagNameNS("*", "sldId")) {
+    const rawIdentity = slide.getAttribute("id");
+    if (rawIdentity === null || !/^[1-9]\d*$/.test(rawIdentity)) {
+      throw malformed("Presentation contains an invalid native slide identity");
+    }
+    const identity = Number(rawIdentity);
+    if (
+      !Number.isSafeInteger(identity) ||
+      identity > 0xffff_ffff ||
+      seen.has(identity)
+    ) {
+      throw malformed("Presentation contains a duplicate or invalid native slide identity");
+    }
+    identities.push(identity);
+    seen.add(identity);
+  }
+  return identities;
+}
+
 async function inspectXmlParts(
   zip: JSZip,
   signal: AbortSignal,
@@ -411,6 +434,7 @@ export async function inspectPptxPackage(
       "The renderer cannot display a PPTX package with no usable slides",
     );
   }
+  const slideIdentities = orderedSlideIdentities(presentation);
 
   const unsupportedMediaPattern = /\.(?:svg|emf|wmf|pdf)$/i;
   const hasUnsupportedMedia = Object.values(zip.files).some(
@@ -418,6 +442,7 @@ export async function inspectPptxPackage(
   );
   return {
     declaredFonts,
+    slideIdentities,
     warningCategories: hasUnsupportedMedia ? ["unsupported-content"] : [],
   };
 }
