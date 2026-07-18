@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "evidenceType": "microsoft-powerpoint-normal-edit-round-trip",
+  "environment": {
+    "product": "Microsoft PowerPoint for Mac",
+    "reportedVersion": "16.111 (26071325)",
+    "installedBundleShortVersion": "16.111",
+    "installedBundleVersion": "16.111.26071325",
+    "platform": "darwin-arm64",
+    "macOSVersion": "14.8.7 (23J520)",
+    "autoSave": "not recorded; local Desktop copies were saved with the normal Save command"
+  },
+  "sourceMetadata": {
+    "application": "Microsoft Macintosh PowerPoint",
+    "appVersion": "16.0000",
+    "editedModifiedUtc": "2026-07-18T06:48:31Z"
+  },
+  "files": {
+    "baseline": {
+      "path": "tests/fixtures/performance/representative-12-slides.pptx",
+      "sha256": "e71651a6b3d9884717792f8a47045be68a4e7ac0c4890a63a314d85bd9af8a3d"
+    },
+    "edited": {
+      "path": "powerpoint-edited.pptx (maintainer-supplied; not committed)",
+      "sha256": "bab15275b35183dc6f2a8f7013ff0742e248b2cb67e44fc794dbc3176db87db3"
+    },
+    "deleted": {
+      "path": "powerpoint-deleted.pptx (maintainer-supplied; not committed)",
+      "sha256": "5e9f68c1be2380c4a1ddb9709a9408b3d7039827324ad92f5b3e2d2034948576"
+    }
+  },
+  "targetSlideId": 261,
+  "baseline": [256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267],
+  "edited": [256, 257, 261, 258, 259, 260, 268, 262, 263, 264, 265, 266, 267],
+  "deleted": [256, 257, 258, 259, 260, 268, 262, 263, 264, 265, 266, 267],
+  "checks": {
+    "targetWasBaselineSlide6": true,
+    "editedHasInsertedSlide": true,
+    "editedTargetMovedToSlide3": true,
+    "editedTargetTitleUpdated": true,
+    "editedPreservesOtherOriginalIds": true,
+    "deletedRemovesTarget": true,
+    "deletedPreservesOtherOriginalIds": true,
+    "deletedMatchesEditedMinusTarget": true
+  }
+}

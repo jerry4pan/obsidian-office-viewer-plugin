@@ -50,6 +50,15 @@ extract `main.js`, `manifest.json`, and `styles.css` to
 - **Open in default application** sends the file to PowerPoint, Keynote, or
   your system default when the preview is not enough.
 
+**Slide references and embeds**
+- **Copy slide reference** creates a source-preserving Vault wikilink that
+  returns to the same native slide even after slides are reordered.
+- **Copy slide embed** creates the same stable reference as a live,
+  source-backed single-slide embed in Markdown Reading View.
+- Deleted slides and missing presentations fail explicitly without silently
+  falling back to an ordinal position. Live Preview keeps the canonical
+  Markdown syntax editable and does not render the slide inline.
+
 **Error handling**
 - Corrupted, encrypted, or otherwise unreadable files show a clear explanation
   rather than a blank screen or a cryptic error.
@@ -202,9 +211,9 @@ byte-identical before uploading the CI artifact.
 - Privacy and security details are in `PRIVACY.md` and `SECURITY.md`.
 - Post-release validation and v0.2 planning are tracked in M4; see the PRD and
   GitHub Issues for current status.
-- Editing, saving, animations, legacy `.ppt` parsing, search, page links,
-  embeds, notes, telemetry, accounts, licensing, and cloud services are out of
-  scope.
+- Editing, saving, animations, legacy `.ppt` parsing, search, multi-slide or
+  full-deck embeds, inline Live Preview rendering, notes, telemetry, accounts,
+  licensing, and cloud services are out of scope.
 
 ## Test fixture
 

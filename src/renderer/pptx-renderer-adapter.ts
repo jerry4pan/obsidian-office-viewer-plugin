@@ -14,6 +14,8 @@ export interface PptxRendererResource {
 
 export interface PptxRendererSession {
   readonly slideCount: number;
+  /** Supplied by the project-owned preflight adapter in renderer order. */
+  readonly slideIdentities?: readonly number[];
   readonly slideWidth: number;
   readonly slideHeight: number;
   readonly capabilities: PptxRendererCapabilities;

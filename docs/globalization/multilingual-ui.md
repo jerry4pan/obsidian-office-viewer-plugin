@@ -67,6 +67,8 @@ includes:
 - the empty, loading, ready, degraded, and blocking-error states;
 - previous, next, page jump, thumbnail, full-screen, retry, and external-open
   controls;
+- slide-reference and slide-embed copy controls, success/failure notices,
+  moved/stale states, source recovery links, and embed loading/failure states;
 - current-page, validation, navigation-failure, full-screen-failure, and
   external-open-failure messages;
 - all stable user-facing PPTX open-error explanations and the source-safety
@@ -167,6 +169,8 @@ cover at least:
   accessible-label text;
 - settings names and descriptions;
 - full-screen enter/exit labels.
+- slide-reference and slide-embed controls, notices, placeholders, source
+  recovery links, and accessible states.
 
 Assertions target plugin-owned elements and attributes so presentation or
 fixture text is not mistaken for an untranslated plugin message. Each locale
@@ -184,6 +188,9 @@ and `zh-TW`. It also launches once with unsupported `fr` to verify English
 fallback at the same installed seam. Run it with
 `npm run test:e2e:multilingual`; the standard `npm run test:e2e` gate includes
 this matrix without multiplying the complete behavior suite by locale.
+The default installed behavior suite additionally verifies exact-return and
+Reading View embed behavior; locale smoke tests assert the new copy controls
+and embed source link in every supported message locale.
 
 The complete installed behavior, compatibility, and performance suites do not
 need to be duplicated for every locale. They remain authoritative for product

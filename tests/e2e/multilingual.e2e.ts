@@ -23,6 +23,10 @@ const EXPECTED_UI = {
     fullscreen: "Full screen",
     external: "Open in default application",
     diagnostics: "Copy diagnostic summary",
+    copyReference: "Copy slide reference",
+    copyEmbed: "Copy slide embed",
+    embedCurrent: "representative-12-slides — Slide 6",
+    openPresentation: "Open presentation",
     pageTotal: "of 12",
     invalidPage: "Enter a slide number from 1 to 12.",
   },
@@ -37,6 +41,10 @@ const EXPECTED_UI = {
     fullscreen: "全屏",
     external: "在默认应用中打开",
     diagnostics: "复制诊断摘要",
+    copyReference: "复制幻灯片引用",
+    copyEmbed: "复制幻灯片嵌入",
+    embedCurrent: "representative-12-slides — 第 6 张幻灯片",
+    openPresentation: "打开演示文稿",
     pageTotal: "共 12 页",
     invalidPage: "请输入 1 到 12 之间的幻灯片编号。",
   },
@@ -51,6 +59,10 @@ const EXPECTED_UI = {
     fullscreen: "全螢幕",
     external: "在預設應用程式中開啟",
     diagnostics: "複製診斷摘要",
+    copyReference: "複製投影片引用",
+    copyEmbed: "複製投影片嵌入",
+    embedCurrent: "representative-12-slides — 第 6 張投影片",
+    openPresentation: "開啟簡報",
     pageTotal: "共 12 頁",
     invalidPage: "請輸入 1 到 12 之間的投影片編號。",
   },
@@ -65,6 +77,10 @@ const EXPECTED_UI = {
     fullscreen: "Full screen",
     external: "Open in default application",
     diagnostics: "Copy diagnostic summary",
+    copyReference: "Copy slide reference",
+    copyEmbed: "Copy slide embed",
+    embedCurrent: "representative-12-slides — Slide 6",
+    openPresentation: "Open presentation",
     pageTotal: "of 12",
     invalidPage: "Enter a slide number from 1 to 12.",
   },
@@ -156,6 +172,14 @@ describe("multilingual installed smoke", () => {
       "aria-label",
       expected.diagnostics,
     );
+    await expect(root.$('[data-action="copy-slide-reference"]')).toHaveAttribute(
+      "aria-label",
+      expected.copyReference,
+    );
+    await expect(root.$('[data-action="copy-slide-embed"]')).toHaveAttribute(
+      "aria-label",
+      expected.copyEmbed,
+    );
     await expect(root.$('.pptx-viewer__page-total')).toHaveText(expected.pageTotal);
 
     await root.$('[data-action="next-slide"]').click();
@@ -164,6 +188,19 @@ describe("multilingual installed smoke", () => {
     await pageInput.setValue("13");
     await root.$('[data-action="jump-to-slide"]').click();
     await expect(root).toHaveText(expect.stringContaining(expected.invalidPage));
+
+    await obsidianPage.openFile("embed-note.md");
+    await browser.executeObsidian(({ app }) => {
+      (app as unknown as {
+        commands: { executeCommandById(id: string): boolean };
+      }).commands.executeCommandById("markdown:toggle-preview");
+    });
+    const embed = await browser.$(
+      '.workspace-leaf.mod-active .pptx-slide-embed[data-state="ready"]',
+    );
+    await embed.waitForExist({ timeout: 10_000 });
+    await expect(embed).toHaveAttribute("aria-label", expected.embedCurrent);
+    await expect(embed.$("a.internal-link")).toHaveText(expected.openPresentation);
 
     expect(await vaultSha256(path)).toBe(before);
     await assertNoNetworkRequests();

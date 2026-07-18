@@ -30,6 +30,21 @@ const ENGLISH_MESSAGES = {
   "fullscreen.failure": "Unable to change full-screen mode.",
   "external.open": "Open in default application",
   "external.failure": "Unable to open the default application.",
+  "reference.copy": "Copy slide reference",
+  "reference.copyEmbed": "Copy slide embed",
+  "reference.copied": "Slide reference copied.",
+  "reference.embedCopied": "Slide embed copied.",
+  "reference.copyFailure": "Unable to copy the slide reference.",
+  "reference.alias": "{name} — Slide {slide}",
+  "reference.moved":
+    "This reference was created for slide {created}; the same slide is now slide {current}.",
+  "reference.missing":
+    "The referenced slide is no longer available in this presentation.",
+  "reference.openPresentation": "Open presentation",
+  "embed.loading": "Loading slide…",
+  "embed.currentSlide": "{name} — Slide {slide}",
+  "embed.sourceMissing": "The source presentation is no longer available.",
+  "embed.renderFailure": "This slide could not be rendered safely.",
   "compatibility.unsupportedContent":
     "Some presentation content may not render correctly. Compare with the default application when accuracy matters.",
   "compatibility.fontSubstitution":
@@ -101,6 +116,20 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "fullscreen.failure": "无法切换全屏模式。",
   "external.open": "在默认应用中打开",
   "external.failure": "无法打开默认应用。",
+  "reference.copy": "复制幻灯片引用",
+  "reference.copyEmbed": "复制幻灯片嵌入",
+  "reference.copied": "已复制幻灯片引用。",
+  "reference.embedCopied": "已复制幻灯片嵌入。",
+  "reference.copyFailure": "无法复制幻灯片引用。",
+  "reference.alias": "{name} — 第 {slide} 张幻灯片",
+  "reference.moved":
+    "此引用创建时指向第 {created} 张；同一张幻灯片现在是第 {current} 张。",
+  "reference.missing": "此演示文稿中已找不到被引用的幻灯片。",
+  "reference.openPresentation": "打开演示文稿",
+  "embed.loading": "正在加载幻灯片…",
+  "embed.currentSlide": "{name} — 第 {slide} 张幻灯片",
+  "embed.sourceMissing": "源演示文稿已不存在。",
+  "embed.renderFailure": "无法安全渲染此幻灯片。",
   "compatibility.unsupportedContent":
     "部分演示文稿内容可能无法正确显示。需要确认准确性时，请与默认应用中的效果进行比较。",
   "compatibility.fontSubstitution":
@@ -166,6 +195,20 @@ const TRADITIONAL_CHINESE_MESSAGES = {
   "fullscreen.failure": "無法切換全螢幕模式。",
   "external.open": "在預設應用程式中開啟",
   "external.failure": "無法開啟預設應用程式。",
+  "reference.copy": "複製投影片引用",
+  "reference.copyEmbed": "複製投影片嵌入",
+  "reference.copied": "已複製投影片引用。",
+  "reference.embedCopied": "已複製投影片嵌入。",
+  "reference.copyFailure": "無法複製投影片引用。",
+  "reference.alias": "{name} — 第 {slide} 張投影片",
+  "reference.moved":
+    "此引用建立時指向第 {created} 張；同一張投影片目前是第 {current} 張。",
+  "reference.missing": "此簡報中已找不到被引用的投影片。",
+  "reference.openPresentation": "開啟簡報",
+  "embed.loading": "正在載入投影片…",
+  "embed.currentSlide": "{name} — 第 {slide} 張投影片",
+  "embed.sourceMissing": "來源簡報已不存在。",
+  "embed.renderFailure": "無法安全呈現此投影片。",
   "compatibility.unsupportedContent":
     "部分簡報內容可能無法正確顯示。需要確認準確性時，請與預設應用程式中的效果進行比較。",
   "compatibility.fontSubstitution":

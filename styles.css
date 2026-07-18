@@ -12,6 +12,60 @@
   padding: var(--size-4-3);
 }
 
+.pptx-slide-embed {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-block: var(--size-4-3);
+  min-height: 12rem;
+  overflow: hidden;
+  padding: var(--size-4-3);
+}
+
+.pptx-slide-embed__status,
+.pptx-slide-embed__footer,
+.pptx-slide-embed__compatibility {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.pptx-slide-embed__canvas {
+  align-items: center;
+  background: var(--background-primary);
+  display: flex;
+  justify-content: center;
+  min-height: 8rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.pptx-slide-embed__canvas > * {
+  background: var(--background-primary);
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.pptx-slide-embed[data-state="error"] .pptx-slide-embed__status,
+.pptx-slide-embed[data-state="missing-source"] .pptx-slide-embed__status,
+.pptx-slide-embed[data-state="stale-reference"] .pptx-slide-embed__status {
+  color: var(--text-error);
+}
+
+.pptx-slide-embed__footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  justify-content: flex-end;
+}
+
+.pptx-slide-embed__compatibility:empty {
+  display: none;
+}
+
 .pptx-viewer .pptx-viewer__status,
 .pptx-viewer .pptx-viewer__page-counter {
   color: var(--text-muted);
@@ -25,18 +79,27 @@
   position: relative;
 }
 
-.pptx-viewer .pptx-viewer__diagnostic-shortcut {
-  height: 1rem;
-  min-width: 1rem;
-  padding: 0;
+.pptx-viewer .pptx-viewer__header-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-1);
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.pptx-viewer .pptx-viewer__header-actions button {
+  font-size: var(--font-ui-smaller);
+  height: 1rem;
+  line-height: 1;
+  min-width: 1rem;
+  padding: 0;
   width: 1rem;
 }
 
-.pptx-viewer .pptx-viewer__compatibility:empty {
+.pptx-viewer .pptx-viewer__compatibility:empty,
+.pptx-viewer .pptx-viewer__reference-notice:empty {
   display: none;
 }
 

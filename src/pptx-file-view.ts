@@ -7,6 +7,12 @@ import { PptxViewSession } from "./pptx-view-session";
 import type { PptxViewSessionDiagnostics } from "./pptx-view-session";
 import type { DiagnosticEnvironment } from "./diagnostic-summary";
 import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
+import {
+  formatSlideReferenceMarkup,
+  parseSlideReferenceFragment,
+  type SlideReferenceTarget,
+} from "./slide-reference";
+import { createExternalOpenAction } from "./external-open";
 
 export const PPTX_VIEW_TYPE = "pptx-viewer";
 
@@ -20,28 +26,11 @@ export interface PptxFileViewState {
   diagnosticSummary(): boolean;
 }
 
-type DesktopVaultAdapter = {
-  getFullPath(path: string): string;
-};
-
-function createExternalOpenAction(
-  app: App,
-): ((file: TFile) => Promise<void>) | undefined {
-  const adapter = app.vault.adapter as Partial<DesktopVaultAdapter> | undefined;
-  if (!adapter || typeof adapter.getFullPath !== "function") return undefined;
-  return async (file) => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron shell is only available at desktop runtime
-    const { shell } = require("electron") as {
-      shell: { openPath(path: string): Promise<string> };
-    };
-    const failure = await shell.openPath(adapter.getFullPath!(file.path));
-    if (failure) throw new Error(failure);
-  };
-}
-
 export class PptxFileView extends FileView {
   private readonly session: PptxViewSession<TFile>;
   private disposed = false;
+  private currentFile: TFile | null = null;
+  private pendingReferenceTarget: SlideReferenceTarget | undefined;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -78,6 +67,21 @@ export class PptxFileView extends FileView {
               enabled: () => state?.diagnosticSummary() ?? false,
               copy: async (summary) => navigator.clipboard.writeText(summary),
             },
+        slideReferences: {
+          copy: async (file, target, embed) => {
+            const alias = this.messages.text("reference.alias", {
+              name: file.basename,
+              slide: target.createdSlideNumber,
+            });
+            await navigator.clipboard.writeText(formatSlideReferenceMarkup({
+              sourcePath: file.path,
+              alias,
+              slideId: target.slideId,
+              createdSlideNumber: target.createdSlideNumber,
+              embed,
+            }));
+          },
+        },
       },
     );
   }
@@ -95,11 +99,43 @@ export class PptxFileView extends FileView {
   }
 
   override async onLoadFile(file: TFile): Promise<void> {
+    this.currentFile = file;
     if (file.extension.toLowerCase() === "ppt") {
+      this.pendingReferenceTarget = undefined;
       this.session.openUnsupportedLegacy(file, file.stat.size);
       return;
     }
-    await this.session.open(file);
+    const referenceTarget = this.pendingReferenceTarget;
+    this.pendingReferenceTarget = undefined;
+    await this.session.open(file, referenceTarget);
+    if (this.currentFile !== file || this.pendingReferenceTarget === undefined) {
+      return;
+    }
+    const lateReferenceTarget = this.pendingReferenceTarget;
+    if (this.session.navigateToReference(lateReferenceTarget)) {
+      this.pendingReferenceTarget = undefined;
+    }
+  }
+
+  override setEphemeralState(state: unknown): void {
+    super.setEphemeralState(state);
+    const subpath = typeof state === "object" && state !== null &&
+        "subpath" in state && typeof state.subpath === "string"
+      ? state.subpath
+      : undefined;
+    const target = subpath === undefined
+      ? undefined
+      : parseSlideReferenceFragment(subpath) ?? undefined;
+    this.pendingReferenceTarget = target;
+    if (
+      target !== undefined &&
+      this.currentFile !== null &&
+      this.currentFile.extension.toLowerCase() === "pptx"
+    ) {
+      if (this.session.navigateToReference(target)) {
+        this.pendingReferenceTarget = undefined;
+      }
+    }
   }
 
   override async onClose(): Promise<void> {
@@ -109,6 +145,8 @@ export class PptxFileView extends FileView {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.currentFile = null;
+    this.pendingReferenceTarget = undefined;
     this.session.dispose();
     this.contentEl.replaceChildren();
     this.onDisposed();
