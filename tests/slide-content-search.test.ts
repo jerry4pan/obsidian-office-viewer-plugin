@@ -44,6 +44,23 @@ describe("Slide content search", () => {
     })]);
   });
 
+  it("maps expanding Unicode lowercase matches back to the displayed text", () => {
+    const slides = [
+      { slideId: 256, text: ["AİBC"] },
+    ];
+    const results = searchSlideContent(slides, "bc");
+
+    expect(results).toEqual([expect.objectContaining({
+      matchCount: 1,
+      snippet: {
+        before: "Aİ",
+        match: "BC",
+        after: "",
+      },
+    })]);
+    expect(searchSlideContent(slides, "i\u0307")[0]?.snippet.match).toBe("İ");
+  });
+
   it("bounds snippet context around a match", () => {
     const results = searchSlideContent([
       {

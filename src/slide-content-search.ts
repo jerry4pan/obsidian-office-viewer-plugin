@@ -32,17 +32,40 @@ const MAX_SNIPPET_CONTEXT_CHARACTERS = 60;
 function snippetContext(
   display: string,
   matchStart: number,
-  matchLength: number,
+  matchEnd: number,
 ): SlideSearchSnippet {
   const boundedContext = MAX_SNIPPET_CONTEXT_CHARACTERS - 1;
   const beforeStart = Math.max(0, matchStart - boundedContext);
-  const afterStart = matchStart + matchLength;
-  const afterEnd = Math.min(display.length, afterStart + boundedContext);
+  const afterEnd = Math.min(display.length, matchEnd + boundedContext);
   return {
     before: `${beforeStart > 0 ? "…" : ""}${display.slice(beforeStart, matchStart)}`,
-    match: display.slice(matchStart, afterStart),
-    after: `${display.slice(afterStart, afterEnd)}${afterEnd < display.length ? "…" : ""}`,
+    match: display.slice(matchStart, matchEnd),
+    after: `${display.slice(matchEnd, afterEnd)}${afterEnd < display.length ? "…" : ""}`,
   };
+}
+
+function displayRangeForComparableMatch(
+  display: string,
+  comparableStart: number,
+  comparableLength: number,
+): { readonly start: number; readonly end: number } {
+  const comparableEnd = comparableStart + comparableLength;
+  let displayOffset = 0;
+  let comparableOffset = 0;
+  let start: number | undefined;
+  for (const symbol of display) {
+    const nextDisplayOffset = displayOffset + symbol.length;
+    const nextComparableOffset = comparableOffset + symbol.toLowerCase().length;
+    if (start === undefined && comparableStart < nextComparableOffset) {
+      start = displayOffset;
+    }
+    if (comparableEnd <= nextComparableOffset) {
+      return { start: start ?? displayOffset, end: nextDisplayOffset };
+    }
+    displayOffset = nextDisplayOffset;
+    comparableOffset = nextComparableOffset;
+  }
+  return { start: start ?? display.length, end: display.length };
 }
 
 function displayText(value: string): string {
@@ -102,7 +125,14 @@ function searchIndexedSlideContent(
       const firstMatch = comparable.indexOf(comparableQuery);
       if (firstMatch < 0) continue;
       matchCount += occurrenceCount(comparable, comparableQuery);
-      snippet ??= snippetContext(display, firstMatch, comparableQuery.length);
+      if (snippet === undefined) {
+        const match = displayRangeForComparableMatch(
+          display,
+          firstMatch,
+          comparableQuery.length,
+        );
+        snippet = snippetContext(display, match.start, match.end);
+      }
     }
     if (snippet) {
       results.push({
