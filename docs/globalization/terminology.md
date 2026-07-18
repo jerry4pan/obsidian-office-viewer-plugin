@@ -4,6 +4,8 @@
 - Reviewed revision: `5593a6a`
 - Reviewer: `@jerry4pan` (proficient in Simplified and Traditional Chinese)
 - Approved: 2026-07-15
+- Additional reference/embed terminology approval: `@jerry4pan`, 2026-07-18,
+  retained in pull request #29
 - Source locale: English
 - Target catalogs: Simplified Chinese and region-neutral Traditional Chinese
 
@@ -36,18 +38,18 @@ These identifiers do not change between message locales:
 | Remember reading position | 记住阅读位置 | 記住閱讀位置 | Office Viewer, approved in #20 |
 | Retry | 重试 | 重試 | Office Viewer, approved in #20 |
 
-## Pending exploration terminology review
+## Reference and embed terminology
 
 The reference/embed exploration introduced the following catalog terms after
 the review recorded in Issue #20. Their catalog values and automated locale
-coverage are complete, but this revision still requires explicit human
-approval before the pull request is ready to merge.
+coverage are complete, and `@jerry4pan` explicitly approved all three language
+mappings for pull request #29 on 2026-07-18.
 
-| English source term | Simplified Chinese | Traditional Chinese |
-| --- | --- | --- |
-| Slide reference | 幻灯片引用 | 投影片引用 |
-| Slide embed | 幻灯片嵌入 | 投影片嵌入 |
-| Open presentation | 打开演示文稿 | 開啟簡報 |
+| English source term | Simplified Chinese | Traditional Chinese | Authority |
+| --- | --- | --- | --- |
+| Slide reference | 幻灯片引用 | 投影片引用 | Office Viewer, approved in #29 |
+| Slide embed | 幻灯片嵌入 | 投影片嵌入 | Office Viewer, approved in #29 |
+| Open presentation | 打开演示文稿 | 開啟簡報 | Office Viewer, approved in #29 |
 
 ## Review rules
 
