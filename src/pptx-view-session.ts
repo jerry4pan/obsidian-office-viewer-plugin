@@ -26,6 +26,7 @@ import {
 } from "./thumbnail-rail-sizing";
 import { ThumbnailRailResizer } from "./thumbnail-rail-resizer";
 import type { SlideReferenceTarget } from "./slide-reference";
+import { SlideSearchRail } from "./slide-search-rail";
 
 export interface VaultBinaryReader<FileRef> {
   readBinary(file: FileRef): Promise<ArrayBuffer>;
@@ -593,6 +594,43 @@ export class PptxViewSession<FileRef> {
       });
       this.thumbnailRail = rail;
       rail.start(viewController.state.currentSlideIndex);
+      const searchableSlides = rendererSession.slideContents;
+      if (searchableSlides?.length === rendererSession.slideCount) {
+        const searchRail = new SlideSearchRail(thumbnailRoot, searchableSlides, {
+          messages: this.messages,
+          onNavigate: (slideId) => {
+            const targetIndex = rendererSession.slideIdentities?.indexOf(slideId) ?? -1;
+            if (targetIndex >= 0) navigate(targetIndex);
+          },
+        });
+        const searchButton = headerActions.createEl("button", {
+          type: "button",
+          text: "⌕",
+          title: this.messages.text("search.open"),
+          attr: {
+            "data-action": "open-slide-search",
+            "aria-label": this.messages.text("search.open"),
+            "aria-pressed": "false",
+          },
+        });
+        const toggleSearch = () => {
+          if (searchRail.isOpen) {
+            searchRail.close();
+          } else {
+            searchRail.open();
+          }
+          searchButton.setAttribute("aria-pressed", String(searchRail.isOpen));
+          searchButton.setAttribute(
+            "aria-label",
+            this.messages.text(searchRail.isOpen ? "search.close" : "search.open"),
+          );
+        };
+        searchButton.addEventListener("click", toggleSearch);
+        this.runCleanups.add(() => {
+          searchButton.removeEventListener("click", toggleSearch);
+          searchRail.dispose();
+        });
+      }
       const railResizer = new ThumbnailRailResizer(
         readingBody,
         thumbnailRoot,

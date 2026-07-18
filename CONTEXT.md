@@ -26,6 +26,28 @@ post-release validation remains open, but it does not establish real-reader
 workflow value or commit the project to ship a complete v0.2 product.
 _Avoid_: v0.2 implementation, Workflow validation, M4 completion
 
+**Slide content search**:
+A local search within one open PPTX **Knowledge material** that returns matching
+reader-visible slide text as precise slide locations, allowing the reader to
+continue through the **Knowledge reference loop**. Speaker notes are not part of
+the initial search surface. Matches derived from OCR must be distinguishable
+from source-authored text because recognition may be wrong. The search does not
+imply a persistent or Vault-wide content index; its query, extracted or
+recognized text, and results do not outlive the active reading session.
+_Avoid_: Vault search, File search
+
+**Source-authored slide text**:
+Reader-visible text directly authored in a slide's own titles, body content,
+text boxes, shapes, or table cells. It excludes speaker notes, master or layout
+text, chart or SmartArt data, and text contained in images.
+_Avoid_: Extracted text, All slide text
+
+**Slide search result**:
+One slide-level result from **Slide content search**, anchored to the slide's
+stable identity and summarizing one or more matches within that slide. Multiple
+matches do not create separate results for character positions.
+_Avoid_: Text occurrence, Search hit
+
 **Slide reference**:
 A source-preserving Obsidian reference to one precise slide in a PPTX
 **Knowledge material**. It follows the slide's stable identity when the source

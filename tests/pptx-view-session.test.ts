@@ -5,15 +5,18 @@ import { PptxOpenError } from "../src/pptx-open-error";
 import type {
   PptxRendererAdapter,
   PptxRendererSession,
+  PptxSlideContent,
 } from "../src/renderer/pptx-renderer-adapter";
 
 function makeRenderer(
   slideCount = 1,
   slideIdentities?: readonly number[],
+  slideContents?: readonly PptxSlideContent[],
 ) {
   const rendererSession: PptxRendererSession = {
     slideCount,
     slideIdentities,
+    slideContents,
     slideWidth: 960,
     slideHeight: 540,
     capabilities: { thumbnails: false, prefetch: false },
@@ -78,6 +81,44 @@ function makeFullscreen() {
 }
 
 describe("PptxViewSession", () => {
+  it("finds source-authored text and opens the matching stable slide", async () => {
+    const root = document.createElement("div");
+    const { adapter, rendererSession } = makeRenderer(
+      2,
+      [256, 257],
+      [
+        { slideId: 256, text: ["Opening summary"] },
+        { slideId: 257, text: ["Quarterly revenue", "Revenue target"] },
+      ],
+    );
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(1)) },
+      adapter,
+    );
+    await session.open("deck.pptx");
+
+    root.querySelector<HTMLButtonElement>('[data-action="open-slide-search"]')
+      ?.click();
+    const input = root.querySelector<HTMLInputElement>(
+      '[data-action="slide-search-input"]',
+    );
+    expect(input).not.toBeNull();
+    input!.value = "revenue";
+    input!.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const result = root.querySelector<HTMLButtonElement>(
+      '[data-action="slide-search-result"]',
+    );
+    expect(result?.textContent).toContain("Slide 2");
+    expect(result?.textContent).toContain("2 matches");
+    result?.click();
+
+    await vi.waitFor(() => {
+      expect(rendererSession.renderSlide).toHaveBeenLastCalledWith(1);
+    });
+  });
+
   it("renders the core reading loop in Simplified Chinese", async () => {
     const root = document.createElement("div");
     let finishRead!: (bytes: ArrayBuffer) => void;

@@ -94,6 +94,10 @@ describe("PreflightPptxRendererAdapter", () => {
     expect(result.slideWidth).toBe(960);
     expect(result.slideHeight).toBe(540);
     expect(result.slideIdentities).toEqual([256]);
+    expect(result.slideContents).toEqual([{
+      slideId: 256,
+      text: ["Obsidian PPTX smoke test"],
+    }]);
     expect(result.capabilities).toEqual(session.capabilities);
     result.renderThumbnail?.(0, document.createElement("div"), new AbortController().signal);
     await result.prefetchSlide?.(0, new AbortController().signal);
