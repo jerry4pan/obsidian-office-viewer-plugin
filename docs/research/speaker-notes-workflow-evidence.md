@@ -8,7 +8,7 @@
 
 - Node / npm: repository `package.json` scripts
 - Obsidian installed protocol: `wdio-obsidian-service` against desktop Obsidian
-- Plugin version under test: `0.1.8` working tree (pre-release engineering)
+- Plugin version under test: `0.1.9`
 
 Primary verification commands:
 
