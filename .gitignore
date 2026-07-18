@@ -9,3 +9,4 @@ dist/
 artifacts/release/
 .VSCodeCounter/
 .scratch/
+.DS_Store
