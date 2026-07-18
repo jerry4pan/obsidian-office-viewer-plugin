@@ -11,6 +11,7 @@ const originalIntersectionObserver = globalThis.IntersectionObserver;
 
 afterEach(() => {
   globalThis.IntersectionObserver = originalIntersectionObserver;
+  vi.restoreAllMocks();
 });
 
 function makeSession(
@@ -38,6 +39,7 @@ interface FixtureOptions {
   readonly open?: PptxRendererAdapter["open"];
   readonly showDiagnostics?: boolean;
   readonly openExternally?: () => Promise<void>;
+  readonly scheduler?: SlideEmbedScheduler;
 }
 
 function fixture(
@@ -69,7 +71,7 @@ function fixture(
   } as never, {
     app: app as never,
     renderer: { open: vi.fn(options.open ?? (async () => session)) },
-    scheduler: new SlideEmbedScheduler(2),
+    scheduler: options.scheduler ?? new SlideEmbedScheduler(2),
     messages: ENGLISH_MESSAGE_TRANSLATOR,
     showDiagnostics: () => options.showDiagnostics ?? false,
     openExternally: options.openExternally === undefined
@@ -103,6 +105,21 @@ describe("PPTX slide embeds", () => {
     expect(element.dataset.state).toBe("waiting");
   });
 
+  it("keeps special characters encoded in its source recovery link", async () => {
+    const { element } = fixture(
+      makeSession(),
+      "clients/a%23b/%5Bdeck%5D%7C100%25.pptx#slide-id=261&slide=1",
+    );
+
+    await vi.waitFor(() => expect(element.dataset.state).toBe("ready"));
+
+    expect(
+      element.querySelector("a.internal-link")?.getAttribute("data-href"),
+    ).toBe(
+      "clients/a%23b/%5Bdeck%5D%7C100%25.pptx#slide-id=261&slide=1",
+    );
+  });
+
   it("shows compatibility warnings only when diagnostic summary is enabled", async () => {
     const session = {
       ...makeSession(),
@@ -119,6 +136,87 @@ describe("PPTX slide embeds", () => {
       element.querySelector(".pptx-slide-embed__compatibility")
         ?.getAttribute("role"),
     ).toBe("note");
+  });
+
+  it.each([
+    ["diagnostic setting", {
+      showDiagnostics: (): boolean => {
+        throw new Error("setting unavailable");
+      },
+    }],
+    ["compatibility detector", {
+      showDiagnostics: (): boolean => true,
+      detectCompatibilityWarnings: () => {
+        throw new Error("detector failed");
+      },
+    }],
+  ] as const)("keeps a rendered slide ready when the optional %s fails", async (
+    _label,
+    failure,
+  ) => {
+    const session = { ...makeSession(), ...failure };
+    globalThis.IntersectionObserver = undefined as never;
+    const element = document.createElement("div");
+    element.className = "internal-embed";
+    element.setAttribute("src", "deck.pptx#slide-id=261&slide=1");
+    const file = Object.assign(new TFile(), {
+      path: "deck.pptx",
+      stat: { size: 10, mtime: 20 },
+      basename: "deck",
+      extension: "pptx",
+    });
+    processPptxSlideEmbeds(element, {
+      sourcePath: "note.md",
+      addChild: (child: MarkdownRenderChild) => child.load(),
+    } as never, {
+      app: {
+        vault: { readBinary: vi.fn(async () => new ArrayBuffer(8)) },
+        metadataCache: { getFirstLinkpathDest: vi.fn(() => file) },
+      } as never,
+      renderer: { open: vi.fn(async () => session) },
+      scheduler: new SlideEmbedScheduler(2),
+      messages: ENGLISH_MESSAGE_TRANSLATOR,
+      showDiagnostics: failure.showDiagnostics,
+    });
+
+    await vi.waitFor(() => expect(element.dataset.state).toBe("ready"));
+    expect(element.textContent).toContain("deck — Slide 2");
+    expect(session.dispose).not.toHaveBeenCalled();
+  });
+
+  it("includes scheduler queue time in first-readable timing", async () => {
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const scheduler = new SlideEmbedScheduler(1);
+    const now = vi.spyOn(performance, "now");
+    let clock = 100;
+    now.mockImplementation(() => clock);
+    const firstOpen = vi.fn(async () => {
+      await firstGate;
+      return makeSession();
+    });
+    const secondOpen = vi.fn(async () => makeSession());
+    const first = fixture(makeSession(), undefined, {
+      scheduler,
+      open: firstOpen,
+    });
+    await vi.waitFor(() => expect(firstOpen).toHaveBeenCalledOnce());
+    clock = 200;
+    const second = fixture(makeSession(), undefined, {
+      scheduler,
+      open: secondOpen,
+    });
+    expect(secondOpen).not.toHaveBeenCalled();
+
+    clock = 4_000;
+    releaseFirst();
+    await vi.waitFor(() => expect(second.element.dataset.state).toBe("ready"));
+
+    expect(Number(second.element.dataset.firstReadableMs)).toBe(3_800);
+    first.children[0]?.unload();
+    second.children[0]?.unload();
   });
 
   it.each([
@@ -245,6 +343,27 @@ describe("PPTX slide embeds", () => {
 
     expect(nativeEmbed.hidden).toBe(false);
     expect(nativeEmbed.classList.contains("pptx-slide-embed__native")).toBe(false);
+    expect(nativeEmbed.dataset.pptxSlideEmbedProcessed).toBeUndefined();
+
+    let replacement: MarkdownRenderChild | undefined;
+    processPptxSlideEmbeds(wrapper, {
+      sourcePath: "note.md",
+      addChild: (created: MarkdownRenderChild) => {
+        replacement = created;
+        created.load();
+      },
+    } as never, {
+      app: {
+        vault: { readBinary: vi.fn(async () => new ArrayBuffer(8)) },
+        metadataCache: { getFirstLinkpathDest: vi.fn(() => file) },
+      } as never,
+      renderer: { open: vi.fn(async () => makeSession()) },
+      scheduler: new SlideEmbedScheduler(2),
+      messages: ENGLISH_MESSAGE_TRANSLATOR,
+      showDiagnostics: () => false,
+    });
+    expect(replacement).toBeDefined();
+    replacement?.unload();
   });
 
   it("reports a missing source before allocating a renderer", () => {

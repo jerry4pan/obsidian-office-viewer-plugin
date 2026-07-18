@@ -2,6 +2,7 @@ import JSZip, { type JSZipObject } from "jszip";
 import CFB from "cfb";
 import { PptxOpenError } from "../pptx-open-error";
 import type { PptxCompatibilityWarningCategory } from "./pptx-renderer-adapter";
+import { isOoxmlSlideId } from "../slide-identity";
 
 const oleCompoundFileSignature = [
   0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
@@ -36,6 +37,8 @@ const officeRelationshipNamespace =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const drawingMainNamespace =
   "http://schemas.openxmlformats.org/drawingml/2006/main";
+const presentationMainNamespace =
+  "http://schemas.openxmlformats.org/presentationml/2006/main";
 
 interface RelationshipReferences {
   readonly hyperlinkIds: Set<string>;
@@ -311,15 +314,17 @@ function rejectUnsafeActiveContent(
 function orderedSlideIdentities(presentation: Document): readonly number[] {
   const identities: number[] = [];
   const seen = new Set<number>();
-  for (const slide of presentation.getElementsByTagNameNS("*", "sldId")) {
+  for (const slide of presentation.getElementsByTagNameNS(
+    presentationMainNamespace,
+    "sldId",
+  )) {
     const rawIdentity = slide.getAttribute("id");
     if (rawIdentity === null || !/^[1-9]\d*$/.test(rawIdentity)) {
       throw malformed("Presentation contains an invalid native slide identity");
     }
     const identity = Number(rawIdentity);
     if (
-      !Number.isSafeInteger(identity) ||
-      identity > 0xffff_ffff ||
+      !isOoxmlSlideId(identity) ||
       seen.has(identity)
     ) {
       throw malformed("Presentation contains a duplicate or invalid native slide identity");

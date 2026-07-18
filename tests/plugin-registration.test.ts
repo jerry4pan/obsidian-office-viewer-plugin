@@ -295,15 +295,16 @@ describe("OfficeViewerPlugin", () => {
       extension: "pptx",
     });
 
-    view.setEphemeralState({ subpath: "#slide-id=261&slide=4" });
     await view.onLoadFile(file);
+    view.setEphemeralState({ subpath: "#slide-id=261&slide=4" });
 
     const root = view.contentEl.querySelector<HTMLElement>(".pptx-viewer")!;
-    expect(root.textContent).toContain("6 / 12");
+    await vi.waitFor(() => expect(root.textContent).toContain("6 / 12"));
     expect(root.textContent).toContain(
       "created for slide 4; the same slide is now slide 6",
     );
     expect(root.dataset.referenceSlideId).toBe("261");
+    expect(vault.readBinary).toHaveBeenCalledOnce();
     root.querySelector<HTMLButtonElement>(
       '[data-action="copy-slide-reference"]',
     )!.click();

@@ -108,6 +108,13 @@ export class PptxFileView extends FileView {
     const referenceTarget = this.pendingReferenceTarget;
     this.pendingReferenceTarget = undefined;
     await this.session.open(file, referenceTarget);
+    if (this.currentFile !== file || this.pendingReferenceTarget === undefined) {
+      return;
+    }
+    const lateReferenceTarget = this.pendingReferenceTarget;
+    if (this.session.navigateToReference(lateReferenceTarget)) {
+      this.pendingReferenceTarget = undefined;
+    }
   }
 
   override setEphemeralState(state: unknown): void {
@@ -125,9 +132,9 @@ export class PptxFileView extends FileView {
       this.currentFile !== null &&
       this.currentFile.extension.toLowerCase() === "pptx"
     ) {
-      const file = this.currentFile;
-      this.pendingReferenceTarget = undefined;
-      void this.session.open(file, target);
+      if (this.session.navigateToReference(target)) {
+        this.pendingReferenceTarget = undefined;
+      }
     }
   }
 

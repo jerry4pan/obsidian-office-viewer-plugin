@@ -127,7 +127,7 @@ describe("PPTX slide references", () => {
   it("shows an honest stale state instead of falling back to the ordinal", async () => {
     await browser.executeObsidian(async ({ app }, deck) => {
       await app.workspace.openLinkText(
-        `${deck}#slide-id=4294967295&slide=6`,
+        `${deck}#slide-id=2147483647&slide=6`,
         "reference-note.md",
       );
     }, DECK);

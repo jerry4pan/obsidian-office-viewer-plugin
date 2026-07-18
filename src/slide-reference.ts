@@ -1,3 +1,5 @@
+import { isOoxmlSlideId } from "./slide-identity";
+
 export interface SlideReferenceTarget {
   readonly slideId: number;
   readonly createdSlideNumber: number;
@@ -14,16 +16,7 @@ export interface ParsedSlideReferenceLink {
   readonly target: SlideReferenceTarget;
 }
 
-const MAX_OOXML_SLIDE_ID = 0xffff_ffff;
 const CANONICAL_FRAGMENT = /^#slide-id=([1-9]\d*)&slide=([1-9]\d*)$/;
-
-function isSlideId(value: number): boolean {
-  return (
-    Number.isSafeInteger(value) &&
-    value > 0 &&
-    value <= MAX_OOXML_SLIDE_ID
-  );
-}
 
 function isSlideNumber(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
@@ -32,8 +25,8 @@ function isSlideNumber(value: number): boolean {
 export function formatSlideReferenceFragment(
   target: SlideReferenceTarget,
 ): string {
-  if (!isSlideId(target.slideId)) {
-    throw new RangeError("Slide identity must be a positive OOXML unsigned integer");
+  if (!isOoxmlSlideId(target.slideId)) {
+    throw new RangeError("Slide identity must be a valid OOXML slide identifier");
   }
   if (!isSlideNumber(target.createdSlideNumber)) {
     throw new RangeError("Creation-time slide number must be a positive integer");
@@ -48,7 +41,7 @@ export function parseSlideReferenceFragment(
   if (match === null) return null;
   const slideId = Number(match[1]);
   const createdSlideNumber = Number(match[2]);
-  if (!isSlideId(slideId) || !isSlideNumber(createdSlideNumber)) return null;
+  if (!isOoxmlSlideId(slideId) || !isSlideNumber(createdSlideNumber)) return null;
   return { slideId, createdSlideNumber };
 }
 
@@ -90,6 +83,16 @@ function encodeWikilinkPath(path: string): string {
     .replaceAll("]", "%5D");
 }
 
+export function formatSlideReferenceLinkTarget(
+  sourcePath: string,
+  target: SlideReferenceTarget,
+): string {
+  if (!isNormalizedVaultPath(sourcePath)) {
+    throw new TypeError("Slide reference source must be a normalized Vault-relative path");
+  }
+  return `${encodeWikilinkPath(sourcePath)}${formatSlideReferenceFragment(target)}`;
+}
+
 function escapeWikilinkAlias(alias: string): string {
   return alias
     .replaceAll("\\", "\\\\")
@@ -106,7 +109,6 @@ export function formatSlideReferenceMarkup(
   if (input.alias.trim().length === 0 || /[\r\n]/.test(input.alias)) {
     throw new TypeError("Slide reference alias must be non-empty and single-line");
   }
-  const fragment = formatSlideReferenceFragment(input);
   const prefix = input.embed ? "!" : "";
-  return `${prefix}[[${encodeWikilinkPath(input.sourcePath)}${fragment}|${escapeWikilinkAlias(input.alias)}]]`;
+  return `${prefix}[[${formatSlideReferenceLinkTarget(input.sourcePath, input)}|${escapeWikilinkAlias(input.alias)}]]`;
 }

@@ -68,6 +68,46 @@ describe("PPTX package preflight", () => {
     ).rejects.toMatchObject({ category: "malformed" });
   });
 
+  it("ignores PowerPoint section-extension slide identity references", async () => {
+    const zip = await JSZip.loadAsync(
+      await loadFixture("tests/fixtures/minimal.pptx"),
+    );
+    const presentation = zip.file("ppt/presentation.xml")!;
+    const xml = await presentation.async("text");
+    zip.file(
+      "ppt/presentation.xml",
+      xml.replace(
+        "</p:presentation>",
+        '<p:extLst><p:ext uri="{521415D9-36F7-43E2-AB2F-B90AF26B5E84}"><p14:sectionLst xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main"><p14:section name="Section 1" id="{00000000-0000-0000-0000-000000000001}"><p14:sldIdLst><p14:sldId id="256"/></p14:sldIdLst></p14:section></p14:sectionLst></p:ext></p:extLst></p:presentation>',
+      ),
+    );
+
+    await expect(inspectPptxPackage(
+      await zip.generateAsync({ type: "arraybuffer" }),
+      new AbortController().signal,
+    )).resolves.toMatchObject({ slideIdentities: [256] });
+  });
+
+  it.each([255, 2_147_483_648])(
+    "rejects out-of-range native slide identity %s",
+    async (invalidId) => {
+      const zip = await JSZip.loadAsync(
+        await loadFixture("tests/fixtures/minimal.pptx"),
+      );
+      const presentation = zip.file("ppt/presentation.xml")!;
+      const xml = await presentation.async("text");
+      zip.file(
+        "ppt/presentation.xml",
+        xml.replace('id="256"', `id="${invalidId}"`),
+      );
+
+      await expect(inspectPptxPackage(
+        await zip.generateAsync({ type: "arraybuffer" }),
+        new AbortController().signal,
+      )).rejects.toMatchObject({ category: "malformed" });
+    },
+  );
+
   it("reports known unsupported media without exposing document content", async () => {
     await expect(
       inspectPptxPackage(

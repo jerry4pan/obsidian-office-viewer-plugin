@@ -21,11 +21,11 @@
       "sha256": "e71651a6b3d9884717792f8a47045be68a4e7ac0c4890a63a314d85bd9af8a3d"
     },
     "edited": {
-      "path": "/Users/oulong/Desktop/pptx-id-validation/powerpoint-edited.pptx",
+      "path": "powerpoint-edited.pptx (maintainer-supplied; not committed)",
       "sha256": "bab15275b35183dc6f2a8f7013ff0742e248b2cb67e44fc794dbc3176db87db3"
     },
     "deleted": {
-      "path": "/Users/oulong/Desktop/pptx-id-validation/powerpoint-deleted.pptx",
+      "path": "powerpoint-deleted.pptx (maintainer-supplied; not committed)",
       "sha256": "5e9f68c1be2380c4a1ddb9709a9408b3d7039827324ad92f5b3e2d2034948576"
     }
   },
@@ -37,8 +37,10 @@
     "targetWasBaselineSlide6": true,
     "editedHasInsertedSlide": true,
     "editedTargetMovedToSlide3": true,
+    "editedTargetTitleUpdated": true,
     "editedPreservesOtherOriginalIds": true,
     "deletedRemovesTarget": true,
-    "deletedPreservesOtherOriginalIds": true
+    "deletedPreservesOtherOriginalIds": true,
+    "deletedMatchesEditedMinusTarget": true
   }
 }

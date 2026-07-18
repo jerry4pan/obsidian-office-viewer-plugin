@@ -1,8 +1,9 @@
 # PowerPoint slide identity validation protocol
 
-This protocol supplies the one blocking item that cannot be produced on the
-current development machine because Microsoft PowerPoint is not installed.
-It tests normal PowerPoint editing, not OOXML manipulation by repository tools.
+This reusable protocol tests normal Microsoft PowerPoint editing, not OOXML
+manipulation by repository tools. It was completed on 2026-07-18 with
+PowerPoint for Mac 16.111 (26071325); the portable result is recorded in
+`powerpoint-slide-id-validation-16.111.json`.
 
 ## Environment to record
 
@@ -43,8 +44,9 @@ node scripts/verify-powerpoint-slide-id-evidence.mjs \
 ```
 
 A passing report proves that native slide ID `261` survived insertion,
-reordering, content editing, normal save, close, and reopen; moved to current
-ordinal 3; and disappeared after deletion without disturbing the remaining
-original identities. Attach the two PPTX files or the command's complete JSON
-output to GitHub Issue #26. The go/no-go result remains pending until this
-evidence exists.
+reordering, the required title edit, normal save, close, and reopen; moved to
+current ordinal 3; and disappeared after deletion. It also requires the
+deleted identity sequence to equal the edited sequence with only `261`
+removed. Retain the two maintainer-supplied PPTX files outside the repository
+and commit only portable metadata, hashes, identity sequences, and check
+results. GitHub Issue #26 records the completed gate.

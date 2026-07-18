@@ -14,7 +14,7 @@ import type {
   PptxRendererSession,
 } from "./renderer/pptx-renderer-adapter";
 import {
-  formatSlideReferenceFragment,
+  formatSlideReferenceLinkTarget,
   parseSlideReferenceLink,
   type SlideReferenceTarget,
 } from "./slide-reference";
@@ -59,6 +59,7 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
     if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
       candidate.hidden = false;
       candidate.classList.remove("pptx-slide-embed__native");
+      delete candidate.dataset.pptxSlideEmbedProcessed;
     }
     this.lifecycle?.unregister(this);
     this.containerEl.remove();
@@ -102,6 +103,7 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
   private cancelScheduled: (() => void) | null = null;
   private rendererSession: PptxRendererSession | null = null;
   private generation = 0;
+  private renderRequestedAt: number | null = null;
 
   constructor(
     container: HTMLElement,
@@ -134,9 +136,9 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
     const sourceLink = footer.createEl("a", {
       cls: "internal-link",
       text: options.messages.text("reference.openPresentation"),
-      href: `${sourcePath}${formatSlideReferenceFragment(target)}`,
+      href: formatSlideReferenceLinkTarget(sourcePath, target),
     });
-    sourceLink.dataset.href = `${sourcePath}${formatSlideReferenceFragment(target)}`;
+    sourceLink.dataset.href = formatSlideReferenceLinkTarget(sourcePath, target);
     if (options.openExternally !== undefined) {
       const externalButton = footer.createEl("button", {
         type: "button",
@@ -198,18 +200,20 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
     if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
       candidate.hidden = false;
       candidate.classList.remove("pptx-slide-embed__native");
+      delete candidate.dataset.pptxSlideEmbedProcessed;
     }
   }
 
   private startRendering(): void {
     if (this.cancelScheduled !== null || this.rendererSession !== null) return;
     const generation = ++this.generation;
+    this.renderRequestedAt = performance.now();
     this.containerEl.dataset.state = "queued";
     this.status.textContent = this.options.messages.text("embed.loading");
     this.cancelScheduled = this.options.scheduler.schedule(async (signal) => {
       if (generation !== this.generation) return;
       this.containerEl.dataset.state = "loading";
-      const startedAt = performance.now();
+      const startedAt = this.renderRequestedAt ?? performance.now();
       try {
         const buffer = await this.options.app.vault.readBinary(this.file);
         signal.throwIfAborted();
@@ -272,16 +276,27 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
           errorMessage(this.options.messages, error),
         );
       } finally {
-        if (generation === this.generation) this.cancelScheduled = null;
+        if (generation === this.generation) {
+          this.cancelScheduled = null;
+          this.renderRequestedAt = null;
+        }
       }
     });
   }
 
   private showCompatibilityWarnings(session: PptxRendererSession): void {
     this.compatibility.replaceChildren();
-    if (!this.options.showDiagnostics()) return;
-    const categories = session.detectCompatibilityWarnings?.() ??
-      session.compatibilityWarnings ?? [];
+    try {
+      if (!this.options.showDiagnostics()) return;
+    } catch {
+      return;
+    }
+    let categories = session.compatibilityWarnings ?? [];
+    try {
+      categories = session.detectCompatibilityWarnings?.() ?? categories;
+    } catch {
+      // Optional compatibility inspection must not disrupt a readable slide.
+    }
     for (const category of categories) {
       this.compatibility.createDiv({
         text: this.options.messages.text(
@@ -297,6 +312,7 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
     ++this.generation;
     this.cancelScheduled?.();
     this.cancelScheduled = null;
+    this.renderRequestedAt = null;
     this.disposeRendererSession();
     this.canvas.replaceChildren();
     delete this.containerEl.dataset.currentSlide;
@@ -365,10 +381,12 @@ export function processPptxSlideEmbeds(
       const sourceLink = footer.createEl("a", {
         cls: "internal-link",
         text: options.messages.text("reference.openPresentation"),
-        href: `${parsed.sourcePath}${formatSlideReferenceFragment(parsed.target)}`,
+        href: formatSlideReferenceLinkTarget(parsed.sourcePath, parsed.target),
       });
-      sourceLink.dataset.href =
-        `${parsed.sourcePath}${formatSlideReferenceFragment(parsed.target)}`;
+      sourceLink.dataset.href = formatSlideReferenceLinkTarget(
+        parsed.sourcePath,
+        parsed.target,
+      );
       const child = new StaticPptxSlideEmbedChild(
         host,
         nativeEmbed,

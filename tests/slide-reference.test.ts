@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatSlideReferenceFragment,
+  formatSlideReferenceLinkTarget,
   formatSlideReferenceMarkup,
   parseSlideReferenceFragment,
   parseSlideReferenceLink,
@@ -25,9 +26,10 @@ describe("slide reference fragment", () => {
     "slide-id=256&slide=12",
     "#slide=12&slide-id=256",
     "#slide-id=0&slide=1",
+    "#slide-id=255&slide=1",
     "#slide-id=256&slide=0",
     "#slide-id=0256&slide=1",
-    "#slide-id=4294967296&slide=1",
+    "#slide-id=2147483648&slide=1",
     "#slide-id=256&slide=01",
     "#slide-id=256&slide=1&extra=true",
     "#slide-id=private&slide=1",
@@ -40,11 +42,21 @@ describe("slide reference fragment", () => {
       formatSlideReferenceFragment({ slideId: 0, createdSlideNumber: 1 })
     ).toThrow();
     expect(() =>
+      formatSlideReferenceFragment({ slideId: 255, createdSlideNumber: 1 })
+    ).toThrow();
+    expect(() =>
       formatSlideReferenceFragment({
         slideId: 256,
         createdSlideNumber: Number.NaN,
       })
     ).toThrow();
+  });
+
+  it("accepts the inclusive OOXML slide identity boundaries", () => {
+    expect(parseSlideReferenceFragment("#slide-id=256&slide=1")).not.toBeNull();
+    expect(parseSlideReferenceFragment(
+      "#slide-id=2147483647&slide=1",
+    )).not.toBeNull();
   });
 
   it("formats canonical reference and embed markup with a full Vault path", () => {
@@ -72,6 +84,15 @@ describe("slide reference fragment", () => {
       embed: false,
     })).toBe(
       "[[clients/a%23b/%5Bdeck%5D%7C100%25.pptx#slide-id=256&slide=1|deck \\| final\\]]]",
+    );
+  });
+
+  it("formats an encoded link target for internal source links", () => {
+    expect(formatSlideReferenceLinkTarget(
+      "clients/a#b/[deck]|100%.pptx",
+      { slideId: 256, createdSlideNumber: 1 },
+    )).toBe(
+      "clients/a%23b/%5Bdeck%5D%7C100%25.pptx#slide-id=256&slide=1",
     );
   });
 

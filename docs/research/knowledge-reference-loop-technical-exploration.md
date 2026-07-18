@@ -21,7 +21,7 @@ The first exploration scenario is:
 
 1. A reader manually finds a slide in an open PPTX.
 2. The reader copies a source-preserving slide reference such as
-   `[[folder/deck.pptx#slide-id=256|deck — Slide 12]]` into a Markdown note.
+   `[[folder/deck.pptx#slide-id=256&slide=12|deck — Slide 12]]` into a Markdown note.
 3. Following the reference opens the source PPTX at the exact slide.
 
 The first slice excludes full-Vault text search, slide embedding, companion
@@ -75,8 +75,8 @@ the stable slide identity and an alias that can show the source name and
 creation-time ordinal, for example:
 
 ```md
-[[deck.pptx#slide-id=256|deck — Slide 12]]
-![[deck.pptx#slide-id=256|deck — Slide 12]]
+[[deck.pptx#slide-id=256&slide=12|deck — Slide 12]]
+![[deck.pptx#slide-id=256&slide=12|deck — Slide 12]]
 ```
 
 The exact fragment encoding remains subject to an Obsidian API feasibility
@@ -280,7 +280,7 @@ independent delegation candidates.
 | Command | Result |
 | --- | --- |
 | `git diff --check` | PASS |
-| `npm test` | PASS — 40 files, 423 tests, including the PowerPoint evidence verifier CLI |
+| `npm test` | PASS — 40 files, 435 tests, including strict negative cases for the PowerPoint evidence verifier CLI |
 | `npm run test:e2e` | PASS — normal, degraded, multilingual, reference, failure-embed, lifecycle, and ten-embed installed cases |
 | Focused installed reference/embed spec | PASS — 9 cases on Obsidian 1.12.7 |
 | `npm run test:compatibility` | PASS — unchanged reviewed visual baselines and readability gate; no baseline update |
@@ -324,7 +324,10 @@ passed all checks with the same identity sequences observed in WPS:
 - the inserted slide received identity `268` without regenerating any original
   identity;
 - deleting the target removed `261` while preserving every other original
-  identity.
+  identity and produced exactly the edited identity sequence minus `261`;
+- the verifier resolved identity `261` through the presentation relationships
+  and confirmed the required `PowerPoint round-trip` title edit in its slide
+  XML.
 
 The complete verifier result, editor provenance, timestamps, and SHA-256 hashes
 are retained in `docs/research/powerpoint-slide-id-validation-16.111.json`.

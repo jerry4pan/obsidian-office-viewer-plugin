@@ -36,6 +36,19 @@ These identifiers do not change between message locales:
 | Remember reading position | 记住阅读位置 | 記住閱讀位置 | Office Viewer, approved in #20 |
 | Retry | 重试 | 重試 | Office Viewer, approved in #20 |
 
+## Pending exploration terminology review
+
+The reference/embed exploration introduced the following catalog terms after
+the review recorded in Issue #20. Their catalog values and automated locale
+coverage are complete, but this revision still requires explicit human
+approval before the pull request is ready to merge.
+
+| English source term | Simplified Chinese | Traditional Chinese |
+| --- | --- | --- |
+| Slide reference | 幻灯片引用 | 投影片引用 |
+| Slide embed | 幻灯片嵌入 | 投影片嵌入 |
+| Open presentation | 打开演示文稿 | 開啟簡報 |
+
 ## Review rules
 
 - Prefer natural sentence structure over word-for-word translation.

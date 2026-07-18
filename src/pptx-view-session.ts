@@ -139,6 +139,7 @@ export class PptxViewSession<FileRef> {
   private diagnosticError: PptxOpenErrorCategory | null = null;
   private diagnosticThumbnails = false;
   private diagnosticPrefetch = false;
+  private referenceNavigator: ((target: SlideReferenceTarget) => void) | null = null;
 
   constructor(
     private readonly root: HTMLElement,
@@ -494,6 +495,34 @@ export class PptxViewSession<FileRef> {
         },
       }, { initialSlideIndex });
       this.viewerController = viewController;
+      this.referenceNavigator = (target) => {
+        if (!isCurrentRun()) return;
+        const referenceIndex = rendererSession.slideIdentities?.indexOf(
+          target.slideId,
+        ) ?? -1;
+        if (referenceIndex < 0) {
+          this.teardownOpenResources();
+          this.showMissingReference(file, generation);
+          return;
+        }
+        referenceNoticeSlideIndex = referenceIndex;
+        referenceNoticeText = target.createdSlideNumber === referenceIndex + 1
+          ? ""
+          : this.messages.text("reference.moved", {
+              created: target.createdSlideNumber,
+              current: referenceIndex + 1,
+            });
+        this.root.dataset.referenceSlideId = String(target.slideId);
+        this.root.dataset.referenceCreatedSlide = String(
+          target.createdSlideNumber,
+        );
+        this.root.dataset.referenceCurrentSlide = String(referenceIndex + 1);
+        referenceNotice.textContent =
+          viewController.state.currentSlideIndex === referenceIndex
+            ? referenceNoticeText
+            : "";
+        navigate(referenceIndex);
+      };
       await viewController.start();
       controller.signal.throwIfAborted();
       if (!isCurrentRun()) return;
@@ -791,6 +820,12 @@ export class PptxViewSession<FileRef> {
     };
   }
 
+  navigateToReference(target: SlideReferenceTarget): boolean {
+    if (this.referenceNavigator === null) return false;
+    this.referenceNavigator(target);
+    return true;
+  }
+
   dispose(): void {
     this.generation += 1;
     this.openPending = false;
@@ -1021,6 +1056,7 @@ export class PptxViewSession<FileRef> {
     this.viewerController = null;
     this.backgroundQueue = null;
     this.rendererSession = null;
+    this.referenceNavigator = null;
     if (this.root.dataset.readyThumbnailCount !== undefined) {
       this.root.dataset.readyThumbnailCount = "0";
     }
