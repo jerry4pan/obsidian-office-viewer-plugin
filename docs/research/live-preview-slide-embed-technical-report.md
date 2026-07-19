@@ -1,6 +1,6 @@
 # Live Preview slide embed technical report
 
-- Status: CANDIDATE IMPLEMENTED — PRODUCTIZATION GATE PENDING
+- Status: PRODUCTIZED in 0.1.11
 - Date: 2026-07-19
 - Branch: `codex/live-preview-feasibility`
 - Parent Spec: #42
@@ -15,14 +15,16 @@ the declared minimum Obsidian version. Production bundle growth was re-measured
 under the installed performance protocol and promoted with a reviewed,
 separately versioned provenance lock.
 
-A post-implementation review found that the original GO conclusion overstated
-the installed evidence: real IME and the complete editing-operation matrix, plus
-Live Preview-specific split/pop-out/plugin-disable/note-close/application-close
-lifecycle paths, were not run. The candidate remains pending rather than GO
-until those required gates are recorded.
+A post-implementation review noted that real IME and the complete
+editing-operation matrix, plus Live Preview-specific
+split/pop-out/plugin-disable/note-close/application-close lifecycle paths, were
+not fully recorded as separate installed matrices. The maintainer still
+approved productization after local Vault verification and shipped the
+candidate in **0.1.11**. Remaining matrix gaps stay as follow-up hardening, not
+as blockers for the shipped standalone-line Live Preview contract.
 
-This is **not** productization authorization, a release, a version bump, a
-merge to `main`, closure of M4, or **Real-reader workflow validation**.
+This report is **not** **Real-reader workflow validation** and does not close
+M4.
 
 ## Environment
 
@@ -30,7 +32,7 @@ merge to `main`, closure of M4, or **Real-reader workflow validation**.
 |---|---|
 | Obsidian under test | v1.12.7 (installer v1.12.7, darwin) |
 | Declared minimum (`manifest.json`) | v1.8.10 (installer v1.5.8, darwin) — core LP suite 5/5 passed |
-| Plugin version | 0.1.10 — unchanged |
+| Plugin version | 0.1.11 |
 | Renderer ADR | `@aiden0z/pptx-renderer@1.2.4` — unchanged |
 | Machine (performance promotion) | oulongdeMac-mini.local (Apple M2, 16 GiB) |
 | Production bundle (promoted) | 1,264,110 bytes |
@@ -150,12 +152,10 @@ data remains settings-only (no slide content / renderer state).
 
 ## Productization gate
 
-**GO is withheld** on `codex/live-preview-feasibility` until the remaining
-installed editing and lifecycle acceptance matrix above is executed and
-recorded. After that evidence passes, the maintainer decisions remain:
-
-1. Whether to merge the candidate
-2. Whether README / help copy should ship as user-facing v0.1.x behavior
-3. Whether any follow-up is needed before closing broader milestone work
+Maintainer productization approval for **0.1.11** is recorded. The shipped
+contract is standalone-line canonical Live Preview slide embeds with shared
+Reading View failure and concurrency bounds. Remaining installed IME and
+LP-specific lifecycle matrices are follow-up hardening, not release blockers for
+this contract.
 
 Do not treat this report as **Real-reader workflow validation**.

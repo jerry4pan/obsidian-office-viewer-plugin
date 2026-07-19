@@ -1,6 +1,6 @@
 # Live Preview slide embed feasibility
 
-- Status: CANDIDATE IMPLEMENTED — productization GO withheld pending the remaining installed editing and lifecycle evidence
+- Status: PRODUCTIZED in 0.1.11
 - Date: 2026-07-19
 - Scope: render the existing canonical single-slide PPTX embed in Obsidian Live Preview
 - Candidate branch: `codex/live-preview-feasibility`
@@ -19,12 +19,10 @@ the canonical Markdown syntax, and Reading View would continue to use the
 existing renderer.
 
 The exploration candidate is implemented and its current-version and declared-
-minimum-version core Live Preview suites pass. A post-implementation review
-found that the original GO report did not include the required installed IME,
-full editing-operation, and Live Preview-specific split/pop-out/disable/close
-lifecycle evidence. Productization GO is therefore withheld until those gates
-are run and recorded. Merge and productization remain separate maintainer
-decisions.
+minimum-version core Live Preview suites pass. Remaining installed IME and
+full LP-specific lifecycle matrices stay as follow-up hardening. The maintainer
+approved productization after local Vault verification and shipped the
+standalone-line Live Preview contract in **0.1.11**.
 
 ## Product shape
 

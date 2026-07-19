@@ -5,7 +5,7 @@
 A desktop Obsidian plugin for reading local `.pptx` files right inside
 Obsidian — no PDF conversion, no uploads, no network requests.
 
-The latest published release is **0.1.10** on GitHub and in Obsidian Community
+The latest published release is **0.1.11** on GitHub and in Obsidian Community
 Plugins. The `main` branch may contain unreleased changes.
 
 ## Install
@@ -209,7 +209,7 @@ supported-extension, license, and required-documentation consistency without
 requiring a version bump on `main`.
 `npm run release:check:publish` adds tag, commit, and GitHub-release guards
 for tagged releases only. Publish releases with the plain manifest version as
-the tag and release name, for example `0.1.10`, not `v0.1.10`; Obsidian matches
+the tag and release name, for example `0.1.11`, not `v0.1.11`; Obsidian matches
 the GitHub release directly against `manifest.json`.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
@@ -238,9 +238,9 @@ byte-identical before uploading the CI artifact.
 - Post-release validation and v0.2 planning are tracked in M4; see the PRD and
   GitHub Issues for current status.
 - Editing, saving, animations, legacy `.ppt` parsing, OCR, Vault-wide search,
-  main-slide search highlighting, multi-slide or full-deck embeds, inline Live
-  Preview rendering, telemetry, accounts, licensing, and cloud services are out
-  of scope.
+  main-slide search highlighting, multi-slide or full-deck embeds, prose-mixed
+  or multi-embed Live Preview lines, telemetry, accounts, licensing, and cloud
+  services are out of scope.
 
 ## Test fixture
 
