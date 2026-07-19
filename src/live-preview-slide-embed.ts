@@ -46,6 +46,7 @@ class LivePreviewSlideEmbedWidget<
   TFile extends SlideEmbedSourceFile = SlideEmbedSourceFile,
 > extends WidgetType {
   private controller: SlideEmbedController<TFile> | null = null;
+  private observer: IntersectionObserver | null = null;
 
   constructor(
     private readonly from: number,
@@ -90,7 +91,15 @@ class LivePreviewSlideEmbedWidget<
       target: this.target,
     });
     if (file !== null) {
-      this.controller.setVisible(true);
+      if (typeof IntersectionObserver === "undefined") {
+        this.controller.setVisible(true);
+      } else {
+        this.observer = new IntersectionObserver((entries) => {
+          const visible = entries.some((entry) => entry.isIntersecting);
+          this.controller?.setVisible(visible);
+        }, { rootMargin: "600px 0px" });
+        this.observer.observe(host);
+      }
     }
     const revealSyntax = (event: Event): void => {
       const target = event.target;
@@ -113,6 +122,8 @@ class LivePreviewSlideEmbedWidget<
   }
 
   override destroy(): void {
+    this.observer?.disconnect();
+    this.observer = null;
     this.controller?.dispose();
     this.controller = null;
   }

@@ -1,5 +1,22 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import {
+  assertNoNetworkRequests,
+  installNetworkGuard,
+} from "../compatibility/browser-environment";
+
+async function vaultSha256(path: string): Promise<string> {
+  return browser.executeObsidian(
+    async ({ app, obsidian, require }, vaultPath) => {
+      const file = app.vault.getAbstractFileByPath(vaultPath);
+      if (!(file instanceof obsidian.TFile)) throw new Error(`Missing ${vaultPath}`);
+      const buffer = await app.vault.readBinary(file);
+      const { createHash } = require("node:crypto") as typeof import("node:crypto");
+      return createHash("sha256").update(new Uint8Array(buffer)).digest("hex");
+    },
+    path,
+  );
+}
 
 async function ensureLivePreview(): Promise<void> {
   await browser.executeObsidian(async ({ app, obsidian }) => {
@@ -154,6 +171,113 @@ describe("Live Preview slide embeds", () => {
       return view?.editor.getValue() ?? "";
     });
     expect(finalMarkdown).toBe(before);
+  });
+
+  it("bounds ten Live Preview embeds with a shared concurrency ceiling", async () => {
+    await installNetworkGuard();
+    const sources = [
+      "performance/representative-12-slides.pptx",
+      "minimal.pptx",
+      "compatibility/text-theme-wide.pptx",
+    ];
+    const before = await Promise.all(sources.map(vaultSha256));
+    await browser.execute(() => {
+      const probe = window as unknown as {
+        __pptxLpEmbedMaxLoading?: number;
+        __pptxLpEmbedObserver?: MutationObserver;
+        __pptxLpEmbedReady?: Record<string, number>;
+        __pptxLpEmbedScrollStep?: number;
+      };
+      probe.__pptxLpEmbedMaxLoading = 0;
+      probe.__pptxLpEmbedReady = {};
+      probe.__pptxLpEmbedScrollStep = 0;
+      probe.__pptxLpEmbedObserver?.disconnect();
+      probe.__pptxLpEmbedObserver = new MutationObserver(() => {
+        const activeLeaf = document.querySelector(".workspace-leaf.mod-active");
+        probe.__pptxLpEmbedMaxLoading = Math.max(
+          probe.__pptxLpEmbedMaxLoading ?? 0,
+          activeLeaf?.querySelectorAll(
+            '.cm-editor .pptx-slide-embed[data-state="loading"]',
+          ).length ?? 0,
+        );
+        for (const element of activeLeaf?.querySelectorAll<HTMLElement>(
+          '.cm-editor .pptx-slide-embed[data-state="ready"]',
+        ) ?? []) {
+          const key = [
+            element.dataset.sourcePath,
+            element.dataset.slideId,
+            element.dataset.createdSlide,
+          ].join("|");
+          probe.__pptxLpEmbedReady![key] = Number(
+            element.dataset.firstReadableMs,
+          );
+        }
+      });
+      probe.__pptxLpEmbedObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["data-state"],
+        childList: true,
+        subtree: true,
+      });
+    });
+
+    await obsidianPage.openFile("ten-embed-note.md");
+    await ensureLivePreview();
+
+    await browser.waitUntil(async () => browser.execute(() => {
+      const probe = window as unknown as {
+        __pptxLpEmbedReady?: Record<string, number>;
+        __pptxLpEmbedScrollStep?: number;
+      };
+      const scroller = document.querySelector<HTMLElement>(
+        ".workspace-leaf.mod-active .cm-scroller",
+      );
+      if (scroller !== null) {
+        const step = probe.__pptxLpEmbedScrollStep ?? 0;
+        const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        scroller.scrollTop = maximum * ((step % 12) / 11);
+        probe.__pptxLpEmbedScrollStep = step + 1;
+      }
+      return Object.keys(probe.__pptxLpEmbedReady ?? {}).length === 10;
+    }), {
+      timeout: 30_000,
+      interval: 500,
+      timeoutMsg: "All ten Live Preview slide embeds did not become readable",
+    });
+
+    // Mode switch must release Live Preview widgets while Reading View remains bounded.
+    await browser.executeObsidian(({ app }) => {
+      (app as unknown as {
+        commands: { executeCommandById(id: string): boolean };
+      }).commands.executeCommandById("markdown:toggle-preview");
+    });
+    await browser.waitUntil(async () =>
+      (await browser.execute(() =>
+        document.querySelectorAll(
+          ".workspace-leaf.mod-active .cm-editor .pptx-slide-embed",
+        ).length)) === 0, {
+      timeout: 5_000,
+      timeoutMsg: "Live Preview widgets remained after switching to Reading View",
+    });
+
+    const embedEvidence = await browser.execute(() => {
+      const probe = window as unknown as {
+        __pptxLpEmbedMaxLoading?: number;
+        __pptxLpEmbedObserver?: MutationObserver;
+        __pptxLpEmbedReady?: Record<string, number>;
+      };
+      probe.__pptxLpEmbedObserver?.disconnect();
+      return {
+        maxLoading: probe.__pptxLpEmbedMaxLoading ?? 0,
+        timings: Object.values(probe.__pptxLpEmbedReady ?? {}),
+      };
+    });
+    expect(embedEvidence.timings).toHaveLength(10);
+    expect(embedEvidence.timings.every((timing) => timing <= 3_000)).toBe(true);
+    expect(embedEvidence.maxLoading).toBeGreaterThan(0);
+    expect(embedEvidence.maxLoading).toBeLessThanOrEqual(2);
+    expect(await Promise.all(sources.map(vaultSha256))).toEqual(before);
+    await assertNoNetworkRequests();
   });
 
   it("surfaces trusted Live Preview failure and recovery states", async () => {

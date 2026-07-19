@@ -6,7 +6,10 @@ import { createLivePreviewSlideEmbedExtension } from "../src/live-preview-slide-
 import type { PptxRendererSession } from "../src/renderer/pptx-renderer-adapter";
 import { SlideEmbedScheduler } from "../src/slide-embed-scheduler";
 
+const originalIntersectionObserver = globalThis.IntersectionObserver;
+
 afterEach(() => {
+  globalThis.IntersectionObserver = originalIntersectionObserver;
   vi.restoreAllMocks();
   document.body.replaceChildren();
 });
@@ -37,6 +40,9 @@ function createHarness(doc: string, options?: {
   readonly cursor?: number;
   readonly openSource?: (linkTarget: string) => void;
 }) {
+  // Match Reading View focused tests: without IntersectionObserver the widget
+  // mounts work immediately for deterministic unit coverage.
+  globalThis.IntersectionObserver = undefined as never;
   const livePreviewField = StateField.define<boolean>({
     create: () => options?.livePreview ?? true,
     update: (value) => value,
@@ -189,6 +195,7 @@ describe("Live Preview slide embed extension", () => {
     const open = vi.fn(async () => openGate);
     const parent = document.createElement("div");
     document.body.append(parent);
+    globalThis.IntersectionObserver = undefined as never;
     const view = new EditorView({
       parent,
       state: EditorState.create({

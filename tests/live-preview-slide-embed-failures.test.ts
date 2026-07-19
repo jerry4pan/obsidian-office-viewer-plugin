@@ -7,7 +7,10 @@ import { PptxOpenError, type PptxOpenErrorCategory } from "../src/pptx-open-erro
 import type { PptxRendererSession } from "../src/renderer/pptx-renderer-adapter";
 import { SlideEmbedScheduler } from "../src/slide-embed-scheduler";
 
+const originalIntersectionObserver = globalThis.IntersectionObserver;
+
 afterEach(() => {
+  globalThis.IntersectionObserver = originalIntersectionObserver;
   vi.restoreAllMocks();
   document.body.replaceChildren();
 });
@@ -45,6 +48,7 @@ function createFailureHarness(options: {
   const open = vi.fn(options.open ?? (async () => makeSession()));
   const parent = document.createElement("div");
   document.body.append(parent);
+  globalThis.IntersectionObserver = undefined as never;
   const doc = options.doc ?? "\n![[deck.pptx#slide-id=261&slide=1|deck]]\n";
   const view = new EditorView({
     parent,
