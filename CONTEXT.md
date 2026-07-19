@@ -26,6 +26,13 @@ post-release validation remains open, but it does not establish real-reader
 workflow value or commit the project to ship a complete v0.2 product.
 _Avoid_: v0.2 implementation, Workflow validation, M4 completion
 
+**Real-reader workflow validation**:
+Evidence that target readers repeatedly complete the **Knowledge reference
+loop** with their own work Vaults and **Knowledge material** during real work.
+Maintainer tests, generated fixtures, download counts, and one-time successful
+opens do not establish it.
+_Avoid_: Technical validation, Installation proof, Download validation
+
 **Slide content search**:
 A local search within one open PPTX **Knowledge material** that returns matching
 reader-visible slide text as precise slide locations, allowing the reader to
@@ -79,6 +86,13 @@ An inline, read-only view of the current local source slide identified by a
 note is viewed again and preserves the source relationship instead of becoming
 an unrelated screenshot or copied asset.
 _Avoid_: Screenshot, Image attachment, Full-deck embed
+
+**Live Preview slide embed**:
+A **Slide embed** shown inline while its Markdown note remains editable in
+Obsidian Live Preview. Touching it with a cursor or selection reveals the
+canonical embed syntax; the rendered slide itself remains read-only and never
+edits the source presentation.
+_Avoid_: Editable slide, PPTX edit mode, Live Preview PPTX editor
 
 ## Example dialogue
 
