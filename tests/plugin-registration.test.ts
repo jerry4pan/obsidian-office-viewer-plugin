@@ -157,6 +157,9 @@ describe("OfficeViewerPlugin", () => {
       expect.any(Function),
       100,
     );
+    expect(plugin.registerEditorExtension).toHaveBeenCalledWith(
+      expect.anything(),
+    );
     expect(vault.on).toHaveBeenCalledWith("rename", expect.any(Function));
     expect(vault.on).toHaveBeenCalledWith("delete", expect.any(Function));
     expect(plugin.registerEvent).toHaveBeenCalledTimes(2);

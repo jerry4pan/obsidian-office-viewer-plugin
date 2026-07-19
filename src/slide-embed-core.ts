@@ -36,6 +36,11 @@ export interface SlideEmbedCorePorts<
   readonly messages: MessageTranslator;
   readonly showDiagnostics: () => boolean;
   readonly openExternally?: (file: TFile) => Promise<void>;
+  /**
+   * Optional host navigation for the source action. When omitted, the anchor
+   * keeps ordinary internal-link behavior (Reading View).
+   */
+  readonly openSource?: (linkTarget: string) => void | Promise<void>;
   readonly now?: () => number;
 }
 
@@ -162,6 +167,13 @@ export class SlideEmbedController<
       href: linkTarget,
     });
     sourceLink.dataset.href = linkTarget;
+    if (this.ports.openSource !== undefined) {
+      sourceLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.ports.openSource!(linkTarget);
+      });
+    }
     if (file !== null && this.ports.openExternally !== undefined) {
       const externalButton = footer.createEl("button", {
         type: "button",

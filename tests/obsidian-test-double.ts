@@ -1,3 +1,4 @@
+import { StateField } from "@codemirror/state";
 import { vi } from "vitest";
 
 export const getLanguage = vi.fn(() => "en");
@@ -9,6 +10,7 @@ export class Plugin {
   registerExtensions = vi.fn();
   registerEvent = vi.fn();
   registerMarkdownPostProcessor = vi.fn();
+  registerEditorExtension = vi.fn();
   addSettingTab = vi.fn();
   loadData = vi.fn(async (): Promise<unknown> => undefined);
   saveData = vi.fn(async (_data: unknown): Promise<void> => undefined);
@@ -155,3 +157,15 @@ export class MarkdownRenderChild {
     this.onunload();
   }
 }
+
+/** Controllable stand-in for Obsidian's public Live Preview state field. */
+export const editorLivePreviewField = StateField.define<boolean>({
+  create: () => true,
+  update: (value) => value,
+});
+
+/** Controllable stand-in for Obsidian's public editor info field. */
+export const editorInfoField = StateField.define<{ file: { path: string } | null }>({
+  create: () => ({ file: { path: "note.md" } }),
+  update: (value) => value,
+});

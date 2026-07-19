@@ -1,5 +1,7 @@
 import {
   apiVersion,
+  editorInfoField,
+  editorLivePreviewField,
   getLanguage,
   Plugin,
   TFile,
@@ -8,6 +10,7 @@ import {
 import manifest from "../manifest.json" with { type: "json" };
 import releaseContract from "../release-contract.json" with { type: "json" };
 import { createMessageTranslator } from "./i18n";
+import { createLivePreviewSlideEmbedExtension } from "./live-preview-slide-embed";
 import { OfficeViewerSettingTab } from "./office-viewer-setting-tab";
 import { PptxFileView, PPTX_VIEW_TYPE } from "./pptx-file-view";
 import {
@@ -119,6 +122,28 @@ export default class OfficeViewerPlugin extends Plugin {
         },
       });
     }, 100);
+    this.registerEditorExtension(
+      createLivePreviewSlideEmbedExtension({
+        livePreviewField: editorLivePreviewField,
+        getSourcePath: (state) => state.field(editorInfoField).file?.path ?? "",
+        resolveFile: (sourcePath, notePath) => {
+          const file = this.app.metadataCache.getFirstLinkpathDest(
+            sourcePath,
+            notePath,
+          );
+          return file instanceof TFile ? file : null;
+        },
+        readBinary: (file) => this.app.vault.readBinary(file),
+        renderer: embedRenderer,
+        scheduler: embedScheduler,
+        messages,
+        showDiagnostics: () => store.settings.diagnosticSummary,
+        openExternally,
+        openSource: (linkTarget, notePath) => {
+          void this.app.workspace.openLinkText(linkTarget, notePath);
+        },
+      }),
+    );
     this.registerExtensions([...releaseContract.supportedExtensions], PPTX_VIEW_TYPE);
   }
 
