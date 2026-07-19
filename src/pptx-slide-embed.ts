@@ -15,6 +15,11 @@ import {
   type SlideEmbedCorePorts,
 } from "./slide-embed-core";
 import { SlideEmbedScheduler } from "./slide-embed-scheduler";
+import {
+  observeSlideEmbedVisibility,
+  type SlideEmbedVisibilityDisposer,
+} from "./slide-embed-visibility";
+import { resolveSlideEmbedFile } from "./resolve-slide-embed-file";
 
 export interface PptxSlideEmbedOptions {
   readonly app: App;
@@ -40,6 +45,16 @@ function corePortsFromOptions(
     showDiagnostics: options.showDiagnostics,
     openExternally: options.openExternally,
   };
+}
+
+function nativeEmbedBefore(container: HTMLElement): HTMLElement | null {
+  const candidate = container.previousElementSibling;
+  const HTMLElementConstructor = container.ownerDocument.defaultView?.HTMLElement;
+  return HTMLElementConstructor !== undefined
+    && candidate instanceof HTMLElementConstructor
+    && candidate.matches(".internal-embed[src]")
+    ? candidate
+    : null;
 }
 
 /**
@@ -69,8 +84,11 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
   override onload(): void {
     this.hideNativeEmbed();
     if (this.containerEl.parentElement !== null && this.nativeEmbed !== null) {
-      this.observer = new MutationObserver(() => this.hideNativeEmbed());
-      this.observer.observe(this.containerEl.parentElement, { childList: true });
+      const Observer = this.containerEl.ownerDocument.defaultView?.MutationObserver;
+      if (Observer !== undefined) {
+        this.observer = new Observer(() => this.hideNativeEmbed());
+        this.observer.observe(this.containerEl.parentElement, { childList: true });
+      }
     }
   }
 
@@ -78,8 +96,8 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
     this.observer?.disconnect();
     this.observer = null;
     this.controller.dispose();
-    const candidate = this.containerEl.previousElementSibling;
-    if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
+    const candidate = nativeEmbedBefore(this.containerEl);
+    if (candidate !== null) {
       candidate.hidden = false;
       candidate.classList.remove("pptx-slide-embed__native");
       delete candidate.dataset.pptxSlideEmbedProcessed;
@@ -89,8 +107,8 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
   }
 
   private hideNativeEmbed(): void {
-    const candidate = this.containerEl.previousElementSibling;
-    if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
+    const candidate = nativeEmbedBefore(this.containerEl);
+    if (candidate !== null) {
       candidate.hidden = true;
       candidate.classList.add("pptx-slide-embed__native");
     }
@@ -103,7 +121,7 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
  */
 class PptxSlideEmbedChild extends MarkdownRenderChild {
   private readonly controller: SlideEmbedController<TFile>;
-  private observer: IntersectionObserver | null = null;
+  private stopObserving: SlideEmbedVisibilityDisposer | null = null;
   private nativeObserver: MutationObserver | null = null;
 
   constructor(
@@ -125,44 +143,41 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
   override onload(): void {
     this.hideNativeEmbed();
     if (this.containerEl.parentElement !== null && this.nativeEmbed !== null) {
-      this.nativeObserver = new MutationObserver(() => this.hideNativeEmbed());
-      this.nativeObserver.observe(this.containerEl.parentElement, {
-        childList: true,
-      });
+      const Observer = this.containerEl.ownerDocument.defaultView?.MutationObserver;
+      if (Observer !== undefined) {
+        this.nativeObserver = new Observer(() => this.hideNativeEmbed());
+        this.nativeObserver.observe(this.containerEl.parentElement, {
+          childList: true,
+        });
+      }
     }
-    if (typeof IntersectionObserver === "undefined") {
-      this.controller.setVisible(true);
-      return;
-    }
-    this.observer = new IntersectionObserver((entries) => {
-      const visible = entries.some((entry) => entry.isIntersecting);
+    this.stopObserving = observeSlideEmbedVisibility(this.containerEl, (visible) => {
       this.controller.setVisible(visible);
-    }, { rootMargin: "600px 0px" });
-    this.observer.observe(this.containerEl);
+    });
   }
 
   override onunload(): void {
     this.nativeObserver?.disconnect();
     this.nativeObserver = null;
     this.restoreNativeEmbed();
-    this.observer?.disconnect();
-    this.observer = null;
+    this.stopObserving?.();
+    this.stopObserving = null;
     this.controller.dispose();
     this.options.lifecycle?.unregister(this);
     this.containerEl.remove();
   }
 
   private hideNativeEmbed(): void {
-    const candidate = this.containerEl.previousElementSibling;
-    if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
+    const candidate = nativeEmbedBefore(this.containerEl);
+    if (candidate !== null) {
       candidate.hidden = true;
       candidate.classList.add("pptx-slide-embed__native");
     }
   }
 
   private restoreNativeEmbed(): void {
-    const candidate = this.containerEl.previousElementSibling;
-    if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
+    const candidate = nativeEmbedBefore(this.containerEl);
+    if (candidate !== null) {
       candidate.hidden = false;
       candidate.classList.remove("pptx-slide-embed__native");
       delete candidate.dataset.pptxSlideEmbedProcessed;
@@ -189,18 +204,21 @@ export function processPptxSlideEmbeds(
     }
     element.dataset.pptxSlideEmbedProcessed = "true";
     const nativeEmbed = element.parentNode === null ? null : element;
-    const host = nativeEmbed === null ? element : document.createElement("div");
+    const host = nativeEmbed === null
+      ? element
+      : element.ownerDocument.createElement("div");
     if (host !== element) {
       host.dataset.pptxSlideEmbedProcessed = "true";
       element.after(host);
       element.hidden = true;
       element.classList.add("pptx-slide-embed__native");
     }
-    const file = options.app.metadataCache.getFirstLinkpathDest(
+    const file = resolveSlideEmbedFile(
+      options.app,
       parsed.sourcePath,
       context.sourcePath,
     );
-    if (!(file instanceof TFile)) {
+    if (file === null) {
       const child = new StaticPptxSlideEmbedChild(
         host,
         nativeEmbed,

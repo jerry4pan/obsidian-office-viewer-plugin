@@ -1,6 +1,6 @@
 # Live Preview slide embed technical report
 
-- Status: GO FOR TECHNICAL CANDIDATE
+- Status: CANDIDATE IMPLEMENTED — PRODUCTIZATION GATE PENDING
 - Date: 2026-07-19
 - Branch: `codex/live-preview-feasibility`
 - Parent Spec: #42
@@ -8,12 +8,18 @@
 
 ## Verdict
 
-The bounded technical exploration produced a mergeable-quality candidate that
-passes focused CodeMirror coverage and installed Obsidian evidence for Live
-Preview rendering, syntax revelation, trusted failure states, and
-viewport-bounded concurrency shared with Reading View. Production bundle growth
-was re-measured under the installed performance protocol and promoted with a
-reviewed provenance lock.
+The bounded technical exploration produced a candidate that passes focused
+CodeMirror coverage and installed Obsidian evidence for Live Preview rendering,
+syntax revelation, trusted failure states, viewport-bounded concurrency, and
+the declared minimum Obsidian version. Production bundle growth was re-measured
+under the installed performance protocol and promoted with a reviewed,
+separately versioned provenance lock.
+
+A post-implementation review found that the original GO conclusion overstated
+the installed evidence: real IME and the complete editing-operation matrix, plus
+Live Preview-specific split/pop-out/plugin-disable/note-close/application-close
+lifecycle paths, were not run. The candidate remains pending rather than GO
+until those required gates are recorded.
 
 This is **not** productization authorization, a release, a version bump, a
 merge to `main`, closure of M4, or **Real-reader workflow validation**.
@@ -23,7 +29,7 @@ merge to `main`, closure of M4, or **Real-reader workflow validation**.
 | Item | Value |
 |---|---|
 | Obsidian under test | v1.12.7 (installer v1.12.7, darwin) |
-| Declared minimum (`manifest.json`) | 1.8.10 — unchanged |
+| Declared minimum (`manifest.json`) | v1.8.10 (installer v1.5.8, darwin) — core LP suite 5/5 passed |
 | Plugin version | 0.1.10 — unchanged |
 | Renderer ADR | `@aiden0z/pptx-renderer@1.2.4` — unchanged |
 | Machine (performance promotion) | oulongdeMac-mini.local (Apple M2, 16 GiB) |
@@ -36,10 +42,11 @@ merge to `main`, closure of M4, or **Real-reader workflow validation**.
 2. **Reading View adapter** (`src/pptx-slide-embed.ts`): MarkdownRenderChild +
    native embed hide/restore + IntersectionObserver visibility.
 3. **Live Preview extension** (`src/live-preview-slide-embed.ts`): public
-   `registerEditorExtension`, `editorLivePreviewField`, `StateField` +
-   `Prec.highest` block replace widgets, IntersectionObserver visibility,
-   surface monitor that clears widgets when Reading View hides the source
-   editor. Explicit source navigation is wired on the widget DOM.
+   `registerEditorExtension`, `editorLivePreviewField`, viewport-derived
+   `StateField` + `Prec.highest` block replace widgets, semantic code-block
+   exclusion, document-local observers/DOM, and a surface monitor that clears
+   widgets when Reading View hides the source editor. Explicit source navigation
+   is wired on the widget DOM.
 4. **Standalone-line matcher** (`matchStandaloneSlideEmbedLine` in
    `src/slide-reference.ts`): sole parser seam for LP line recognition; still
    delegates identity to `parseSlideReferenceLink`.
@@ -71,6 +78,9 @@ npx wdio run wdio.conf.mts --spec tests/e2e/pptx-live-preview-embed.e2e.ts
 # render/reveal/source action, syntax matrix + mode trips,
 # trusted failures, ten-embed concurrency (maxLoading ≤ 2)
 
+npm run test:e2e:live-preview:min
+# same five core LP scenarios on Obsidian 1.8.10 / installer 1.5.8
+
 npx wdio run wdio.conf.mts --spec tests/e2e/pptx-reference.e2e.ts \
   --mochaOpts.grep 'renders a source-backed single slide in Reading View'
 ```
@@ -92,9 +102,9 @@ identical `bundleBytes=1264110` and promoted byte-for-byte:
 | Accepted run IDs | `a788bc9d-…`, `8fe83b4c-…` |
 | First-readable p95 | 120.8 ms (budget ≤ 3,000 ms) |
 | Slide-switch p95 | 2.8 ms (budget ≤ 100 ms) |
-| Promoted JSON | `tests/performance/baselines/aiden-pptx-renderer-1.2.4.json` |
-| Provenance lock | `tests/performance/baselines/aiden-pptx-renderer-1.2.4.lock.json` |
-| Report | `docs/performance/aiden-pptx-renderer-1.2.4.md` |
+| Promoted JSON | `tests/performance/baselines/aiden-pptx-renderer-1.2.4-2026-07-19.json` |
+| Provenance lock | `tests/performance/baselines/aiden-pptx-renderer-1.2.4-2026-07-19.lock.json` |
+| Report | `docs/performance/aiden-pptx-renderer-1.2.4-2026-07-19.md` |
 
 ```bash
 npm run test:performance   # run 1 — retained, not yet eligible
@@ -115,10 +125,10 @@ data remains settings-only (no slide content / renderer state).
 - No minimum Obsidian version change
 - Mobile out of scope
 - Plain `![[deck.pptx]]` remains native Obsidian behavior
-- IME coverage relies on Obsidian editing surface; focused CM matrix covers
-  selection/doc invariants rather than every IME engine
-- Pop-out window coverage remains the existing Obsidian leaf/window contracts
-  used by prior M2/reference suites; no LP-specific pop-out harness was added
+- Real installed IME and the full keyboard/mouse editing matrix remain required.
+- A focused cross-window realm test now covers document-local DOM, event and
+  observer ownership, but an installed LP-specific pop-out/split/disable/close
+  lifecycle matrix remains required.
 
 ## Failed attempts retained
 
@@ -132,12 +142,17 @@ data remains settings-only (no slide content / renderer state).
 3. Source-only size trimming (~3 KB) was insufficient to stay inside the prior
    bundle budget; the correct remedy was a two-consecutive-clean-run performance
    promotion, not a silent budget raise.
+4. Post-implementation review found whole-document scanning, main-window DOM
+   constructors, code-block false positives, duplicate source resolution, and
+   overwritten performance evidence. These were corrected with viewport-bound
+   syntax-aware decoration discovery, document-local DOM/observers, one source
+   resolver, and a dated performance evidence ID that preserves the prior run.
 
-## Productization request
+## Productization gate
 
-**GO for maintainer review of productization** on
-`codex/live-preview-feasibility`. Recommended next maintainer decisions
-(outside this Spec):
+**GO is withheld** on `codex/live-preview-feasibility` until the remaining
+installed editing and lifecycle acceptance matrix above is executed and
+recorded. After that evidence passes, the maintainer decisions remain:
 
 1. Whether to merge the candidate
 2. Whether README / help copy should ship as user-facing v0.1.x behavior

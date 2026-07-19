@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorSelection, EditorState, StateField } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { markdown } from "@codemirror/lang-markdown";
 import { ENGLISH_MESSAGE_TRANSLATOR } from "../src/i18n";
 import { createLivePreviewSlideEmbedExtension } from "../src/live-preview-slide-embed";
 import type { PptxRendererSession } from "../src/renderer/pptx-renderer-adapter";
@@ -48,6 +49,7 @@ function createEditingHarness(doc: string, cursor = 0) {
       extensions: [
         livePreviewField,
         sourcePathField,
+        markdown(),
         createLivePreviewSlideEmbedExtension({
           livePreviewField,
           getSourcePath: (state) => state.field(sourcePathField),
@@ -94,6 +96,26 @@ describe("Live Preview slide embed editing semantics", () => {
       expect(view.dom.querySelectorAll(".pptx-slide-embed").length).toBe(2);
     });
     expect(open).toHaveBeenCalledTimes(2);
+    expect(view.state.doc.toString()).toBe(doc);
+    view.destroy();
+  });
+
+  it("leaves embed-shaped text inside Markdown code blocks as syntax", async () => {
+    const doc = [
+      "```md",
+      EMBED_A,
+      "```",
+      "",
+      `    ${EMBED_B}`,
+      "",
+      EMBED_B,
+    ].join("\n");
+    const { view, open } = createEditingHarness(doc, doc.indexOf("```"));
+
+    await vi.waitFor(() => {
+      expect(view.dom.querySelectorAll(".pptx-slide-embed").length).toBe(1);
+    });
+    expect(open).toHaveBeenCalledOnce();
     expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
   });

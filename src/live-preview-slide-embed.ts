@@ -7,6 +7,7 @@ import {
   type EditorState,
   type Extension,
 } from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
 import {
   Decoration,
   EditorView,
@@ -25,6 +26,10 @@ import {
   type SlideReferenceTarget,
 } from "./slide-reference";
 import { SlideEmbedScheduler } from "./slide-embed-scheduler";
+import {
+  observeSlideEmbedVisibility,
+  type SlideEmbedVisibilityDisposer,
+} from "./slide-embed-visibility";
 
 export interface LivePreviewSlideEmbedOptions<
   TFile extends SlideEmbedSourceFile = SlideEmbedSourceFile,
@@ -45,7 +50,7 @@ class LivePreviewSlideEmbedWidget<
   TFile extends SlideEmbedSourceFile = SlideEmbedSourceFile,
 > extends WidgetType {
   private controller: SlideEmbedController<TFile> | null = null;
-  private observer: IntersectionObserver | null = null;
+  private stopObserving: SlideEmbedVisibilityDisposer | null = null;
 
   constructor(
     private readonly from: number,
@@ -66,7 +71,7 @@ class LivePreviewSlideEmbedWidget<
   }
 
   override toDOM(view: EditorView): HTMLElement {
-    const host = document.createElement("div");
+    const host = view.dom.ownerDocument.createElement("div");
     const file = this.options.resolveFile(this.sourcePath, this.notePath);
     const { options, notePath, sourcePath, target, from } = this;
     this.controller = new SlideEmbedController(host, {
@@ -79,14 +84,9 @@ class LivePreviewSlideEmbedWidget<
     });
     this.controller.mount({ file, sourcePath, target });
     if (file !== null) {
-      if (typeof IntersectionObserver === "undefined") {
-        this.controller.setVisible(true);
-      } else {
-        this.observer = new IntersectionObserver((entries) => {
-          this.controller?.setVisible(entries.some((entry) => entry.isIntersecting));
-        }, { rootMargin: "600px 0px" });
-        this.observer.observe(host);
-      }
+      this.stopObserving = observeSlideEmbedVisibility(host, (visible) => {
+        this.controller?.setVisible(visible);
+      });
     }
     const sourceLink = host.querySelector<HTMLAnchorElement>("a.internal-link");
     if (sourceLink !== null && options.openSource !== undefined) {
@@ -98,7 +98,10 @@ class LivePreviewSlideEmbedWidget<
     }
     host.addEventListener("click", (event) => {
       const el = event.target;
-      if (!(el instanceof Element)) return;
+      const ElementConstructor = host.ownerDocument.defaultView?.Element;
+      if (ElementConstructor === undefined || !(el instanceof ElementConstructor)) {
+        return;
+      }
       if (el.closest("a.internal-link, [data-action='open-externally']")) return;
       event.preventDefault();
       event.stopPropagation();
@@ -108,8 +111,8 @@ class LivePreviewSlideEmbedWidget<
   }
 
   override destroy(): void {
-    this.observer?.disconnect();
-    this.observer = null;
+    this.stopObserving?.();
+    this.stopObserving = null;
     this.controller?.dispose();
     this.controller = null;
   }
@@ -123,44 +126,77 @@ function selectionTouches(state: EditorState, from: number, to: number): boolean
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }
 
+function overlapsCodeSyntax(state: EditorState, from: number, to: number): boolean {
+  let overlaps = false;
+  syntaxTree(state).iterate({
+    from,
+    to,
+    enter: ({ name }) => {
+      if (name.toLowerCase().includes("code")) {
+        overlaps = true;
+        return false;
+      }
+      return true;
+    },
+  });
+  return overlaps;
+}
+
 function isLivePreviewEditorSurface(view: EditorView, livePreview: boolean): boolean {
   if (!livePreview) return false;
   const sourceView = view.dom.closest(".markdown-source-view");
-  if (!(sourceView instanceof HTMLElement)) return true;
+  if (sourceView === null) return true;
+  const display = sourceView.ownerDocument.defaultView
+    ?.getComputedStyle(sourceView).display;
   return sourceView.classList.contains("is-live-preview")
-    && getComputedStyle(sourceView).display !== "none";
+    && display !== "none";
 }
 
 function buildDecorations<TFile extends SlideEmbedSourceFile>(
   state: EditorState,
+  visibleRanges: readonly { readonly from: number; readonly to: number }[],
   options: LivePreviewSlideEmbedOptions<TFile>,
   surfaceActive: boolean,
 ): DecorationSet {
   if (!surfaceActive || !state.field(options.livePreviewField)) return Decoration.none;
   const notePath = options.getSourcePath(state);
   const builder = new RangeSetBuilder<Decoration>();
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-    const line = state.doc.line(lineNumber);
-    const match = matchStandaloneSlideEmbedLine(line.text);
-    if (match === null) continue;
-    const from = line.from + match.fromOffset;
-    const blockFrom = line.from;
-    const blockTo = lineNumber < state.doc.lines ? line.to + 1 : line.from + match.toOffset;
-    if (selectionTouches(state, blockFrom, blockTo)) continue;
-    builder.add(
-      blockFrom,
-      blockTo,
-      Decoration.replace({
-        widget: new LivePreviewSlideEmbedWidget(
-          from,
-          match.sourcePath,
-          match.target,
-          notePath,
-          options,
-        ),
-        block: true,
-      }),
-    );
+  let lastVisitedLine = 0;
+  for (const range of visibleRanges) {
+    const firstLine = state.doc.lineAt(range.from).number;
+    const lastPosition = Math.max(range.from, range.to - 1);
+    const lastLine = state.doc.lineAt(lastPosition).number;
+    for (
+      let lineNumber = Math.max(firstLine, lastVisitedLine + 1);
+      lineNumber <= lastLine;
+      lineNumber += 1
+    ) {
+      lastVisitedLine = lineNumber;
+      const line = state.doc.line(lineNumber);
+      const match = matchStandaloneSlideEmbedLine(line.text);
+      if (match === null) continue;
+      const from = line.from + match.fromOffset;
+      const to = line.from + match.toOffset;
+      if (
+        overlapsCodeSyntax(state, from, to)
+        || selectionTouches(state, from, to)
+      ) continue;
+      const blockTo = lineNumber < state.doc.lines ? line.to + 1 : to;
+      builder.add(
+        line.from,
+        blockTo,
+        Decoration.replace({
+          widget: new LivePreviewSlideEmbedWidget(
+            from,
+            match.sourcePath,
+            match.target,
+            notePath,
+            options,
+          ),
+          block: true,
+        }),
+      );
+    }
   }
   return builder.finish();
 }
@@ -171,6 +207,9 @@ export function createLivePreviewSlideEmbedExtension<
   options: LivePreviewSlideEmbedOptions<TFile>,
 ): Extension {
   const setSurfaceActive = StateEffect.define<boolean>();
+  const setVisibleRanges = StateEffect.define<
+    readonly { readonly from: number; readonly to: number }[]
+  >();
   const surfaceActiveField = StateField.define<boolean>({
     create: () => true,
     update: (value, tr) => {
@@ -181,13 +220,33 @@ export function createLivePreviewSlideEmbedExtension<
     },
   });
 
+  const visibleRangesField = StateField.define<
+    readonly { readonly from: number; readonly to: number }[]
+  >({
+    create: () => [],
+    update: (ranges, tr) => {
+      let next = tr.docChanged
+        ? ranges.map(({ from, to }) => ({
+            from: tr.changes.mapPos(from, -1),
+            to: tr.changes.mapPos(to, 1),
+          }))
+        : ranges;
+      for (const effect of tr.effects) {
+        if (effect.is(setVisibleRanges)) next = effect.value;
+      }
+      return next;
+    },
+  });
+
   const decorationsField = StateField.define<DecorationSet>({
-    create: (state) =>
-      buildDecorations(state, options, state.field(surfaceActiveField)),
+    create: () => Decoration.none,
     update: (decorations, tr) => {
+      const rangesChanged = tr.startState.field(visibleRangesField)
+        !== tr.state.field(visibleRangesField);
       if (
         tr.docChanged
         || tr.selection
+        || rangesChanged
         || tr.startState.field(options.livePreviewField)
           !== tr.state.field(options.livePreviewField)
         || tr.startState.field(surfaceActiveField)
@@ -195,6 +254,7 @@ export function createLivePreviewSlideEmbedExtension<
       ) {
         return buildDecorations(
           tr.state,
+          tr.state.field(visibleRangesField),
           options,
           tr.state.field(surfaceActiveField),
         );
@@ -204,31 +264,98 @@ export function createLivePreviewSlideEmbedExtension<
     provide: (value) => Prec.highest(EditorView.decorations.from(value)),
   });
 
-  const surfaceMonitor = ViewPlugin.fromClass(class {
-    private readonly observer: MutationObserver;
+  const viewportMonitor = ViewPlugin.fromClass(class {
+    private destroyed = false;
+    private pending = false;
+    private readonly resizeObserver: ResizeObserver | null;
+    private readonly onScroll = (): void => this.scheduleSync();
+
     constructor(private readonly view: EditorView) {
-      this.observer = new MutationObserver(() => this.sync());
+      view.scrollDOM.addEventListener("scroll", this.onScroll, { passive: true });
+      const Observer = view.dom.ownerDocument.defaultView?.ResizeObserver;
+      this.resizeObserver = Observer === undefined
+        ? null
+        : new Observer(() => this.scheduleSync());
+      this.resizeObserver?.observe(view.scrollDOM);
+      this.scheduleSync();
+    }
+
+    update(update: { readonly docChanged: boolean }): void {
+      if (update.docChanged) this.scheduleSync();
+    }
+
+    destroy(): void {
+      this.destroyed = true;
+      this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
+      this.resizeObserver?.disconnect();
+    }
+
+    private scheduleSync(): void {
+      if (this.pending) return;
+      this.pending = true;
+      queueMicrotask(() => {
+        this.pending = false;
+        if (this.destroyed) return;
+        // Use the viewport's document range rather than visibleRanges. Obsidian's
+        // native file-embed decoration hides the source range from visibleRanges;
+        // the higher-precedence slide widget still needs to inspect that bounded
+        // range so it can replace the native widget.
+        const ranges = [{
+          from: this.view.viewport.from,
+          to: this.view.viewport.to,
+        }];
+        const previous = this.view.state.field(visibleRangesField);
+        if (
+          ranges.length === previous.length
+          && ranges.every((range, index) =>
+            range.from === previous[index]?.from && range.to === previous[index]?.to)
+        ) {
+          return;
+        }
+        this.view.dispatch({ effects: setVisibleRanges.of(ranges) });
+      });
+    }
+  });
+
+  const surfaceMonitor = ViewPlugin.fromClass(class {
+    private readonly observer: MutationObserver | null;
+    private destroyed = false;
+    private pending = false;
+    constructor(private readonly view: EditorView) {
+      const Observer = view.dom.ownerDocument.defaultView?.MutationObserver;
+      this.observer = Observer === undefined
+        ? null
+        : new Observer(() => this.scheduleSync());
       const leaf = view.dom.closest(".workspace-leaf-content");
-      if (leaf instanceof HTMLElement) {
-        this.observer.observe(leaf, {
+      if (leaf !== null) {
+        this.observer?.observe(leaf, {
           attributes: true,
           attributeFilter: ["data-mode", "class"],
         });
       }
       const source = view.dom.closest(".markdown-source-view");
-      if (source instanceof HTMLElement) {
-        this.observer.observe(source, {
+      if (source !== null) {
+        this.observer?.observe(source, {
           attributes: true,
           attributeFilter: ["class", "style"],
         });
       }
-      this.sync();
+      this.scheduleSync();
     }
     update(): void {
-      this.sync();
+      this.scheduleSync();
     }
     destroy(): void {
-      this.observer.disconnect();
+      this.destroyed = true;
+      this.observer?.disconnect();
+    }
+    private scheduleSync(): void {
+      if (this.pending) return;
+      this.pending = true;
+      queueMicrotask(() => {
+        this.pending = false;
+        if (!this.destroyed) this.sync();
+      });
     }
     private sync(): void {
       const active = isLivePreviewEditorSurface(
@@ -241,5 +368,11 @@ export function createLivePreviewSlideEmbedExtension<
     }
   });
 
-  return [surfaceActiveField, decorationsField, surfaceMonitor];
+  return [
+    surfaceActiveField,
+    visibleRangesField,
+    decorationsField,
+    viewportMonitor,
+    surfaceMonitor,
+  ];
 }

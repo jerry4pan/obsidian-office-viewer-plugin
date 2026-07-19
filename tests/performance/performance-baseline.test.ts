@@ -15,15 +15,15 @@ import { activeRendererAcceptanceConfig } from "../support/renderer-candidate";
 const renderer = activeRendererAcceptanceConfig();
 const baselinePath = path.resolve(
   "tests/performance/baselines",
-  `${renderer.candidate.evidenceId}.json`,
+  `${renderer.performanceEvidenceId}.json`,
 );
 const reportPath = path.resolve(
   "docs/performance",
-  `${renderer.candidate.evidenceId}.md`,
+  `${renderer.performanceEvidenceId}.md`,
 );
 const provenanceLockPath = path.resolve(
   "tests/performance/baselines",
-  `${renderer.candidate.evidenceId}.lock.json`,
+  `${renderer.performanceEvidenceId}.lock.json`,
 );
 const baselineSource = readFileSync(baselinePath, "utf8");
 const baselineValue: unknown = JSON.parse(baselineSource);

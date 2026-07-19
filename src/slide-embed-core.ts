@@ -57,6 +57,27 @@ const errorMessageKeys: Record<PptxOpenErrorCategory, MessageKey> = {
   unknown: "error.unknown",
 };
 
+interface EmbedElementOptions {
+  readonly className?: string;
+  readonly text?: string;
+  readonly attributes?: Readonly<Record<string, string>>;
+}
+
+function appendEmbedElement<K extends keyof HTMLElementTagNameMap>(
+  parent: HTMLElement,
+  tagName: K,
+  options: EmbedElementOptions = {},
+): HTMLElementTagNameMap[K] {
+  const element = parent.ownerDocument.createElement(tagName);
+  if (options.className !== undefined) element.className = options.className;
+  if (options.text !== undefined) element.textContent = options.text;
+  for (const [name, value] of Object.entries(options.attributes ?? {})) {
+    element.setAttribute(name, value);
+  }
+  parent.append(element);
+  return element;
+}
+
 export function mapSlideEmbedOpenError(
   messages: MessageTranslator,
   error: unknown,
@@ -110,10 +131,10 @@ export class SlideEmbedController<
         "aria-label",
         this.ports.messages.text("embed.sourceMissing"),
       );
-      this.status = this.host.createDiv({
-        cls: "pptx-slide-embed__status",
+      this.status = appendEmbedElement(this.host, "div", {
+        className: "pptx-slide-embed__status",
         text: this.ports.messages.text("embed.sourceMissing"),
-        attr: { role: "status", "aria-live": "polite" },
+        attributes: { role: "status", "aria-live": "polite" },
       });
       this.mountFooter(input.sourcePath, input.target, null);
       return;
@@ -124,15 +145,17 @@ export class SlideEmbedController<
       "aria-label",
       this.ports.messages.text("embed.loading"),
     );
-    this.status = this.host.createDiv({
-      cls: "pptx-slide-embed__status",
+    this.status = appendEmbedElement(this.host, "div", {
+      className: "pptx-slide-embed__status",
       text: this.ports.messages.text("embed.loading"),
-      attr: { role: "status", "aria-live": "polite" },
+      attributes: { role: "status", "aria-live": "polite" },
     });
-    this.canvas = this.host.createDiv({ cls: "pptx-slide-embed__canvas" });
-    this.compatibility = this.host.createDiv({
-      cls: "pptx-slide-embed__compatibility",
-      attr: { role: "note" },
+    this.canvas = appendEmbedElement(this.host, "div", {
+      className: "pptx-slide-embed__canvas",
+    });
+    this.compatibility = appendEmbedElement(this.host, "div", {
+      className: "pptx-slide-embed__compatibility",
+      attributes: { role: "note" },
     });
     this.mountFooter(input.sourcePath, input.target, input.file);
   }
@@ -154,23 +177,27 @@ export class SlideEmbedController<
     target: SlideReferenceTarget,
     file: TFile | null,
   ): void {
-    const footer = this.host.createDiv({ cls: "pptx-slide-embed__footer" });
+    const footer = appendEmbedElement(this.host, "div", {
+      className: "pptx-slide-embed__footer",
+    });
     const linkTarget = formatSlideReferenceLinkTarget(sourcePath, target);
-    const sourceLink = footer.createEl("a", {
-      cls: "internal-link",
+    const sourceLink = appendEmbedElement(footer, "a", {
+      className: "internal-link",
       text: this.ports.messages.text("reference.openPresentation"),
-      href: linkTarget,
+      attributes: { href: linkTarget },
     });
     sourceLink.dataset.href = linkTarget;
     if (file !== null && this.ports.openExternally !== undefined) {
-      const externalButton = footer.createEl("button", {
-        type: "button",
+      const externalButton = appendEmbedElement(footer, "button", {
         text: this.ports.messages.text("external.open"),
-        attr: { "data-action": "open-externally" },
+        attributes: {
+          type: "button",
+          "data-action": "open-externally",
+        },
       });
-      const externalStatus = footer.createSpan({
-        cls: "pptx-slide-embed__external-status",
-        attr: { role: "status", "aria-live": "polite" },
+      const externalStatus = appendEmbedElement(footer, "span", {
+        className: "pptx-slide-embed__external-status",
+        attributes: { role: "status", "aria-live": "polite" },
       });
       externalButton.addEventListener("click", () => {
         externalStatus.textContent = "";
@@ -184,7 +211,9 @@ export class SlideEmbedController<
   }
 
   private now(): number {
-    return this.ports.now?.() ?? performance.now();
+    return this.ports.now?.()
+      ?? this.host.ownerDocument.defaultView?.performance.now()
+      ?? performance.now();
   }
 
   private startRendering(): void {
@@ -255,7 +284,7 @@ export class SlideEmbedController<
         this.host.setAttribute("aria-label", label);
         if (currentSlide !== target.createdSlideNumber) {
           this.status!.append(
-            document.createTextNode(
+            this.host.ownerDocument.createTextNode(
               ` — ${this.ports.messages.text("reference.moved", {
                 created: target.createdSlideNumber,
                 current: currentSlide,
@@ -298,7 +327,7 @@ export class SlideEmbedController<
       // Optional compatibility inspection must not disrupt a readable slide.
     }
     for (const category of categories) {
-      this.compatibility.createDiv({
+      appendEmbedElement(this.compatibility, "div", {
         text: this.ports.messages.text(
           category === "font-substitution"
             ? "compatibility.fontSubstitution"

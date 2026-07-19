@@ -22,6 +22,7 @@ import { processPptxSlideEmbeds } from "./pptx-slide-embed";
 import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
 import { SlideEmbedScheduler } from "./slide-embed-scheduler";
 import { createExternalOpenAction } from "./external-open";
+import { resolveSlideEmbedFile } from "./resolve-slide-embed-file";
 
 function fingerprint(file: TFile): FileFingerprint {
   return {
@@ -126,13 +127,8 @@ export default class OfficeViewerPlugin extends Plugin {
       createLivePreviewSlideEmbedExtension({
         livePreviewField: editorLivePreviewField,
         getSourcePath: (state) => state.field(editorInfoField).file?.path ?? "",
-        resolveFile: (sourcePath, notePath) => {
-          const file = this.app.metadataCache.getFirstLinkpathDest(
-            sourcePath,
-            notePath,
-          );
-          return file instanceof TFile ? file : null;
-        },
+        resolveFile: (sourcePath, notePath) =>
+          resolveSlideEmbedFile(this.app, sourcePath, notePath),
         readBinary: (file) => this.app.vault.readBinary(file),
         renderer: embedRenderer,
         scheduler: embedScheduler,

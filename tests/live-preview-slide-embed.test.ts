@@ -39,6 +39,7 @@ function createHarness(doc: string, options?: {
   readonly livePreview?: boolean;
   readonly cursor?: number;
   readonly openSource?: (linkTarget: string) => void;
+  readonly ownerDocument?: Document;
 }) {
   // Match Reading View focused tests: without IntersectionObserver the widget
   // mounts work immediately for deterministic unit coverage.
@@ -55,8 +56,9 @@ function createHarness(doc: string, options?: {
   const session = makeSession();
   const open = vi.fn(async () => session);
   const openSource = options?.openSource ?? vi.fn();
-  const parent = document.createElement("div");
-  document.body.append(parent);
+  const ownerDocument = options?.ownerDocument ?? document;
+  const parent = ownerDocument.createElement("div");
+  ownerDocument.body.append(parent);
   // Default to the end of the document so a leading standalone embed is not
   // immediately suppressed by a cursor that touches its range.
   const cursor = options?.cursor ?? doc.length;
@@ -137,6 +139,29 @@ describe("Live Preview slide embed extension", () => {
     expect(view.state.selection.main.from).toBeLessThanOrEqual(from + embed.length);
     expect(view.state.doc.toString()).toContain(embed);
     view.destroy();
+  });
+
+  it("creates and handles widgets in the editor's pop-out window realm", async () => {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const popoutDocument = frame.contentDocument!;
+    const embed = "![[deck.pptx#slide-id=261&slide=1|deck — Slide 1]]";
+    const { view } = createHarness(`intro\n\n${embed}\n\noutro`, {
+      ownerDocument: popoutDocument,
+    });
+
+    await vi.waitFor(() => {
+      expect(view.dom.querySelector(".pptx-slide-embed")?.getAttribute("data-state"))
+        .toBe("ready");
+    });
+    const host = view.dom.querySelector<HTMLElement>(".pptx-slide-embed")!;
+    expect(host.ownerDocument).toBe(popoutDocument);
+    host.querySelector<HTMLElement>(".pptx-slide-embed__canvas")!.click();
+    await vi.waitFor(() => {
+      expect(view.dom.querySelector(".pptx-slide-embed")).toBeNull();
+    });
+    view.destroy();
+    frame.remove();
   });
 
   it("opens the exact PPTX target from the explicit source action", async () => {

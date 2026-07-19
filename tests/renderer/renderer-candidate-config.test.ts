@@ -58,7 +58,7 @@ describe("renderer candidate acceptance configuration", () => {
         "tests/compatibility/baselines/aiden-pptx-renderer-1.2.4",
       ),
       performanceArtifactDir: path.resolve(
-        "artifacts/performance/aiden-pptx-renderer-1.2.4",
+        "artifacts/performance/aiden-pptx-renderer-1.2.4-2026-07-19",
       ),
     });
     expect(acceptancePathsForCandidate("pptx-preview")).toEqual({
