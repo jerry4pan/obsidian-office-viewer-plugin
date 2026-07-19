@@ -77,12 +77,21 @@ if (production) {
   await context.rebuild();
   await context.dispose();
   // JSZip's setImmediate polyfill (via lie → immediate) creates <script>
-  // elements as a fallback for obsolete IE. Obsidian's review scanner flags
-  // these dead code paths. Replace them with div elements — the polyfill
-  // already prefers MutationObserver / MessageChannel, so the script path is
-  // unreachable in modern Electron.
+  // elements and `new Function(""+…)` as fallbacks for obsolete IE. Obsidian's
+  // review scanner flags these dead code paths. Neutralize them — the
+  // polyfill already prefers MutationObserver / MessageChannel, so these
+  // branches are unreachable in modern Electron.
   let content = fs.readFileSync(outfile, "utf-8");
   content = content.replace(/createElement\("script"\)/g, 'createElement("div")');
+  content = content.replace(/new Function\(""\+\w+\)/g, "function(){}");
+  if (
+    content.includes('createElement("script")') ||
+    /new Function\(""\+\w+\)/.test(content)
+  ) {
+    throw new Error(
+      "production bundle still contains review-flagged JSZip polyfill fallbacks",
+    );
+  }
   fs.writeFileSync(outfile, content);
 } else {
   await context.watch();

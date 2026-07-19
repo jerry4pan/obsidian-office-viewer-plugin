@@ -5,7 +5,7 @@
 A desktop Obsidian plugin for reading local `.pptx` files right inside
 Obsidian — no PDF conversion, no uploads, no network requests.
 
-The latest published release is **0.1.11** on GitHub and in Obsidian Community
+The latest published release is **0.1.12** on GitHub and in Obsidian Community
 Plugins. The `main` branch may contain unreleased changes.
 
 ## Install
@@ -18,10 +18,9 @@ Plugins. The `main` branch may contain unreleased changes.
 
 **GitHub Release**
 
-Download the release ZIP from
-[GitHub Releases](https://github.com/jerry4pan/obsidian-office-viewer-plugin/releases/latest),
-extract `main.js`, `manifest.json`, and `styles.css` to
-`<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
+Download `main.js`, `manifest.json`, and `styles.css` from
+[GitHub Releases](https://github.com/jerry4pan/obsidian-office-viewer-plugin/releases/latest)
+into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 **Office Viewer**.
 
 ## Features
@@ -152,12 +151,14 @@ sandboxed test Vault without using a personal Obsidian configuration.
 
 A release ZIP contains the three runtime files (`main.js`, `manifest.json`,
 and `styles.css`) plus the project license, attribution notice, and bundled
-renderer license. Extract all files to
-`<Vault>/.obsidian/plugins/office-viewer/`, reload
-Obsidian, and enable **Office Viewer**. To upgrade, disable the plugin, replace
-all three files from the new ZIP together, reload Obsidian, and re-enable it.
-To uninstall, disable the plugin and remove the `office-viewer` directory; the
-plugin never writes to source PPTX files.
+renderer license. GitHub Releases publish only the three Obsidian runtime
+files (with build provenance attestations); the full ZIP stays available as the
+tag CI artifact from `npm run release:package`. Extract the ZIP contents to
+`<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
+**Office Viewer**. To upgrade, disable the plugin, replace all three runtime
+files together, reload Obsidian, and re-enable it. To uninstall, disable the
+plugin and remove the `office-viewer` directory; the plugin never writes to
+source PPTX files.
 
 ## Development
 
@@ -209,15 +210,17 @@ supported-extension, license, and required-documentation consistency without
 requiring a version bump on `main`.
 `npm run release:check:publish` adds tag, commit, and GitHub-release guards
 for tagged releases only. Publish releases with the plain manifest version as
-the tag and release name, for example `0.1.11`, not `v0.1.11`; Obsidian matches
+the tag and release name, for example `0.1.12`, not `v0.1.12`; Obsidian matches
 the GitHub release directly against `manifest.json`.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
 installs that extracted ZIP into a clean test Vault, opens a real PPTX,
 rehearses an in-place package upgrade, and verifies disable/removal without
 network access or source mutation. Tag CI requires the exact manifest version
-as the tag name, runs publish checks, and proves a second package build is
-byte-identical before uploading the CI artifact.
+as the tag name, runs publish checks, attests `main.js` / `manifest.json` /
+`styles.css`, proves a second package build is byte-identical, uploads the ZIP
+as a workflow artifact, and publishes only those three attested files to the
+GitHub Release.
 
 ## Current boundaries
 
