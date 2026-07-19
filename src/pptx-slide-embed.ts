@@ -4,20 +4,16 @@ import {
   type App,
   type MarkdownPostProcessorContext,
 } from "obsidian";
-import type { MessageKey, MessageTranslator } from "./i18n";
+import type { MessageTranslator } from "./i18n";
+import type { PptxRendererAdapter } from "./renderer/pptx-renderer-adapter";
 import {
-  PptxOpenError,
-  type PptxOpenErrorCategory,
-} from "./pptx-open-error";
-import type {
-  PptxRendererAdapter,
-  PptxRendererSession,
-} from "./renderer/pptx-renderer-adapter";
-import {
-  formatSlideReferenceLinkTarget,
   parseSlideReferenceLink,
   type SlideReferenceTarget,
 } from "./slide-reference";
+import {
+  SlideEmbedController,
+  type SlideEmbedCorePorts,
+} from "./slide-embed-core";
 import { SlideEmbedScheduler } from "./slide-embed-scheduler";
 
 export interface PptxSlideEmbedOptions {
@@ -33,15 +29,41 @@ export interface PptxSlideEmbedOptions {
   };
 }
 
+function corePortsFromOptions(
+  options: PptxSlideEmbedOptions,
+): SlideEmbedCorePorts<TFile> {
+  return {
+    readBinary: (file) => options.app.vault.readBinary(file),
+    renderer: options.renderer,
+    scheduler: options.scheduler,
+    messages: options.messages,
+    showDiagnostics: options.showDiagnostics,
+    openExternally: options.openExternally,
+  };
+}
+
+/**
+ * Reading View lifecycle adapter for a missing-source embed.
+ * Owns native Obsidian embed hide/restore; chrome comes from the shared core.
+ */
 class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
+  private readonly controller: SlideEmbedController<TFile>;
   private observer: MutationObserver | null = null;
 
   constructor(
     container: HTMLElement,
     private readonly nativeEmbed: HTMLElement | null,
+    options: PptxSlideEmbedOptions,
+    sourcePath: string,
+    target: SlideReferenceTarget,
     private readonly lifecycle?: PptxSlideEmbedOptions["lifecycle"],
   ) {
     super(container);
+    this.controller = new SlideEmbedController(
+      container,
+      corePortsFromOptions(options),
+    );
+    this.controller.mount({ file: null, sourcePath, target });
   }
 
   override onload(): void {
@@ -55,6 +77,7 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
   override onunload(): void {
     this.observer?.disconnect();
     this.observer = null;
+    this.controller.dispose();
     const candidate = this.containerEl.previousElementSibling;
     if (candidate instanceof HTMLElement && candidate.matches(".internal-embed[src]")) {
       candidate.hidden = false;
@@ -74,104 +97,46 @@ class StaticPptxSlideEmbedChild extends MarkdownRenderChild {
   }
 }
 
-const errorMessageKeys: Record<PptxOpenErrorCategory, MessageKey> = {
-  "unsupported-legacy": "error.unsupportedLegacy",
-  malformed: "error.malformed",
-  protected: "error.protected",
-  incompatible: "error.incompatible",
-  "resource-exhausted": "error.resourceExhausted",
-  cancelled: "error.cancelled",
-  unknown: "error.unknown",
-};
-
-function errorMessage(
-  messages: MessageTranslator,
-  error: unknown,
-): string {
-  if (error instanceof PptxOpenError) {
-    return messages.text(errorMessageKeys[error.category]);
-  }
-  return messages.text("embed.renderFailure");
-}
-
+/**
+ * Reading View lifecycle adapter for a source-backed slide embed.
+ * Visibility and native-embed ownership stay here; rendering uses SlideEmbedController.
+ */
 class PptxSlideEmbedChild extends MarkdownRenderChild {
-  private readonly canvas: HTMLElement;
-  private readonly status: HTMLElement;
-  private readonly compatibility: HTMLElement;
+  private readonly controller: SlideEmbedController<TFile>;
   private observer: IntersectionObserver | null = null;
   private nativeObserver: MutationObserver | null = null;
-  private cancelScheduled: (() => void) | null = null;
-  private rendererSession: PptxRendererSession | null = null;
-  private generation = 0;
-  private renderRequestedAt: number | null = null;
 
   constructor(
     container: HTMLElement,
-    private readonly file: TFile,
-    private readonly target: SlideReferenceTarget,
-    private readonly sourcePath: string,
+    file: TFile,
+    target: SlideReferenceTarget,
+    sourcePath: string,
     private readonly options: PptxSlideEmbedOptions,
     private readonly nativeEmbed: HTMLElement | null = null,
   ) {
     super(container);
-    container.replaceChildren();
-    container.classList.add("pptx-slide-embed");
-    container.dataset.state = "waiting";
-    container.dataset.sourcePath = sourcePath;
-    container.dataset.slideId = String(target.slideId);
-    container.dataset.createdSlide = String(target.createdSlideNumber);
-    container.setAttribute("role", "group");
-    container.setAttribute("aria-label", options.messages.text("embed.loading"));
-    this.status = container.createDiv({
-      cls: "pptx-slide-embed__status",
-      text: options.messages.text("embed.loading"),
-      attr: { role: "status", "aria-live": "polite" },
-    });
-    this.canvas = container.createDiv({ cls: "pptx-slide-embed__canvas" });
-    this.compatibility = container.createDiv({
-      cls: "pptx-slide-embed__compatibility",
-      attr: { role: "note" },
-    });
-    const footer = container.createDiv({ cls: "pptx-slide-embed__footer" });
-    const sourceLink = footer.createEl("a", {
-      cls: "internal-link",
-      text: options.messages.text("reference.openPresentation"),
-      href: formatSlideReferenceLinkTarget(sourcePath, target),
-    });
-    sourceLink.dataset.href = formatSlideReferenceLinkTarget(sourcePath, target);
-    if (options.openExternally !== undefined) {
-      const externalButton = footer.createEl("button", {
-        type: "button",
-        text: options.messages.text("external.open"),
-        attr: { "data-action": "open-externally" },
-      });
-      const externalStatus = footer.createSpan({
-        cls: "pptx-slide-embed__external-status",
-        attr: { role: "status", "aria-live": "polite" },
-      });
-      externalButton.addEventListener("click", () => {
-        externalStatus.textContent = "";
-        void options.openExternally!(file).catch(() => {
-          externalStatus.textContent = options.messages.text("external.failure");
-        });
-      });
-    }
+    this.controller = new SlideEmbedController(
+      container,
+      corePortsFromOptions(options),
+    );
+    this.controller.mount({ file, sourcePath, target });
   }
 
   override onload(): void {
     this.hideNativeEmbed();
     if (this.containerEl.parentElement !== null && this.nativeEmbed !== null) {
       this.nativeObserver = new MutationObserver(() => this.hideNativeEmbed());
-      this.nativeObserver.observe(this.containerEl.parentElement, { childList: true });
+      this.nativeObserver.observe(this.containerEl.parentElement, {
+        childList: true,
+      });
     }
     if (typeof IntersectionObserver === "undefined") {
-      this.startRendering();
+      this.controller.setVisible(true);
       return;
     }
     this.observer = new IntersectionObserver((entries) => {
       const visible = entries.some((entry) => entry.isIntersecting);
-      if (visible) this.startRendering();
-      else this.releaseRenderingWindow();
+      this.controller.setVisible(visible);
     }, { rootMargin: "600px 0px" });
     this.observer.observe(this.containerEl);
   }
@@ -182,7 +147,7 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
     this.restoreNativeEmbed();
     this.observer?.disconnect();
     this.observer = null;
-    this.releaseRenderingWindow();
+    this.controller.dispose();
     this.options.lifecycle?.unregister(this);
     this.containerEl.remove();
   }
@@ -203,133 +168,6 @@ class PptxSlideEmbedChild extends MarkdownRenderChild {
       delete candidate.dataset.pptxSlideEmbedProcessed;
     }
   }
-
-  private startRendering(): void {
-    if (this.cancelScheduled !== null || this.rendererSession !== null) return;
-    const generation = ++this.generation;
-    this.renderRequestedAt = performance.now();
-    this.containerEl.dataset.state = "queued";
-    this.status.textContent = this.options.messages.text("embed.loading");
-    this.cancelScheduled = this.options.scheduler.schedule(async (signal) => {
-      if (generation !== this.generation) return;
-      this.containerEl.dataset.state = "loading";
-      const startedAt = this.renderRequestedAt ?? performance.now();
-      try {
-        const buffer = await this.options.app.vault.readBinary(this.file);
-        signal.throwIfAborted();
-        const session = await this.options.renderer.open(buffer, this.canvas, signal);
-        if (signal.aborted || generation !== this.generation) {
-          session.dispose();
-          return;
-        }
-        this.rendererSession = session;
-        const slideIndex = session.slideIdentities?.indexOf(this.target.slideId) ?? -1;
-        if (slideIndex < 0) {
-          session.dispose();
-          this.rendererSession = null;
-          this.canvas.replaceChildren();
-          this.containerEl.dataset.state = "stale-reference";
-          this.status.textContent = this.options.messages.text("reference.missing");
-          this.containerEl.setAttribute(
-            "aria-label",
-            this.options.messages.text("reference.missing"),
-          );
-          return;
-        }
-        await session.renderSlide(slideIndex);
-        signal.throwIfAborted();
-        if (generation !== this.generation) return;
-        const currentSlide = slideIndex + 1;
-        this.containerEl.dataset.currentSlide = String(currentSlide);
-        this.containerEl.dataset.firstReadableMs = (
-          performance.now() - startedAt
-        ).toFixed(3);
-        this.canvas.style.aspectRatio = `${session.slideWidth} / ${session.slideHeight}`;
-        this.status.textContent = this.options.messages.text("embed.currentSlide", {
-          name: this.file.basename,
-          slide: currentSlide,
-        });
-        this.containerEl.setAttribute(
-          "aria-label",
-          this.options.messages.text("embed.currentSlide", {
-            name: this.file.basename,
-            slide: currentSlide,
-          }),
-        );
-        if (currentSlide !== this.target.createdSlideNumber) {
-          this.status.append(
-            document.createTextNode(` — ${this.options.messages.text("reference.moved", {
-              created: this.target.createdSlideNumber,
-              current: currentSlide,
-            })}`),
-          );
-        }
-        this.showCompatibilityWarnings(session);
-        this.containerEl.dataset.state = "ready";
-      } catch (error) {
-        if (signal.aborted || generation !== this.generation) return;
-        this.disposeRendererSession();
-        this.containerEl.dataset.state = "error";
-        this.status.textContent = errorMessage(this.options.messages, error);
-        this.containerEl.setAttribute(
-          "aria-label",
-          errorMessage(this.options.messages, error),
-        );
-      } finally {
-        if (generation === this.generation) {
-          this.cancelScheduled = null;
-          this.renderRequestedAt = null;
-        }
-      }
-    });
-  }
-
-  private showCompatibilityWarnings(session: PptxRendererSession): void {
-    this.compatibility.replaceChildren();
-    try {
-      if (!this.options.showDiagnostics()) return;
-    } catch {
-      return;
-    }
-    let categories = session.compatibilityWarnings ?? [];
-    try {
-      categories = session.detectCompatibilityWarnings?.() ?? categories;
-    } catch {
-      // Optional compatibility inspection must not disrupt a readable slide.
-    }
-    for (const category of categories) {
-      this.compatibility.createDiv({
-        text: this.options.messages.text(
-          category === "font-substitution"
-            ? "compatibility.fontSubstitution"
-            : "compatibility.unsupportedContent",
-        ),
-      });
-    }
-  }
-
-  private releaseRenderingWindow(): void {
-    ++this.generation;
-    this.cancelScheduled?.();
-    this.cancelScheduled = null;
-    this.renderRequestedAt = null;
-    this.disposeRendererSession();
-    this.canvas.replaceChildren();
-    delete this.containerEl.dataset.currentSlide;
-    delete this.containerEl.dataset.firstReadableMs;
-    this.compatibility.replaceChildren();
-    this.containerEl.dataset.state = "waiting";
-    this.status.textContent = this.options.messages.text("embed.loading");
-    this.containerEl.setAttribute(
-      "aria-label",
-      this.options.messages.text("embed.loading"),
-    );
-  }
-
-  private disposeRendererSession(): void {
-    this.rendererSession?.dispose();
-    this.rendererSession = null;
-  }
 }
 
 function embedCandidates(root: HTMLElement): HTMLElement[] {
@@ -346,7 +184,9 @@ export function processPptxSlideEmbeds(
   for (const element of embedCandidates(root)) {
     if (element.dataset.pptxSlideEmbedProcessed === "true") continue;
     const parsed = parseSlideReferenceLink(element.getAttribute("src") ?? "");
-    if (parsed === null || !parsed.sourcePath.toLowerCase().endsWith(".pptx")) continue;
+    if (parsed === null || !parsed.sourcePath.toLowerCase().endsWith(".pptx")) {
+      continue;
+    }
     element.dataset.pptxSlideEmbedProcessed = "true";
     const nativeEmbed = element.parentNode === null ? null : element;
     const host = nativeEmbed === null ? element : document.createElement("div");
@@ -361,35 +201,12 @@ export function processPptxSlideEmbeds(
       context.sourcePath,
     );
     if (!(file instanceof TFile)) {
-      host.replaceChildren();
-      host.classList.add("pptx-slide-embed");
-      host.dataset.state = "missing-source";
-      host.dataset.sourcePath = parsed.sourcePath;
-      host.dataset.slideId = String(parsed.target.slideId);
-      host.dataset.createdSlide = String(parsed.target.createdSlideNumber);
-      host.setAttribute("role", "group");
-      host.setAttribute(
-        "aria-label",
-        options.messages.text("embed.sourceMissing"),
-      );
-      host.createDiv({
-        cls: "pptx-slide-embed__status",
-        text: options.messages.text("embed.sourceMissing"),
-        attr: { role: "status", "aria-live": "polite" },
-      });
-      const footer = host.createDiv({ cls: "pptx-slide-embed__footer" });
-      const sourceLink = footer.createEl("a", {
-        cls: "internal-link",
-        text: options.messages.text("reference.openPresentation"),
-        href: formatSlideReferenceLinkTarget(parsed.sourcePath, parsed.target),
-      });
-      sourceLink.dataset.href = formatSlideReferenceLinkTarget(
-        parsed.sourcePath,
-        parsed.target,
-      );
       const child = new StaticPptxSlideEmbedChild(
         host,
         nativeEmbed,
+        options,
+        parsed.sourcePath,
+        parsed.target,
         options.lifecycle,
       );
       options.lifecycle?.register(child);
