@@ -156,6 +156,51 @@ describe("Live Preview slide embeds", () => {
     expect(finalMarkdown).toBe(before);
   });
 
+  it("surfaces trusted Live Preview failure and recovery states", async () => {
+    await obsidianPage.openFile("embed-failures-note.md");
+    await ensureLivePreview();
+
+    const missing = await browser.$(
+      '.workspace-leaf.mod-active .cm-editor .pptx-slide-embed[data-source-path="missing/source.pptx"]',
+    );
+    await expect(missing).toHaveAttribute("data-state", "missing-source");
+    await expect(missing).toHaveAttribute("role", "group");
+    await expect(missing.$("a.internal-link")).toExist();
+
+    const stale = await browser.$(
+      '.workspace-leaf.mod-active .cm-editor .pptx-slide-embed[data-source-path="performance/representative-12-slides.pptx"]',
+    );
+    await browser.waitUntil(
+      async () => (await stale.getAttribute("data-state")) === "stale-reference",
+      { timeout: 10_000, timeoutMsg: "stale Live Preview embed did not settle" },
+    );
+    await expect(stale).toHaveText(
+      expect.stringContaining("The referenced slide is no longer available"),
+    );
+    await expect(stale).not.toHaveAttribute("data-current-slide");
+
+    for (const [source, message] of [
+      ["failure/protected-encrypted.pptx", "This PPTX is encrypted or password-protected."],
+      ["failure/renderer-resource-limit.pptx", "This PPTX is too large or complex"],
+    ] as const) {
+      const embed = await browser.$(
+        `.workspace-leaf.mod-active .cm-editor .pptx-slide-embed[data-source-path="${source}"]`,
+      );
+      await browser.execute((sourcePath) => {
+        document.querySelector<HTMLElement>(
+          `.workspace-leaf.mod-active .cm-editor .pptx-slide-embed[data-source-path="${sourcePath}"]`,
+        )?.scrollIntoView({ block: "center" });
+      }, source);
+      await browser.waitUntil(
+        async () => (await embed.getAttribute("data-state")) === "error",
+        { timeout: 10_000, timeoutMsg: `${source} Live Preview embed did not fail safely` },
+      );
+      await expect(embed).toHaveText(expect.stringContaining(message));
+      await expect(embed.$("a.internal-link")).toExist();
+      await expect(embed.$('[data-action="open-externally"]')).toExist();
+    }
+  });
+
   it("opens the exact PPTX slide from the explicit source action", async () => {
     await obsidianPage.openFile("embed-note.md");
     await ensureLivePreview();
