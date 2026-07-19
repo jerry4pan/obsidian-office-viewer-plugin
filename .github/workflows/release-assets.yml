@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +32,13 @@ jobs:
           sha256sum dist/*.zip > /tmp/first.sha256
           npm run release:package
           sha256sum --check /tmp/first.sha256
+      - name: Attest plugin artifacts
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
       - uses: actions/upload-artifact@v4
         with:
           name: office-viewer-${{ github.ref_name }}
@@ -40,9 +49,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          VERSION="$TAG"
-          cp node_modules/@aiden0z/pptx-renderer/LICENSE AIDEN-PPTX-RENDERER-LICENSE
+          # Obsidian Community Plugins only fetches these three files from the
+          # GitHub Release. Keep LICENSE / NOTICE / renderer license inside the
+          # deterministic ZIP (CI artifact) for packaged installs.
           gh release view "$TAG" &>/dev/null || gh release create "$TAG" --title "$TAG" --generate-notes
-          gh release upload "$TAG" main.js manifest.json styles.css LICENSE NOTICE \
-            AIDEN-PPTX-RENDERER-LICENSE \
-            dist/office-viewer-"$VERSION".zip
+          gh release upload "$TAG" main.js manifest.json styles.css

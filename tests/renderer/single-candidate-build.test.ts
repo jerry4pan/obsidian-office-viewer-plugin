@@ -40,6 +40,8 @@ describe("single-candidate production bundle", () => {
     expect(aidenBundle.source).toContain("data-pptx-background-gradient");
     expect(aidenBundle.source).not.toContain("pptx-preview");
     expect(aidenBundle.source).not.toContain("pptx-preview-slide-wrapper");
+    expect(aidenBundle.source).not.toContain('createElement("script")');
+    expect(aidenBundle.source).not.toContain("new Function");
   });
 
   it("hard-fails an unknown candidate", () => {

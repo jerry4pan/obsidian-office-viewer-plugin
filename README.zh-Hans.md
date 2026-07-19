@@ -16,7 +16,7 @@
 
 从
 [GitHub Releases](https://github.com/jerry4pan/obsidian-office-viewer-plugin/releases/latest)
-下载发布 ZIP，将 `main.js`、`manifest.json`、`styles.css` 解压到
+下载 `main.js`、`manifest.json`、`styles.css` 到
 `<Vault>/.obsidian/plugins/office-viewer/`，重载 Obsidian 后启用
 **Office Viewer**。
 

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-office-viewer-plugin",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Local, read-only PPTX viewing for Obsidian.",
   "main": "main.js",
   "type": "module",
@@ -50,6 +50,8 @@
   "license": "MIT",
   "dependencies": {
     "@aiden0z/pptx-renderer": "1.2.4",
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
     "cfb": "1.2.2",
     "jszip": "3.10.1"
   },

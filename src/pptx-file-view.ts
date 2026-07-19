@@ -1,7 +1,6 @@
 import {
   FileView,
   Scope,
-  type App,
   type TFile,
   type WorkspaceLeaf,
 } from "obsidian";
