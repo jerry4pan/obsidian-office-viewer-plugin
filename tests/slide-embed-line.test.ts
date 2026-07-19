@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchStandaloneSlideEmbedLine } from "../src/slide-embed-line";
+import { matchStandaloneSlideEmbedLine } from "../src/slide-reference";
 
 describe("matchStandaloneSlideEmbedLine", () => {
   it("accepts a canonical standalone embed with leading and trailing whitespace", () => {

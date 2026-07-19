@@ -20,8 +20,10 @@ import {
   SlideEmbedController,
   type SlideEmbedSourceFile,
 } from "./slide-embed-core";
-import { matchStandaloneSlideEmbedLine } from "./slide-embed-line";
-import type { SlideReferenceTarget } from "./slide-reference";
+import {
+  matchStandaloneSlideEmbedLine,
+  type SlideReferenceTarget,
+} from "./slide-reference";
 import { SlideEmbedScheduler } from "./slide-embed-scheduler";
 
 export interface LivePreviewSlideEmbedOptions<
@@ -29,10 +31,7 @@ export interface LivePreviewSlideEmbedOptions<
 > {
   readonly livePreviewField: StateField<boolean>;
   readonly getSourcePath: (state: EditorState) => string;
-  readonly resolveFile: (
-    sourcePath: string,
-    notePath: string,
-  ) => TFile | null;
+  readonly resolveFile: (sourcePath: string, notePath: string) => TFile | null;
   readonly readBinary: (file: TFile) => Promise<ArrayBuffer>;
   readonly renderer: PptxRendererAdapter;
   readonly scheduler: SlideEmbedScheduler;
@@ -50,7 +49,6 @@ class LivePreviewSlideEmbedWidget<
 
   constructor(
     private readonly from: number,
-    private readonly to: number,
     private readonly sourcePath: string,
     private readonly target: SlideReferenceTarget,
     private readonly notePath: string,
@@ -60,64 +58,52 @@ class LivePreviewSlideEmbedWidget<
   }
 
   override eq(other: LivePreviewSlideEmbedWidget<TFile>): boolean {
-    return (
-      this.from === other.from
-      && this.to === other.to
+    return this.from === other.from
       && this.sourcePath === other.sourcePath
       && this.target.slideId === other.target.slideId
       && this.target.createdSlideNumber === other.target.createdSlideNumber
-      && this.notePath === other.notePath
-    );
+      && this.notePath === other.notePath;
   }
 
   override toDOM(view: EditorView): HTMLElement {
     const host = document.createElement("div");
     const file = this.options.resolveFile(this.sourcePath, this.notePath);
-    const notePath = this.notePath;
+    const { options, notePath, sourcePath, target, from } = this;
     this.controller = new SlideEmbedController(host, {
-      readBinary: this.options.readBinary,
-      renderer: this.options.renderer,
-      scheduler: this.options.scheduler,
-      messages: this.options.messages,
-      showDiagnostics: this.options.showDiagnostics,
-      openExternally: this.options.openExternally,
-      openSource: this.options.openSource === undefined
-        ? undefined
-        : (linkTarget) => this.options.openSource!(linkTarget, notePath),
+      readBinary: options.readBinary,
+      renderer: options.renderer,
+      scheduler: options.scheduler,
+      messages: options.messages,
+      showDiagnostics: options.showDiagnostics,
+      openExternally: options.openExternally,
     });
-    this.controller.mount({
-      file,
-      sourcePath: this.sourcePath,
-      target: this.target,
-    });
+    this.controller.mount({ file, sourcePath, target });
     if (file !== null) {
       if (typeof IntersectionObserver === "undefined") {
         this.controller.setVisible(true);
       } else {
         this.observer = new IntersectionObserver((entries) => {
-          const visible = entries.some((entry) => entry.isIntersecting);
-          this.controller?.setVisible(visible);
+          this.controller?.setVisible(entries.some((entry) => entry.isIntersecting));
         }, { rootMargin: "600px 0px" });
         this.observer.observe(host);
       }
     }
-    const revealSyntax = (event: Event): void => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (
-        target.closest("a.internal-link") !== null
-        || target.closest('[data-action="open-externally"]') !== null
-      ) {
-        return;
-      }
+    const sourceLink = host.querySelector<HTMLAnchorElement>("a.internal-link");
+    if (sourceLink !== null && options.openSource !== undefined) {
+      sourceLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void options.openSource!(sourceLink.dataset.href ?? sourcePath, notePath);
+      });
+    }
+    host.addEventListener("click", (event) => {
+      const el = event.target;
+      if (!(el instanceof Element)) return;
+      if (el.closest("a.internal-link, [data-action='open-externally']")) return;
       event.preventDefault();
       event.stopPropagation();
-      view.dispatch({
-        selection: EditorSelection.cursor(this.from + 1),
-      });
-    };
-    host.addEventListener("mousedown", revealSyntax);
-    host.addEventListener("click", revealSyntax);
+      view.dispatch({ selection: EditorSelection.cursor(from + 1) });
+    });
     return host;
   }
 
@@ -134,22 +120,15 @@ class LivePreviewSlideEmbedWidget<
 }
 
 function selectionTouches(state: EditorState, from: number, to: number): boolean {
-  for (const range of state.selection.ranges) {
-    if (range.from <= to && range.to >= from) return true;
-  }
-  return false;
+  return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }
 
-function isLivePreviewEditorSurface(
-  view: EditorView,
-  livePreview: boolean,
-): boolean {
+function isLivePreviewEditorSurface(view: EditorView, livePreview: boolean): boolean {
   if (!livePreview) return false;
   const sourceView = view.dom.closest(".markdown-source-view");
-  // Focused EditorView harnesses do not wrap Obsidian chrome.
   if (!(sourceView instanceof HTMLElement)) return true;
-  if (!sourceView.classList.contains("is-live-preview")) return false;
-  return getComputedStyle(sourceView).display !== "none";
+  return sourceView.classList.contains("is-live-preview")
+    && getComputedStyle(sourceView).display !== "none";
 }
 
 function buildDecorations<TFile extends SlideEmbedSourceFile>(
@@ -157,9 +136,7 @@ function buildDecorations<TFile extends SlideEmbedSourceFile>(
   options: LivePreviewSlideEmbedOptions<TFile>,
   surfaceActive: boolean,
 ): DecorationSet {
-  if (!surfaceActive || !state.field(options.livePreviewField)) {
-    return Decoration.none;
-  }
+  if (!surfaceActive || !state.field(options.livePreviewField)) return Decoration.none;
   const notePath = options.getSourcePath(state);
   const builder = new RangeSetBuilder<Decoration>();
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
@@ -167,11 +144,8 @@ function buildDecorations<TFile extends SlideEmbedSourceFile>(
     const match = matchStandaloneSlideEmbedLine(line.text);
     if (match === null) continue;
     const from = line.from + match.fromOffset;
-    const to = line.from + match.toOffset;
-    // Include the trailing line break when present so the block widget fully
-    // replaces Obsidian's native file-embed line decoration.
     const blockFrom = line.from;
-    const blockTo = lineNumber < state.doc.lines ? line.to + 1 : to;
+    const blockTo = lineNumber < state.doc.lines ? line.to + 1 : line.from + match.toOffset;
     if (selectionTouches(state, blockFrom, blockTo)) continue;
     builder.add(
       blockFrom,
@@ -179,7 +153,6 @@ function buildDecorations<TFile extends SlideEmbedSourceFile>(
       Decoration.replace({
         widget: new LivePreviewSlideEmbedWidget(
           from,
-          to,
           match.sourcePath,
           match.target,
           notePath,
@@ -192,12 +165,6 @@ function buildDecorations<TFile extends SlideEmbedSourceFile>(
   return builder.finish();
 }
 
-/**
- * Public Live Preview editor extension. Uses a StateField + Prec.highest so
- * block replace widgets can override Obsidian's native file-embed decoration
- * for standalone canonical PPTX slide embeds. Decorations clear when the
- * Markdown source view is hidden (Reading View), releasing renderer work.
- */
 export function createLivePreviewSlideEmbedExtension<
   TFile extends SlideEmbedSourceFile = SlideEmbedSourceFile,
 >(
@@ -206,8 +173,8 @@ export function createLivePreviewSlideEmbedExtension<
   const setSurfaceActive = StateEffect.define<boolean>();
   const surfaceActiveField = StateField.define<boolean>({
     create: () => true,
-    update: (value, transaction) => {
-      for (const effect of transaction.effects) {
+    update: (value, tr) => {
+      for (const effect of tr.effects) {
         if (effect.is(setSurfaceActive)) return effect.value;
       }
       return value;
@@ -217,67 +184,60 @@ export function createLivePreviewSlideEmbedExtension<
   const decorationsField = StateField.define<DecorationSet>({
     create: (state) =>
       buildDecorations(state, options, state.field(surfaceActiveField)),
-    update: (decorations, transaction) => {
-      const livePreviewChanged =
-        transaction.startState.field(options.livePreviewField)
-        !== transaction.state.field(options.livePreviewField);
-      const surfaceChanged =
-        transaction.startState.field(surfaceActiveField)
-        !== transaction.state.field(surfaceActiveField);
+    update: (decorations, tr) => {
       if (
-        transaction.docChanged
-        || transaction.selection
-        || livePreviewChanged
-        || surfaceChanged
+        tr.docChanged
+        || tr.selection
+        || tr.startState.field(options.livePreviewField)
+          !== tr.state.field(options.livePreviewField)
+        || tr.startState.field(surfaceActiveField)
+          !== tr.state.field(surfaceActiveField)
       ) {
         return buildDecorations(
-          transaction.state,
+          tr.state,
           options,
-          transaction.state.field(surfaceActiveField),
+          tr.state.field(surfaceActiveField),
         );
       }
-      return decorations.map(transaction.changes);
+      return decorations.map(tr.changes);
     },
     provide: (value) => Prec.highest(EditorView.decorations.from(value)),
   });
 
   const surfaceMonitor = ViewPlugin.fromClass(class {
     private readonly observer: MutationObserver;
-
     constructor(private readonly view: EditorView) {
       this.observer = new MutationObserver(() => this.sync());
-      const sourceView = view.dom.closest(".markdown-source-view");
-      const leafContent = view.dom.closest(".workspace-leaf-content");
-      if (sourceView instanceof HTMLElement) {
-        this.observer.observe(sourceView, {
-          attributes: true,
-          attributeFilter: ["class", "style"],
-        });
-      }
-      if (leafContent instanceof HTMLElement) {
-        this.observer.observe(leafContent, {
+      const leaf = view.dom.closest(".workspace-leaf-content");
+      if (leaf instanceof HTMLElement) {
+        this.observer.observe(leaf, {
           attributes: true,
           attributeFilter: ["data-mode", "class"],
         });
       }
+      const source = view.dom.closest(".markdown-source-view");
+      if (source instanceof HTMLElement) {
+        this.observer.observe(source, {
+          attributes: true,
+          attributeFilter: ["class", "style"],
+        });
+      }
       this.sync();
     }
-
     update(): void {
       this.sync();
     }
-
     destroy(): void {
       this.observer.disconnect();
     }
-
     private sync(): void {
       const active = isLivePreviewEditorSurface(
         this.view,
         this.view.state.field(options.livePreviewField),
       );
-      if (active === this.view.state.field(surfaceActiveField)) return;
-      this.view.dispatch({ effects: setSurfaceActive.of(active) });
+      if (active !== this.view.state.field(surfaceActiveField)) {
+        this.view.dispatch({ effects: setSurfaceActive.of(active) });
+      }
     }
   });
 

@@ -54,10 +54,16 @@ extract `main.js`, `manifest.json`, and `styles.css` to
 - **Copy slide reference** creates a source-preserving Vault wikilink that
   returns to the same native slide even after slides are reordered.
 - **Copy slide embed** creates the same stable reference as a live,
-  source-backed single-slide embed in Markdown Reading View.
+  source-backed single-slide embed in Markdown Reading View and, for a
+  standalone canonical embed line, in Live Preview.
+- In Live Preview, only a canonical PPTX single-slide embed that is the sole
+  non-whitespace content on its line becomes an inline widget. Cursor,
+  selection, or a click on the slide canvas reveals the exact Markdown; only
+  the explicit source action opens the PPTX. Source mode always shows syntax.
+  Plain `![[deck.pptx]]`, prose-mixed, or multi-embed lines stay ordinary
+  Markdown.
 - Deleted slides and missing presentations fail explicitly without silently
-  falling back to an ordinal position. Live Preview keeps the canonical
-  Markdown syntax editable and does not render the slide inline.
+  falling back to an ordinal position.
 
 **Speaker notes**
 - Expand the current-slide speaker notes panel to read author note paragraphs

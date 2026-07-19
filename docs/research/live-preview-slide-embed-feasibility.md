@@ -1,8 +1,10 @@
 # Live Preview slide embed feasibility
 
-- Status: ACCEPTED FOR BOUNDED TECHNICAL EXPLORATION — implementation evidence pending
+- Status: GO FOR TECHNICAL CANDIDATE — installed evidence recorded; merge/productization remain separate maintainer decisions
 - Date: 2026-07-19
 - Scope: render the existing canonical single-slide PPTX embed in Obsidian Live Preview
+- Candidate branch: `codex/live-preview-feasibility`
+- Evidence report: [`live-preview-slide-embed-technical-report.md`](./live-preview-slide-embed-technical-report.md)
 
 ## Answer
 
@@ -16,11 +18,11 @@ editing mode to the PPTX source viewer. Source mode would continue to show only
 the canonical Markdown syntax, and Reading View would continue to use the
 existing renderer.
 
-The recommendation is **go for a technical exploration, not yet for a product
-implementation**. The renderer, package-safety, stable-identity, and canonical
-link contracts are already proven. The remaining uncertainty is whether a
-CodeMirror editor widget can preserve trustworthy editing and cleanup behavior
-under installed Obsidian.
+The exploration candidate is a **technical GO**. Installed Obsidian evidence
+shows a CodeMirror block widget can render a standalone canonical slide embed,
+reveal exact Markdown on selection or canvas click, share Reading View safety
+and concurrency bounds, and release work when the source editor is hidden.
+Merge and productization remain separate maintainer decisions.
 
 ## Product shape
 
