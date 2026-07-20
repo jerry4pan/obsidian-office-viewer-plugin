@@ -8,6 +8,8 @@ Obsidian — no PDF conversion, no uploads, no network requests.
 The latest published release is **0.1.13** on GitHub and in Obsidian Community
 Plugins. The `main` branch may contain unreleased changes.
 
+![Office Viewer reading a local PPTX with thumbnails](assets/readme/hero-reading-view.png)
+
 ## Install
 
 **Obsidian Community Plugins (recommended)**
@@ -26,6 +28,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 ## Features
 
 **Reading**
+
 - Open `.pptx` files directly from your Vault and read them slide by slide.
 - Navigate with Previous / Next buttons, jump to any slide by number, or use
   `ArrowLeft` / `ArrowRight` and `PageUp` / `PageDown` keys.
@@ -34,6 +37,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 - The current slide always fills the available reading area automatically.
 
 **Thumbnails**
+
 - A scrollable thumbnail strip shows previews of all slides alongside the main
   view.
 - Thumbnails render progressively, starting with the slide you are on.
@@ -41,15 +45,20 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   to reset, or use keyboard arrows when the divider is focused.
 
 **Full screen**
+
 - Enter full screen to use the full display while keeping the toolbar and
   thumbnail strip accessible.
 - Exit with the on-screen control or the platform Escape key.
 
 **Fallback**
+
 - **Open in default application** sends the file to PowerPoint, Keynote, or
   your system default when the preview is not enough.
 
 **Slide references and embeds**
+
+![Single-slide embed in Markdown Reading View](assets/readme/slide-embed.png)
+
 - **Copy slide reference** creates a source-preserving Vault wikilink that
   returns to the same native slide even after slides are reordered.
 - **Copy slide embed** creates the same stable reference as a live,
@@ -65,6 +74,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   falling back to an ordinal position.
 
 **Speaker notes**
+
 - Expand the current-slide speaker notes panel to read author note paragraphs
   without leaving Obsidian. The panel starts collapsed and keeps your choice
   while you navigate within the same view.
@@ -74,6 +84,9 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   as speaker notes.
 
 **Presentation content search**
+
+![Presentation content search with matching slides](assets/readme/presentation-search.png)
+
 - Press `Cmd+F` or `Ctrl+F` in an open PPTX to search that presentation. When
   speaker notes are available, search defaults to slides and notes together and
   offers All / Slides / Notes scope filters for the current view only.
@@ -84,6 +97,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   highlighting on the main rendered slide are not searched.
 
 **Error handling**
+
 - Corrupted, encrypted, or otherwise unreadable files show a clear explanation
   rather than a blank screen or a cryptic error.
 - Legacy `.ppt` files are recognized and explained without attempting to parse
@@ -92,6 +106,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   keeping the last readable slide visible.
 
 **Reading position**
+
 - **Remember reading position** (on by default) reopens each file at the slide
   you left off.
 - Stores only a Vault-relative path, file size, modification time, slide index,
@@ -100,6 +115,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   instantly.
 
 **Compatibility awareness**
+
 - **Diagnostic summary** is off by default.
 - When enabled, detectable unsupported media or missing fonts show a persistent
   banner on the next open, retry, or reload of that file.
@@ -107,6 +123,7 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   regardless of the diagnostic setting.
 
 **Diagnostic summary**
+
 - Turn on **Diagnostic summary** in settings to show compatibility warnings and
   the copy control on the next open, retry, or reload.
 - **Copy diagnostic summary** captures versions, file size, slide count,
@@ -114,11 +131,13 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   paths, slide text, images, and any personal or rendered content.
 
 **Languages**
+
 - The interface supports English, Simplified Chinese, and Traditional Chinese,
   following your Obsidian language setting. Other languages fall back to
   English.
 
 **Privacy**
+
 - Everything stays local. The plugin never uploads files, phones home, or
   collects telemetry. Source files are never modified, and slide-search
   queries, source-authored slide text, snippets, and results are not saved.
