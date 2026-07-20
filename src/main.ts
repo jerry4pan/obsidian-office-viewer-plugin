@@ -126,7 +126,8 @@ export default class OfficeViewerPlugin extends Plugin {
     this.registerEditorExtension(
       createLivePreviewSlideEmbedExtension({
         livePreviewField: editorLivePreviewField,
-        getSourcePath: (state) => state.field(editorInfoField).file?.path ?? "",
+        getSourcePath: (state) =>
+          state.field(editorInfoField, false)?.file?.path ?? "",
         resolveFile: (sourcePath, notePath) =>
           resolveSlideEmbedFile(this.app, sourcePath, notePath),
         readBinary: (file) => this.app.vault.readBinary(file),

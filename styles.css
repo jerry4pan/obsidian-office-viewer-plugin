@@ -18,11 +18,12 @@
   border-radius: var(--radius-m);
   display: flex;
   flex-direction: column;
-  gap: var(--size-4-2);
+  gap: 0;
   margin-block: var(--size-4-3);
   min-height: 12rem;
   overflow: hidden;
   padding: var(--size-4-3);
+  padding-bottom: 0;
 }
 
 .pptx-slide-embed__status,
@@ -30,6 +31,10 @@
 .pptx-slide-embed__compatibility {
   color: var(--text-muted);
   font-size: var(--font-ui-small);
+}
+
+.pptx-slide-embed__status {
+  margin-bottom: var(--size-4-2);
 }
 
 .pptx-slide-embed__canvas {
@@ -56,10 +61,35 @@
 
 .pptx-slide-embed__footer {
   align-items: center;
+  background: var(--background-secondary);
+  border-top: 1px solid var(--background-modifier-border);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--size-4-2);
+  gap: var(--size-4-3);
   justify-content: flex-end;
+  margin-inline: calc(-1 * var(--size-4-3));
+  padding: var(--size-4-2) var(--size-4-3);
+}
+
+.pptx-slide-embed__footer .pptx-slide-embed__action {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  padding: 0;
+  text-decoration: none;
+}
+
+.pptx-slide-embed__footer .pptx-slide-embed__action:hover,
+.pptx-slide-embed__footer .pptx-slide-embed__action:focus-visible {
+  color: var(--text-normal);
+}
+
+.pptx-slide-embed__compatibility:not(:empty) {
+  margin-top: var(--size-4-2);
 }
 
 .pptx-slide-embed__compatibility:empty {

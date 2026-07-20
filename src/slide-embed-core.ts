@@ -182,13 +182,14 @@ export class SlideEmbedController<
     });
     const linkTarget = formatSlideReferenceLinkTarget(sourcePath, target);
     const sourceLink = appendEmbedElement(footer, "a", {
-      className: "internal-link",
+      className: "internal-link pptx-slide-embed__action",
       text: this.ports.messages.text("reference.openPresentation"),
       attributes: { href: linkTarget },
     });
     sourceLink.dataset.href = linkTarget;
     if (file !== null && this.ports.openExternally !== undefined) {
       const externalButton = appendEmbedElement(footer, "button", {
+        className: "pptx-slide-embed__action",
         text: this.ports.messages.text("external.open"),
         attributes: {
           type: "button",

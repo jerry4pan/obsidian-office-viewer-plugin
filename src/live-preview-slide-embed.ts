@@ -158,7 +158,9 @@ function buildDecorations<TFile extends SlideEmbedSourceFile>(
   options: LivePreviewSlideEmbedOptions<TFile>,
   surfaceActive: boolean,
 ): DecorationSet {
-  if (!surfaceActive || !state.field(options.livePreviewField)) return Decoration.none;
+  if (!surfaceActive || !state.field(options.livePreviewField, false)) {
+    return Decoration.none;
+  }
   const notePath = options.getSourcePath(state);
   const builder = new RangeSetBuilder<Decoration>();
   let lastVisitedLine = 0;
@@ -241,22 +243,34 @@ export function createLivePreviewSlideEmbedExtension<
   const decorationsField = StateField.define<DecorationSet>({
     create: () => Decoration.none,
     update: (decorations, tr) => {
-      const rangesChanged = tr.startState.field(visibleRangesField)
-        !== tr.state.field(visibleRangesField);
+      // Obsidian adds/removes plugin editor extensions via Compartment
+      // reconfigure. CodeMirror still runs update() after reconfigure, with a
+      // startState that may not contain newly added (or already-removed)
+      // sibling fields. Required field() throws and aborts plugin load.
+      const nextRanges = tr.state.field(visibleRangesField, false);
+      const nextLivePreview = tr.state.field(options.livePreviewField, false);
+      const nextSurfaceActive = tr.state.field(surfaceActiveField, false);
+      if (
+        nextRanges === undefined
+        || nextLivePreview === undefined
+        || nextSurfaceActive === undefined
+      ) {
+        return decorations.map(tr.changes);
+      }
+      const rangesChanged =
+        tr.startState.field(visibleRangesField, false) !== nextRanges;
       if (
         tr.docChanged
         || tr.selection
         || rangesChanged
-        || tr.startState.field(options.livePreviewField)
-          !== tr.state.field(options.livePreviewField)
-        || tr.startState.field(surfaceActiveField)
-          !== tr.state.field(surfaceActiveField)
+        || tr.startState.field(options.livePreviewField, false) !== nextLivePreview
+        || tr.startState.field(surfaceActiveField, false) !== nextSurfaceActive
       ) {
         return buildDecorations(
           tr.state,
-          tr.state.field(visibleRangesField),
+          nextRanges,
           options,
-          tr.state.field(surfaceActiveField),
+          nextSurfaceActive,
         );
       }
       return decorations.map(tr.changes);
@@ -304,7 +318,8 @@ export function createLivePreviewSlideEmbedExtension<
           from: this.view.viewport.from,
           to: this.view.viewport.to,
         }];
-        const previous = this.view.state.field(visibleRangesField);
+        const previous = this.view.state.field(visibleRangesField, false);
+        if (previous === undefined) return;
         if (
           ranges.length === previous.length
           && ranges.every((range, index) =>
@@ -358,11 +373,11 @@ export function createLivePreviewSlideEmbedExtension<
       });
     }
     private sync(): void {
-      const active = isLivePreviewEditorSurface(
-        this.view,
-        this.view.state.field(options.livePreviewField),
-      );
-      if (active !== this.view.state.field(surfaceActiveField)) {
+      const livePreview = this.view.state.field(options.livePreviewField, false);
+      const surfaceActive = this.view.state.field(surfaceActiveField, false);
+      if (livePreview === undefined || surfaceActive === undefined) return;
+      const active = isLivePreviewEditorSurface(this.view, livePreview);
+      if (active !== surfaceActive) {
         this.view.dispatch({ effects: setSurfaceActive.of(active) });
       }
     }
