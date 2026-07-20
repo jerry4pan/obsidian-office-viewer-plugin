@@ -100,12 +100,34 @@ describe("SlideEmbedController", () => {
     expect(
       host.querySelector("a.internal-link")?.getAttribute("data-href"),
     ).toBe("deck.pptx#slide-id=261&slide=1");
+    expect(
+      host.querySelector("a.internal-link")?.classList.contains(
+        "pptx-slide-embed__action",
+      ),
+    ).toBe(true);
 
     controller.dispose();
     expect(session.dispose).toHaveBeenCalledOnce();
     expect(host.dataset.state).toBe("waiting");
     expect(host.querySelector(".pptx-slide-embed__canvas")?.childElementCount)
       .toBe(0);
+    host.remove();
+  });
+
+  it("mounts footer actions as one shared toolbar chrome class", () => {
+    const session = makeSession();
+    const openExternally = vi.fn(async () => undefined);
+    const { host, controller } = mountCore(session, { openExternally });
+
+    const footer = host.querySelector(".pptx-slide-embed__footer");
+    expect(footer).not.toBeNull();
+    const actions = footer!.querySelectorAll(".pptx-slide-embed__action");
+    expect(actions).toHaveLength(2);
+    expect(actions[0]?.tagName).toBe("A");
+    expect(actions[1]?.tagName).toBe("BUTTON");
+    expect(actions[1]?.getAttribute("data-action")).toBe("open-externally");
+
+    controller.dispose();
     host.remove();
   });
 
