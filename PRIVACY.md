@@ -10,6 +10,13 @@ a Vault-relative path, file size, modification time, zero-based slide index,
 and update timestamp in the plugin data store. It can be disabled and cleared
 from settings.
 
+Explicitly claimed **Presentation companion notes** are ordinary Vault Markdown
+files. The plugin creates or adopts them only when the reader invokes **Open
+companion note**. Plugin data stores only the normalized Vault-relative
+`sourcePath` and `notePath` for each claimed pair. Disabling reading-position
+history does not clear companion relationships. Companion note bodies are never
+copied into plugin data, diagnostics, or telemetry.
+
 **Diagnostic summary** is off by default. When you enable it, detectable
 compatibility warnings and the copy control appear on the next open, retry, or
 reload of a file. Enabling the setting does not upload data or submit a report

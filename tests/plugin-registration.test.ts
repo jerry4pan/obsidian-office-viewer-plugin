@@ -412,19 +412,23 @@ describe("OfficeViewerPlugin", () => {
     expect(settingTab.containerEl.textContent).toContain(
       "Store only the last slide number and a local file-change fingerprint.",
     );
+    expect(settingTab.containerEl.textContent).toContain(
+      "Explicitly claimed companion-note path pairs are kept separately",
+    );
     const toggle = (settingTab.containerEl.firstElementChild as HTMLElement & {
       testToggle: ToggleComponent & { trigger(value: boolean): Promise<void> };
     }).testToggle;
     await toggle.trigger(false);
 
     expect(plugin.saveData).toHaveBeenLastCalledWith({
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: {
         rememberReadingPosition: false,
         diagnosticSummary: false,
         thumbnailRailWidth: 168,
       },
       positions: {},
+      companionNotes: {},
     });
   });
 
@@ -463,7 +467,7 @@ describe("OfficeViewerPlugin", () => {
     await diagnosticSetting.testToggle.trigger(true);
 
     expect(plugin.saveData).toHaveBeenLastCalledWith({
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: {
         rememberReadingPosition: true,
         diagnosticSummary: true,
@@ -475,6 +479,7 @@ describe("OfficeViewerPlugin", () => {
           slideIndex: 3,
         }),
       },
+      companionNotes: {},
     });
   });
 
@@ -529,13 +534,14 @@ describe("OfficeViewerPlugin", () => {
       retryToggle.triggerWithoutAwait(true);
       await vi.waitFor(() =>
         expect(plugin.saveData).toHaveBeenLastCalledWith({
-          schemaVersion: 1,
+          schemaVersion: 2,
           settings: {
             rememberReadingPosition: true,
             diagnosticSummary: false,
             thumbnailRailWidth: 168,
           },
           positions: {},
+          companionNotes: {},
         }),
       );
       settingTab.display();
