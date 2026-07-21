@@ -25,6 +25,7 @@ const EXPECTED_UI = {
     diagnostics: "Copy diagnostic summary",
     copyReference: "Copy slide reference",
     copyEmbed: "Copy slide embed",
+    companionOpen: "Open presentation companion note",
     searchOpen: "Search slide text",
     searchResults: "Matching slides",
     searchCount: "Matching slides: 1",
@@ -70,6 +71,7 @@ const EXPECTED_UI = {
     diagnostics: "复制诊断摘要",
     copyReference: "复制幻灯片引用",
     copyEmbed: "复制幻灯片嵌入",
+    companionOpen: "打开演示文稿伴生笔记",
     searchOpen: "搜索幻灯片文字",
     searchResults: "匹配的幻灯片",
     searchCount: "找到 1 张幻灯片",
@@ -114,6 +116,7 @@ const EXPECTED_UI = {
     diagnostics: "複製診斷摘要",
     copyReference: "複製投影片引用",
     copyEmbed: "複製投影片嵌入",
+    companionOpen: "開啟簡報伴生筆記",
     searchOpen: "搜尋投影片文字",
     searchResults: "相符的投影片",
     searchCount: "找到 1 張投影片",
@@ -158,6 +161,7 @@ const EXPECTED_UI = {
     diagnostics: "Copy diagnostic summary",
     copyReference: "Copy slide reference",
     copyEmbed: "Copy slide embed",
+    companionOpen: "Open presentation companion note",
     searchOpen: "Search slide text",
     searchResults: "Matching slides",
     searchCount: "Matching slides: 1",
@@ -301,6 +305,10 @@ describe("multilingual installed smoke", () => {
     await expect(root.$('[data-action="copy-slide-embed"]')).toHaveAttribute(
       "aria-label",
       expected.copyEmbed,
+    );
+    await expect(root.$('[data-action="open-companion-note"]')).toHaveAttribute(
+      "aria-label",
+      expected.companionOpen,
     );
     await expect(root.$('.pptx-viewer__page-total')).toHaveText(expected.pageTotal);
 

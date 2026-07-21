@@ -277,13 +277,14 @@ describe("OfficeViewerDataStore", () => {
 
     await store.setRememberReadingPosition(false);
     expect(adapter.saved.at(-1)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: {
         rememberReadingPosition: false,
         diagnosticSummary: false,
         thumbnailRailWidth: 168,
       },
       positions: {},
+      companionNotes: {},
     });
     expect(store.resolve(deck, 10)).toBe(0);
 
@@ -305,7 +306,7 @@ describe("OfficeViewerDataStore", () => {
 
     await store.setDiagnosticSummary(true);
     expect(adapter.saved.at(-1)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: {
         rememberReadingPosition: true,
         diagnosticSummary: true,
@@ -317,6 +318,7 @@ describe("OfficeViewerDataStore", () => {
           slideIndex: 7,
         }),
       },
+      companionNotes: {},
     });
     expect(store.settings.diagnosticSummary).toBe(true);
 
@@ -462,5 +464,122 @@ describe("OfficeViewerDataStore", () => {
       diagnosticSummary: false,
       thumbnailRailWidth: 168,
     });
+  });
+
+  it("upgrades schema v1 to v2 while retaining settings and positions", async () => {
+    const adapter = makeDataAdapter({
+      schemaVersion: 1,
+      settings: {
+        rememberReadingPosition: true,
+        diagnosticSummary: true,
+        thumbnailRailWidth: 240,
+      },
+      positions: {
+        "deck.pptx": { ...deck, slideIndex: 3, updatedAt: 9 },
+      },
+    });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+
+    expect(store.settings).toEqual({
+      rememberReadingPosition: true,
+      diagnosticSummary: true,
+      thumbnailRailWidth: 240,
+    });
+    expect(store.resolve(deck, 10)).toBe(3);
+    expect(store.listCompanionNotes()).toEqual([]);
+
+    store.setCompanionNote({
+      sourcePath: "deck.pptx",
+      notePath: "deck.md",
+    });
+    await store.flush();
+
+    expect(adapter.saved.at(-1)).toMatchObject({
+      schemaVersion: 2,
+      companionNotes: {
+        "deck.pptx": { sourcePath: "deck.pptx", notePath: "deck.md" },
+      },
+      positions: {
+        "deck.pptx": expect.objectContaining({ slideIndex: 3 }),
+      },
+    });
+  });
+
+  it("keeps companion notes when remembering reading position is disabled", async () => {
+    const adapter = makeDataAdapter();
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+    store.record(deck, 4);
+    store.setCompanionNote({
+      sourcePath: "deck.pptx",
+      notePath: "deck.md",
+    });
+
+    await store.setRememberReadingPosition(false);
+
+    expect(store.resolve(deck, 10)).toBe(0);
+    expect(store.getCompanionNote("deck.pptx")).toEqual({
+      sourcePath: "deck.pptx",
+      notePath: "deck.md",
+    });
+    expect(adapter.saved.at(-1)?.companionNotes).toEqual({
+      "deck.pptx": { sourcePath: "deck.pptx", notePath: "deck.md" },
+    });
+    expect(adapter.saved.at(-1)?.positions).toEqual({});
+  });
+
+  it("discards malformed companion notes without losing other data", async () => {
+    const adapter = makeDataAdapter({
+      schemaVersion: 2,
+      settings: {
+        rememberReadingPosition: true,
+        diagnosticSummary: false,
+        thumbnailRailWidth: 168,
+      },
+      positions: {
+        "deck.pptx": { ...deck, slideIndex: 2, updatedAt: 5 },
+      },
+      companionNotes: {
+        "good.pptx": { sourcePath: "good.pptx", notePath: "good.md" },
+        "bad.pptx": { sourcePath: "other.pptx", notePath: "bad.md" },
+        "abs.pptx": { sourcePath: "abs.pptx", notePath: "/abs.md" },
+        "legacy.ppt": { sourcePath: "legacy.ppt", notePath: "legacy.md" },
+        "traversal.pptx": {
+          sourcePath: "traversal.pptx",
+          notePath: "../escape.md",
+        },
+        __proto__: { sourcePath: "__proto__", notePath: "proto.md" },
+      },
+    });
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+
+    expect(store.resolve(deck, 10)).toBe(2);
+    expect(store.listCompanionNotes()).toEqual([
+      { sourcePath: "good.pptx", notePath: "good.md" },
+    ]);
+  });
+
+  it("persists only sourcePath and notePath for companion relationships", async () => {
+    const adapter = makeDataAdapter();
+    const store = new OfficeViewerDataStore(adapter, { debounceMs: 0 });
+    await store.initialize();
+    store.setCompanionNote({
+      sourcePath: "Talks/deck.pptx",
+      notePath: "Talks/deck.md",
+      // @ts-expect-error intentional extra field must not persist
+      body: "# secret",
+      slideText: "private",
+    });
+    await store.flush();
+
+    expect(adapter.saved.at(-1)?.companionNotes["Talks/deck.pptx"]).toEqual({
+      sourcePath: "Talks/deck.pptx",
+      notePath: "Talks/deck.md",
+    });
+    expect(JSON.stringify(adapter.saved.at(-1))).not.toMatch(
+      /secret|private|slideText|body/i,
+    );
   });
 });

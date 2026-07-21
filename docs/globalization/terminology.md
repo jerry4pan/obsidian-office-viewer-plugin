@@ -73,6 +73,19 @@ reviewing commit `e62eb4a`; the durable review record is in
 | Slide text | 幻灯片文字 | 投影片文字 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
 | Search scope | 搜索范围 | 搜尋範圍 | Office Viewer, approved by `@jerry4pan` for `975ef9e` |
 
+## Draft Presentation companion note terminology
+
+These catalog terms ship with Issue #53. They distinguish the reader-authored
+Markdown **Presentation companion note** from PPTX **Speaker notes**. Human
+review of the full message set remains recorded with the companion-note
+implementation review.
+
+| English source term | Simplified Chinese | Traditional Chinese | Authority |
+| --- | --- | --- | --- |
+| Presentation companion note | 演示文稿伴生笔记 | 簡報伴生筆記 | Office Viewer, draft for #53 |
+| Companion note | 伴生笔记 | 伴生筆記 | Office Viewer, draft for #53 |
+| Open companion note | 打开伴生笔记 | 開啟伴生筆記 | Office Viewer, draft for #53 |
+
 ## Review rules
 
 - Prefer natural sentence structure over word-for-word translation.

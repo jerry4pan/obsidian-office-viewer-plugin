@@ -93,6 +93,13 @@ export interface PptxViewOptions<FileRef> {
       paragraphs: readonly string[],
     ): Promise<void>;
   };
+  /**
+   * File-level Presentation companion note action. Independent of Vault APIs
+   * inside the session; the host supplies create/open behavior.
+   */
+  companionNote?: {
+    open(file: FileRef): Promise<string>;
+  };
 }
 
 export interface PptxFullscreenActions {
@@ -352,6 +359,14 @@ export class PptxViewSession<FileRef> {
       cls: "pptx-viewer__action-status",
       attr: { role: "status", "aria-live": "polite" },
     });
+
+    const companionButton = this.createCompanionNoteButton(
+      file,
+      generation,
+      actionStatus,
+      () => this.options.fullscreen ?? createDefaultFullscreenActions(),
+    );
+    if (companionButton) headerActions.prepend(companionButton);
 
     const openExternally = this.createExternalOpenButton(
       file,
@@ -1213,7 +1228,17 @@ export class PptxViewSession<FileRef> {
 
     const actionStatus = panel.createDiv({
       cls: "pptx-viewer__action-status",
+      attr: { role: "status", "aria-live": "polite" },
     });
+    if (error.category !== "unsupported-legacy") {
+      const companionButton = this.createCompanionNoteButton(
+        file,
+        generation,
+        actionStatus,
+        () => this.options.fullscreen ?? createDefaultFullscreenActions(),
+      );
+      if (companionButton) actions.append(companionButton);
+    }
     const openExternally = this.createExternalOpenButton(
       file,
       generation,
@@ -1227,6 +1252,50 @@ export class PptxViewSession<FileRef> {
     this.root.dataset.errorCategory = error.category;
     this.diagnosticError = error.category;
     delete this.root.dataset.warningCategories;
+  }
+
+  private createCompanionNoteButton(
+    file: FileRef,
+    generation: number,
+    actionStatus: HTMLElement,
+    resolveFullscreen: () => PptxFullscreenActions,
+  ): HTMLButtonElement | null {
+    if (this.options.companionNote === undefined) return null;
+    const button = createEl("button", {
+      type: "button",
+      text: "✎",
+      title: this.messages.text("companion.open"),
+      attr: {
+        "data-action": "open-companion-note",
+        "aria-label": this.messages.text("companion.openLabel"),
+      },
+    });
+    button.addEventListener("click", () => {
+      if (generation !== this.generation || this.disposed) return;
+      actionStatus.textContent = "";
+      const fullscreen = resolveFullscreen();
+      const run = async () => {
+        if (fullscreen.isActive(this.root)) {
+          try {
+            await fullscreen.exit();
+          } catch {
+            actionStatus.textContent = this.messages.text("fullscreen.failure");
+            return;
+          }
+        }
+        if (generation !== this.generation || this.disposed) return;
+        try {
+          const status = await this.options.companionNote!.open(file);
+          if (generation !== this.generation || this.disposed) return;
+          actionStatus.textContent = status;
+        } catch {
+          if (generation !== this.generation || this.disposed) return;
+          actionStatus.textContent = this.messages.text("companion.openFailure");
+        }
+      };
+      void run();
+    });
+    return button;
   }
 
   private showMissingReference(file: FileRef, generation: number): void {

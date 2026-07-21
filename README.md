@@ -112,7 +112,18 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 - Stores only a Vault-relative path, file size, modification time, slide index,
   and update timestamp. It does not store slide text, images, paths outside the
   Vault, or author metadata. Turn it off at any time to clear saved positions
-  instantly.
+  instantly. Explicitly claimed companion-note path pairs are stored separately
+  and are not cleared by this setting.
+
+**Presentation companion note**
+
+- From an open `.pptx` viewer, use **Open companion note** to create or claim
+  one same-directory, same-basename Markdown note for presentation-level
+  writing. Merely opening a PPTX does not write the Vault.
+- Newly created notes contain only a heading and an ordinary wikilink to the
+  source PPTX. Existing same-name Markdown is adopted unchanged.
+- The source PPTX remains read-only. Plugin data stores only the two
+  Vault-relative paths for a claimed relationship.
 
 **Compatibility awareness**
 
@@ -139,8 +150,10 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 **Privacy**
 
 - Everything stays local. The plugin never uploads files, phones home, or
-  collects telemetry. Source files are never modified, and slide-search
-  queries, source-authored slide text, snippets, and results are not saved.
+  collects telemetry. Source PPTX files are never modified. Companion notes are
+  Markdown files created only by an explicit action; plugin data stores only
+  their Vault-relative path pairs. Slide-search queries, source-authored slide
+  text, snippets, and results are not saved.
 
 ## Feedback
 

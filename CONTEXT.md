@@ -12,6 +12,19 @@ source document. Format coverage is valuable only when it advances this
 workflow, not as a standalone measure of product breadth.
 _Avoid_: Supported file, Office file
 
+**Presentation companion note**:
+The single presentation-level Markdown note a reader explicitly associates
+with one PPTX **Knowledge material** for reader-authored understanding and
+source-preserving references. It is not a separate note for each slide.
+_Avoid_: Slide note, Per-slide note, PPTX copy
+
+**Companion note path conflict**:
+The state in which an associated **Presentation companion note** cannot follow
+its PPTX to the required same-name location because that location is occupied.
+The previously associated note remains authoritative until the conflict is
+resolved.
+_Avoid_: Duplicate companion note, Automatic reassociation
+
 **Knowledge reference loop**:
 The complete reader journey from finding relevant content, opening its precise
 location, copying or embedding it with its source, and returning to that

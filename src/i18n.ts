@@ -108,12 +108,24 @@ const ENGLISH_MESSAGES = {
   "error.sourceUnmodified": "The original PPTX file was not modified.",
   "error.sourceUnmodifiedLegacy": "The original file was not modified.",
   "error.retry": "Retry",
+  "companion.open": "Open companion note",
+  "companion.openLabel": "Open presentation companion note",
+  "companion.created": "Companion note created.",
+  "companion.adopted": "Companion note opened.",
+  "companion.opened": "Companion note opened.",
+  "companion.migrated": "Companion note moved to the matching location.",
+  "companion.conflict":
+    "The companion note could not move because {path} is occupied. The previous note remains open.",
+  "companion.targetOccupied":
+    "Cannot create a companion note because {path} is occupied.",
+  "companion.writeFailure": "Unable to create the companion note.",
+  "companion.openFailure": "Unable to open the companion note.",
   "settings.rememberPosition": "Remember reading position",
   "settings.rememberPositionDescription":
-    "Store only the last slide number and a local file-change fingerprint.",
+    "Store only the last slide number and a local file-change fingerprint. Explicitly claimed companion-note path pairs are kept separately and are not cleared by this setting.",
   "settings.localProcessing": "Local processing and privacy",
   "settings.localProcessingDescription":
-    "Presentation bytes stay on this device. Office Viewer does not upload files or include telemetry.",
+    "Presentation bytes stay on this device. The source PPTX remains read-only. Companion notes are Markdown files created only by an explicit action and store no slide text in plugin data. Office Viewer does not upload files or include telemetry.",
   "settings.compatibility": "Compatibility and safety",
   "settings.compatibilityDescription":
     "Rendering is a read-only preview. Blocking errors always stay visible. Detectable non-blocking compatibility warnings and the diagnostic copy control appear only when Diagnostic summary is enabled.",
@@ -230,12 +242,23 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "error.sourceUnmodified": "原始 PPTX 文件未被修改。",
   "error.sourceUnmodifiedLegacy": "原始文件未被修改。",
   "error.retry": "重试",
+  "companion.open": "打开伴生笔记",
+  "companion.openLabel": "打开演示文稿伴生笔记",
+  "companion.created": "已创建伴生笔记。",
+  "companion.adopted": "已打开伴生笔记。",
+  "companion.opened": "已打开伴生笔记。",
+  "companion.migrated": "伴生笔记已移动到对应位置。",
+  "companion.conflict":
+    "伴生笔记无法移动，因为 {path} 已被占用。仍打开原先的笔记。",
+  "companion.targetOccupied": "无法创建伴生笔记，因为 {path} 已被占用。",
+  "companion.writeFailure": "无法创建伴生笔记。",
+  "companion.openFailure": "无法打开伴生笔记。",
   "settings.rememberPosition": "记住阅读位置",
   "settings.rememberPositionDescription":
-    "仅存储上次阅读的幻灯片编号和用于检测本地文件更改的信息。",
+    "仅存储上次阅读的幻灯片编号和用于检测本地文件更改的信息。明确认领的伴生笔记路径对单独保存，不会因此设置而被清除。",
   "settings.localProcessing": "本地处理与隐私",
   "settings.localProcessingDescription":
-    "演示文稿数据始终保留在此设备上。Office Viewer 不会上传文件，也不包含遥测。",
+    "演示文稿数据始终保留在此设备上。源 PPTX 保持只读。伴生笔记是仅在显式操作时创建的 Markdown 文件，插件数据中不保存幻灯片正文。Office Viewer 不会上传文件，也不包含遥测。",
   "settings.compatibility": "兼容性与安全",
   "settings.compatibilityDescription":
     "渲染结果是只读预览。阻断性错误始终可见。可检测的非阻断兼容性提示和诊断复制入口仅在开启诊断摘要后显示。",
@@ -348,12 +371,23 @@ const TRADITIONAL_CHINESE_MESSAGES = {
   "error.sourceUnmodified": "原始 PPTX 檔案未經修改。",
   "error.sourceUnmodifiedLegacy": "原始檔案未經修改。",
   "error.retry": "重試",
+  "companion.open": "開啟伴生筆記",
+  "companion.openLabel": "開啟簡報伴生筆記",
+  "companion.created": "已建立伴生筆記。",
+  "companion.adopted": "已開啟伴生筆記。",
+  "companion.opened": "已開啟伴生筆記。",
+  "companion.migrated": "伴生筆記已移動到對應位置。",
+  "companion.conflict":
+    "伴生筆記無法移動，因為 {path} 已被占用。仍開啟原先的筆記。",
+  "companion.targetOccupied": "無法建立伴生筆記，因為 {path} 已被占用。",
+  "companion.writeFailure": "無法建立伴生筆記。",
+  "companion.openFailure": "無法開啟伴生筆記。",
   "settings.rememberPosition": "記住閱讀位置",
   "settings.rememberPositionDescription":
-    "僅儲存上次閱讀的投影片編號，以及用於偵測本機檔案變更的資訊。",
+    "僅儲存上次閱讀的投影片編號，以及用於偵測本機檔案變更的資訊。明確認領的伴生筆記路徑對單獨保存，不會因此設定而被清除。",
   "settings.localProcessing": "本機處理與隱私",
   "settings.localProcessingDescription":
-    "簡報資料始終保留在此裝置上。Office Viewer 不會上傳檔案，也不包含遙測。",
+    "簡報資料始終保留在此裝置上。來源 PPTX 保持唯讀。伴生筆記是僅在明確操作時建立的 Markdown 檔案，外掛資料中不保存投影片正文。Office Viewer 不會上傳檔案，也不包含遙測。",
   "settings.compatibility": "相容性與安全",
   "settings.compatibilityDescription":
     "呈現結果是唯讀預覽。阻斷性錯誤始終可見。可偵測的非阻斷相容性提示和診斷複製入口僅在開啟診斷摘要後顯示。",

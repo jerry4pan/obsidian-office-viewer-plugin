@@ -2,6 +2,11 @@ import {
   DEFAULT_THUMBNAIL_RAIL_WIDTH,
   normalizeThumbnailRailWidth,
 } from "./thumbnail-rail-sizing";
+import {
+  isNormalizedMarkdownPath,
+  isNormalizedPptxPath,
+  normalizeVaultRelativePath,
+} from "./presentation-companion-note";
 
 export interface FileFingerprint {
   readonly path: string;
@@ -20,10 +25,17 @@ export interface ReadingPositionEntry extends FileFingerprint {
   readonly updatedAt: number;
 }
 
+/** Explicitly claimed Presentation companion note path pair. */
+export interface CompanionNoteRelationship {
+  readonly sourcePath: string;
+  readonly notePath: string;
+}
+
 export interface OfficeViewerData {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly settings: OfficeViewerSettings;
   readonly positions: Record<string, ReadingPositionEntry>;
+  readonly companionNotes: Record<string, CompanionNoteRelationship>;
 }
 
 export interface OfficeViewerDataAdapter {
@@ -42,14 +54,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isVaultRelativePath(path: unknown): path is string {
-  return (
+  return normalizeVaultRelativePath(typeof path === "string" ? path : "") !== undefined &&
     typeof path === "string" &&
-    path.length > 0 &&
-    !path.startsWith("/") &&
-    !path.startsWith("\\") &&
-    !/^[A-Za-z]:[\\/]/.test(path) &&
-    !path.replaceAll("\\", "/").split("/").includes("..")
-  );
+    normalizeVaultRelativePath(path) === path;
 }
 
 function isNonNegativeFiniteNumber(value: unknown): value is number {
@@ -94,55 +101,134 @@ function normalizeEntry(
   };
 }
 
+function normalizeCompanionNote(
+  key: string,
+  value: unknown,
+): CompanionNoteRelationship | undefined {
+  if (key === "__proto__" || key === "constructor" || key === "prototype") {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  if (
+    value.sourcePath !== key ||
+    typeof value.sourcePath !== "string" ||
+    typeof value.notePath !== "string"
+  ) {
+    return undefined;
+  }
+  if (
+    !isNormalizedPptxPath(value.sourcePath) ||
+    !isNormalizedMarkdownPath(value.notePath)
+  ) {
+    return undefined;
+  }
+  return {
+    sourcePath: value.sourcePath,
+    notePath: value.notePath,
+  };
+}
+
+function normalizePositions(
+  value: unknown,
+  rememberReadingPosition: boolean,
+): Record<string, ReadingPositionEntry> {
+  const positions: Record<string, ReadingPositionEntry> = {};
+  if (!rememberReadingPosition || !isRecord(value)) {
+    return positions;
+  }
+  for (const [key, candidate] of Object.entries(value)) {
+    const entry = normalizeEntry(key, candidate);
+    if (entry !== undefined) {
+      Object.defineProperty(positions, key, {
+        configurable: true,
+        enumerable: true,
+        value: entry,
+        writable: true,
+      });
+    }
+  }
+  return positions;
+}
+
+function normalizeCompanionNotes(
+  value: unknown,
+): Record<string, CompanionNoteRelationship> {
+  const companionNotes: Record<string, CompanionNoteRelationship> = {};
+  if (!isRecord(value)) {
+    return companionNotes;
+  }
+  for (const key of Object.keys(value)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      continue;
+    }
+    if (!Object.hasOwn(value, key)) {
+      continue;
+    }
+    const entry = normalizeCompanionNote(key, value[key]);
+    if (entry !== undefined) {
+      Object.defineProperty(companionNotes, key, {
+        configurable: true,
+        enumerable: true,
+        value: entry,
+        writable: true,
+      });
+    }
+  }
+  return companionNotes;
+}
+
+function normalizeSettings(value: unknown): OfficeViewerSettings {
+  const rememberReadingPosition =
+    isRecord(value) && typeof value.rememberReadingPosition === "boolean"
+      ? value.rememberReadingPosition
+      : true;
+  const diagnosticSummary =
+    isRecord(value) && typeof value.diagnosticSummary === "boolean"
+      ? value.diagnosticSummary
+      : false;
+  const thumbnailRailWidth =
+    isRecord(value) && typeof value.thumbnailRailWidth === "number"
+      ? normalizeThumbnailRailWidth(value.thumbnailRailWidth)
+      : DEFAULT_THUMBNAIL_RAIL_WIDTH;
+  return { rememberReadingPosition, diagnosticSummary, thumbnailRailWidth };
+}
+
 function normalizeData(value: unknown): OfficeViewerData {
-  if (!isRecord(value) || value.schemaVersion !== 1) {
+  if (!isRecord(value)) {
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: DEFAULT_SETTINGS,
       positions: {},
+      companionNotes: {},
     };
   }
 
-  const rememberReadingPosition =
-    isRecord(value.settings) &&
-    typeof value.settings.rememberReadingPosition === "boolean"
-      ? value.settings.rememberReadingPosition
-      : true;
-  const diagnosticSummary =
-    isRecord(value.settings) &&
-    typeof value.settings.diagnosticSummary === "boolean"
-      ? value.settings.diagnosticSummary
-      : false;
-  const thumbnailRailWidth =
-    isRecord(value.settings) && typeof value.settings.thumbnailRailWidth === "number"
-      ? normalizeThumbnailRailWidth(value.settings.thumbnailRailWidth)
-      : DEFAULT_THUMBNAIL_RAIL_WIDTH;
-  const positions: Record<string, ReadingPositionEntry> = {};
-
-  if (rememberReadingPosition && isRecord(value.positions)) {
-    for (const [key, candidate] of Object.entries(value.positions)) {
-      const entry = normalizeEntry(key, candidate);
-      if (entry !== undefined) {
-        Object.defineProperty(positions, key, {
-          configurable: true,
-          enumerable: true,
-          value: entry,
-          writable: true,
-        });
-      }
-    }
+  const schemaVersion = value.schemaVersion;
+  if (schemaVersion !== 1 && schemaVersion !== 2) {
+    return {
+      schemaVersion: 2,
+      settings: DEFAULT_SETTINGS,
+      positions: {},
+      companionNotes: {},
+    };
   }
 
+  const settings = normalizeSettings(value.settings);
   return {
-    schemaVersion: 1,
-    settings: { rememberReadingPosition, diagnosticSummary, thumbnailRailWidth },
-    positions,
+    schemaVersion: 2,
+    settings,
+    positions: normalizePositions(value.positions, settings.rememberReadingPosition),
+    companionNotes: schemaVersion === 2
+      ? normalizeCompanionNotes(value.companionNotes)
+      : {},
   };
 }
 
 function snapshot(data: OfficeViewerData): OfficeViewerData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     settings: {
       rememberReadingPosition: data.settings.rememberReadingPosition,
       diagnosticSummary: data.settings.diagnosticSummary,
@@ -160,14 +246,24 @@ function snapshot(data: OfficeViewerData): OfficeViewerData {
         },
       ]),
     ),
+    companionNotes: Object.fromEntries(
+      Object.entries(data.companionNotes).map(([path, entry]) => [
+        path,
+        {
+          sourcePath: entry.sourcePath,
+          notePath: entry.notePath,
+        },
+      ]),
+    ),
   };
 }
 
 export class OfficeViewerDataStore {
   private data: OfficeViewerData = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     settings: DEFAULT_SETTINGS,
     positions: {},
+    companionNotes: {},
   };
   private disposed = false;
   private revision = 0;
@@ -280,6 +376,65 @@ export class OfficeViewerDataStore {
     this.remove(path);
   }
 
+  getCompanionNote(sourcePath: string): CompanionNoteRelationship | undefined {
+    if (!Object.hasOwn(this.data.companionNotes, sourcePath)) {
+      return undefined;
+    }
+    const entry = this.data.companionNotes[sourcePath];
+    if (entry === undefined) {
+      return undefined;
+    }
+    return { sourcePath: entry.sourcePath, notePath: entry.notePath };
+  }
+
+  findCompanionNoteByNotePath(
+    notePath: string,
+  ): CompanionNoteRelationship | undefined {
+    for (const entry of Object.values(this.data.companionNotes)) {
+      if (entry.notePath === notePath) {
+        return { sourcePath: entry.sourcePath, notePath: entry.notePath };
+      }
+    }
+    return undefined;
+  }
+
+  listCompanionNotes(): readonly CompanionNoteRelationship[] {
+    return Object.values(this.data.companionNotes).map((entry) => ({
+      sourcePath: entry.sourcePath,
+      notePath: entry.notePath,
+    }));
+  }
+
+  setCompanionNote(relationship: CompanionNoteRelationship): void {
+    if (this.disposed) {
+      return;
+    }
+    if (
+      !isNormalizedPptxPath(relationship.sourcePath) ||
+      !isNormalizedMarkdownPath(relationship.notePath)
+    ) {
+      return;
+    }
+    Object.defineProperty(this.data.companionNotes, relationship.sourcePath, {
+      configurable: true,
+      enumerable: true,
+      value: {
+        sourcePath: relationship.sourcePath,
+        notePath: relationship.notePath,
+      },
+      writable: true,
+    });
+    this.markChanged();
+  }
+
+  deleteCompanionNote(sourcePath: string): void {
+    if (this.disposed || !Object.hasOwn(this.data.companionNotes, sourcePath)) {
+      return;
+    }
+    delete this.data.companionNotes[sourcePath];
+    this.markChanged();
+  }
+
   async setRememberReadingPosition(enabled: boolean): Promise<void> {
     if (this.disposed || enabled === this.data.settings.rememberReadingPosition) {
       return;
@@ -287,13 +442,14 @@ export class OfficeViewerDataStore {
 
     this.clearTimer();
     this.data = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       settings: {
         rememberReadingPosition: enabled,
         diagnosticSummary: this.data.settings.diagnosticSummary,
         thumbnailRailWidth: this.data.settings.thumbnailRailWidth,
       },
       positions: {},
+      companionNotes: snapshot(this.data).companionNotes,
     };
     this.revision += 1;
     await this.flush();

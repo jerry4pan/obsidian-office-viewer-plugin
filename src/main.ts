@@ -23,6 +23,8 @@ import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapt
 import { SlideEmbedScheduler } from "./slide-embed-scheduler";
 import { createExternalOpenAction } from "./external-open";
 import { resolveSlideEmbedFile } from "./resolve-slide-embed-file";
+import { createCompanionNoteVault } from "./companion-note-vault";
+import { PresentationCompanionNoteService } from "./presentation-companion-note-service";
 
 function fingerprint(file: TFile): FileFingerprint {
   return {
@@ -35,6 +37,7 @@ function fingerprint(file: TFile): FileFingerprint {
 export default class OfficeViewerPlugin extends Plugin {
   private readonly views = new Set<PptxFileView>();
   private store: OfficeViewerDataStore | undefined;
+  private companionNotes: PresentationCompanionNoteService | undefined;
   private embedScheduler: SlideEmbedScheduler | undefined;
   private readonly embedChildren = new Set<MarkdownRenderChild>();
   private unloading = false;
@@ -66,6 +69,14 @@ export default class OfficeViewerPlugin extends Plugin {
       await store.dispose().catch(() => undefined);
       return;
     }
+
+    const companionNotes = new PresentationCompanionNoteService(
+      store,
+      createCompanionNoteVault(this.app),
+    );
+    this.companionNotes = companionNotes;
+    companionNotes.reconcile();
+
     const embedScheduler = new SlideEmbedScheduler(2);
     this.embedScheduler = embedScheduler;
 
@@ -74,12 +85,35 @@ export default class OfficeViewerPlugin extends Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (file instanceof TFile) store.rename(oldPath, fingerprint(file));
+        if (!(file instanceof TFile)) return;
+        store.rename(oldPath, fingerprint(file));
+        const extension = file.extension.toLowerCase();
+        if (extension === "pptx") {
+          void companionNotes.handleSourceRename(oldPath, file.path).catch(
+            (error: unknown) => {
+              reportNonFatalError(
+                "Failed to migrate presentation companion note",
+                error,
+              );
+            },
+          );
+        } else if (extension === "md") {
+          void companionNotes.handleNoteRename(oldPath, file.path).catch(
+            (error: unknown) => {
+              reportNonFatalError(
+                "Failed to handle companion note rename",
+                error,
+              );
+            },
+          );
+        }
       }),
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof TFile) store.delete(file.path);
+        if (!(file instanceof TFile)) return;
+        store.delete(file.path);
+        void companionNotes.handleDelete(file.path);
       }),
     );
     this.registerView(PPTX_VIEW_TYPE, (leaf) => {
@@ -100,6 +134,8 @@ export default class OfficeViewerPlugin extends Plugin {
           rememberReadingPosition: () =>
             store.settings.rememberReadingPosition,
           diagnosticSummary: () => store.settings.diagnosticSummary,
+          ensureCompanionNote: (sourcePath) =>
+            companionNotes.ensureCompanionNote(sourcePath),
         },
         messages,
         diagnosticEnvironment,
@@ -152,6 +188,7 @@ export default class OfficeViewerPlugin extends Plugin {
     this.embedChildren.clear();
     this.embedScheduler?.dispose();
     this.embedScheduler = undefined;
+    this.companionNotes = undefined;
     const store = this.store;
     this.store = undefined;
     if (store !== undefined) {
