@@ -48,13 +48,11 @@ _Avoid_: Technical validation, Installation proof, Download validation
 
 **Slide content search**:
 A local search within one open PPTX **Knowledge material** that returns matching
-reader-visible slide text as precise slide locations, allowing the reader to
-continue through the **Knowledge reference loop**. Speaker notes are not part of
-the initial search surface. Matches derived from OCR must be distinguishable
-from source-authored text because recognition may be wrong. The search does not
-imply a persistent or Vault-wide content index; its query, source-authored slide
-text or future OCR-recognized text, and results do not outlive the active reading
-session.
+**Source-authored slide text** as precise slide locations, allowing the reader to
+continue through the **Knowledge reference loop**. **Speaker note content** is not
+part of this search surface. The search does not imply a persistent or Vault-wide
+content index; its query, indexed text, and results do not outlive the active
+reading session.
 _Avoid_: Vault search, File search
 
 **Source-authored slide text**:
@@ -74,8 +72,13 @@ _Avoid_: Notes metadata, All notes text
 A session-local search within one open PPTX across both **Source-authored slide
 text** and **Speaker note content**. Results remain anchored to one slide and
 identify which content surface matched so notes are never presented as visible
-slide text.
+slide text. A single search is limited by its **Presentation search scope**.
 _Avoid_: All slide text, Vault search
+
+**Presentation search scope**:
+The content surfaces included in one **Presentation content search**:
+source-authored slide text only, speaker note content only, or both.
+_Avoid_: Search filter, Search mode
 
 **Slide search result**:
 One slide-level result from **Slide content search** or **Presentation content
