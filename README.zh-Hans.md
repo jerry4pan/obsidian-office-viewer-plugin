@@ -1,6 +1,24 @@
-# Obsidian Office Viewer
+<p align="center">
+  <img
+    src="assets/brand/office-viewer-mark.svg"
+    width="96"
+    alt="Office Viewer"
+  >
+</p>
 
-在桌面版 Obsidian 中直接阅读本地 `.pptx` 文件——无需转 PDF、无需上传、无网络请求。
+<h1 align="center">Office Viewer</h1>
+
+<p align="center">
+  <strong>把本地 PPTX 变成可搜索、可定位、可引用的 Obsidian 知识材料。</strong>
+</p>
+
+<p align="center">
+  本地阅读 · 演示文稿搜索 · 精确引用幻灯片 · 嵌入来源驱动的视图
+</p>
+
+Office Viewer 帮你把演示文稿中的内容带回笔记，同时保留与原始幻灯片的来源关系；
+无需转 PDF、无需上传、无网络请求。目前仅支持桌面版 Obsidian 中的本地 `.pptx`
+文件。
 
 完整说明、开发与发布流程以英文 [README.md](README.md) 为准。本文是面向中文用户的摘要。
 
@@ -73,3 +91,5 @@
 - 编辑、保存、动画、解析旧版 `.ppt`、OCR、全库搜索、主画面搜索高亮、多页或整份演示文稿嵌入、与正文混排或多嵌入同行的 Live Preview 渲染、遥测、账号、授权与云服务均不在范围内。
 
 隐私与安全细节见 `PRIVACY.md` 与 `SECURITY.md`。
+
+Office Viewer 是 [Jerry Pan](https://github.com/jerry4pan) 的开源项目。

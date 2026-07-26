@@ -1,9 +1,31 @@
-# Obsidian Office Viewer
+<p align="center">
+  <img
+    src="assets/brand/office-viewer-mark.svg"
+    width="96"
+    alt="Office Viewer"
+  >
+</p>
 
-[简体中文](README.zh-Hans.md)
+<h1 align="center">Office Viewer</h1>
 
-A desktop Obsidian plugin for reading local `.pptx` files right inside
-Obsidian — no PDF conversion, no uploads, no network requests.
+<p align="center">
+  <strong>Turn local PPTX presentations into searchable, source-preserving
+  knowledge in Obsidian.</strong>
+</p>
+
+<p align="center">
+  Read locally · Search presentation content · Reference exact slides · Embed
+  source-driven views
+</p>
+
+<p align="center">
+  <a href="README.zh-Hans.md">简体中文</a>
+</p>
+
+Office Viewer helps you move from finding an idea in a presentation to using
+it in your notes without converting the deck to PDF, uploading it, or losing
+the connection to its source. It currently supports local `.pptx` files on
+desktop Obsidian.
 
 The latest published release is **0.1.14** on GitHub and in Obsidian Community
 Plugins. The `main` branch may contain unreleased changes.
@@ -290,3 +312,6 @@ GitHub Release.
 
 The committed minimal presentation is generated from repository-authored
 content with PptxGenJS. See `tests/fixtures/README.md` for provenance.
+
+Office Viewer is an open-source project by
+[Jerry Pan](https://github.com/jerry4pan).

@@ -3,7 +3,7 @@
   "name": "Office Viewer",
   "version": "0.1.14",
   "minAppVersion": "1.8.10",
-  "description": "View local PPTX files.",
+  "description": "Read, search, reference, and embed local PPTX files.",
   "author": "jerry4pan",
   "fundingUrl": {
     "GitHub Sponsor": "https://github.com/sponsors/jerry4pan",
