@@ -46,7 +46,7 @@
     "powerpoint",
     "viewer"
   ],
-  "author": "jerry4pan",
+  "author": "Jerry Pan",
   "license": "MIT",
   "dependencies": {
     "@aiden0z/pptx-renderer": "1.2.4",

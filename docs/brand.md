@@ -1,19 +1,14 @@
-# Office Viewer brand foundation
+# Office Viewer product brand
 
-## Brand architecture
+## Brand role
 
-**Jerry Pan** is the creator brand. It represents a long-term body of
-productivity tools.
+Office Viewer is an independent product brand in the Jerry Pan product family.
+It inherits a restrained visual language without reusing the Jerry Pan
+portrait, wordmark, or JP monogram as product assets.
 
-**Office Viewer** is a product brand. It should stand on its own while carrying
-a consistent creator signature.
-
-## Brand principle
-
-> 以善意理解复杂，用匠心创造简单。
-
-This is an internal product and communication principle. It should guide
-decisions without appearing as a slogan on every product surface.
+The product should be recognizable on its own. Creator attribution belongs at
+the end of durable project surfaces, not in the product hero or task-oriented
+interface.
 
 ## Public positioning
 
@@ -30,22 +25,6 @@ Use `PPTX`, not the broader phrase `Office files`, when describing the current
 format scope. Office Viewer is a local-first, read-only knowledge workflow
 tool, not a PowerPoint editor or a pixel-perfect Office replacement.
 
-## Creator signature
-
-**English**
-
-> Created by Jerry Pan — building productivity tools that feel simple,
-> reliable, and thoughtfully crafted.
-
-**Simplified Chinese**
-
-> 由 Jerry Pan 创作——把复杂的生产力工具做得简单、可靠、有质感。
-
-Use the creator signature on durable project surfaces such as the website,
-release announcement, and portfolio. In a product README, keep attribution
-near the end instead of interrupting the product introduction. Keep
-task-oriented UI focused on the reader's action.
-
 ## Voice
 
 - Lead with the reader's workflow and outcome.
@@ -58,19 +37,48 @@ task-oriented UI focused on the reader's action.
 
 ## Visual system
 
-| Token | Value | Role |
+| Token | Value | Product role |
 | --- | --- | --- |
 | Ink | `#211A35` | Trust, local ownership, primary field |
-| Violet | `#8066F2` | Product identity, source material |
-| Warm gold | `#F2B45F` | Human care, reference connection |
-| Paper | `#F8F6FF` | Reading surface, clarity |
+| Violet | `#8066F2` | Presentation source material |
+| Deep violet | `#5F47CF` | Readable product detail |
+| Warm gold | `#F2B45F` | Source-preserving connection |
+| Paper | `#F8F6FF` | Reading surface and clarity |
+
+Ink, violet, warm gold, rounded geometry, and generous space establish family
+resemblance with Jerry Pan projects. The slide and its source-preserving
+connection remain specific to Office Viewer.
+
+## Product mark
 
 The mark depicts a source slide connected to a reusable knowledge reference.
-The warm reference path is the distinguishing element; do not recolor it as a
-Microsoft Office mark or add document-format letters inside the icon.
+The warm reference path is the distinguishing element.
 
 Primary asset:
 [`assets/brand/office-viewer-mark.svg`](../assets/brand/office-viewer-mark.svg)
 
 Maintain generous clear space around the mark. At small sizes, use the mark
-without a wordmark or tagline.
+without a wordmark or tagline. Do not add the JP monogram, document-format
+letters, Microsoft Office colors, gradients, or decorative shadows.
+
+## Social preview
+
+The social preview combines the product mark, public positioning, and a real
+product screenshot. Creator attribution remains subordinate.
+
+- Editable source:
+  [`assets/brand/office-viewer-social-preview.svg`](../assets/brand/office-viewer-social-preview.svg)
+- Upload-ready image:
+  [`assets/brand/office-viewer-social-preview.png`](../assets/brand/office-viewer-social-preview.png)
+
+Use the PNG for GitHub Social Preview, forum announcements, and release posts.
+
+## Attribution
+
+Use one understated line at the end of durable project surfaces:
+
+> A Jerry Pan project
+
+The README may use a more explanatory equivalent such as “Office Viewer is an
+open-source project by Jerry Pan.” Do not repeat the creator signature in the
+product hero, settings, toolbar, or error surfaces.
