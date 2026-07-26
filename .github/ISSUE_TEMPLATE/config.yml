@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question / 提问
+    url: https://github.com/jerry4pan/obsidian-office-viewer-plugin/discussions/categories/q-a
+    about: Get help with using Office Viewer / 获取 Office Viewer 使用帮助
+  - name: Share your workflow / 分享工作流
+    url: https://github.com/jerry4pan/obsidian-office-viewer-plugin/discussions/categories/workflow-stories
+    about: Tell us how Office Viewer fits into real knowledge work / 分享 Office Viewer 如何融入真实知识工作
+  - name: Report a security vulnerability / 报告安全漏洞
+    url: https://github.com/jerry4pan/obsidian-office-viewer-plugin/security/advisories/new
+    about: Use GitHub private vulnerability reporting / 使用 GitHub 私密漏洞报告

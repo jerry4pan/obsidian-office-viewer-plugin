@@ -1,0 +1,115 @@
+name: Bug report / 缺陷报告
+description: Report something that is broken or behaves unexpectedly / 报告异常行为
+title: "[Bug]: "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Office Viewer.
+
+        Please do not upload confidential presentations, screenshots containing sensitive content, filenames, paths, slide text, images, or raw renderer errors. The optional diagnostic summary is designed to exclude document content.
+
+        感谢你帮助改进 Office Viewer。请勿上传机密演示文稿、包含敏感内容的截图、文件名、路径、幻灯片原文、图像或原始渲染错误。可选的诊断摘要不会包含文档内容。
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Office Viewer version / 插件版本
+      placeholder: "0.1.14"
+    validations:
+      required: true
+
+  - type: input
+    id: obsidian-version
+    attributes:
+      label: Obsidian version / Obsidian 版本
+      placeholder: "1.13.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system / 操作系统
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected area / 相关功能
+      options:
+        - Opening a PPTX / 打开 PPTX
+        - Reading or navigation / 阅读或导航
+        - Thumbnails or fullscreen / 缩略图或全屏
+        - Presentation search / 演示文稿搜索
+        - Speaker notes / 讲者备注
+        - Slide reference or embed / 幻灯片引用或嵌入
+        - Companion note / 伴生笔记
+        - Open in default application / 在默认应用中打开
+        - Settings or another area / 设置或其他功能
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Use a minimal, non-confidential example whenever possible. / 请尽量使用最小化且不含机密信息的示例。
+      placeholder: |
+        1. Open…
+        2. Choose…
+        3. Observe…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 期望行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / 实际行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic summary / 诊断摘要
+      description: Enable Diagnostic summary in Office Viewer settings, reopen or retry the file, then use Copy diagnostic summary. If it is unavailable, explain why. / 在插件设置中开启“诊断摘要”，重新打开或重试文件，再使用“复制诊断摘要”；如无法获取，请说明原因。
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: default-application
+    attributes:
+      label: Does the file display correctly in its default application? / 文件能否在默认应用中正确显示？
+      options:
+        - Yes / 可以
+        - No / 不可以
+        - Not tested / 未测试
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation / 确认
+      options:
+        - label: I reproduced this with the latest Office Viewer release. / 我已使用最新版本复现。
+          required: true
+        - label: I removed confidential content, filenames, paths, slide text, and images from this report. / 我已从报告中移除机密内容、文件名、路径、幻灯片原文和图像。
+          required: true

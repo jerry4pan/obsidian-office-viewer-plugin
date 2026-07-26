@@ -22,6 +22,21 @@
 `<Vault>/.obsidian/plugins/office-viewer/`，重载 Obsidian 后启用
 **Office Viewer**。
 
+## 反馈与支持
+
+- **报告问题**：使用
+  [缺陷报告表单](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues/new?template=bug-report.yml)。
+- **提出改进建议**：使用
+  [功能建议表单](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues/new?template=feature-request.yml)。
+- **分享真实工作流**：发布一条
+  [工作流故事](https://github.com/jerry4pan/obsidian-office-viewer-plugin/discussions/categories/workflow-stories)。
+- **咨询使用问题**：前往
+  [GitHub Discussions 问答区](https://github.com/jerry4pan/obsidian-office-viewer-plugin/discussions/categories/q-a)。
+- **报告安全漏洞**：按 `SECURITY.md` 使用私密报告渠道。
+
+报告缺陷前请使用最新版本，并在可用时附上 **复制诊断摘要**。不要上传机密演示文稿、
+包含敏感内容的截图、文件名、路径、幻灯片原文或图像。
+
 ## 功能概要
 
 - 在库中打开 `.pptx`，按页阅读；支持按钮、页码跳转与方向键。
@@ -45,16 +60,6 @@
 - **诊断摘要** 默认关闭；开启后可显示可检测的兼容性提示，并复制不含内容的诊断信息。
 - 界面跟随 Obsidian 语言，支持英文、简体中文、繁体中文；其他语言回退到英文。
 - 全程本地；源 PPTX 只读、不上传、不收集遥测。伴生笔记仅在显式操作时写入 Markdown；插件数据只保存认领关系的两条库内相对路径，不保存搜索内容。
-
-## 反馈
-
-- **缺陷** 与 **功能建议**：请开
-  [GitHub Issue](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues)。
-  请勿用 Pull Request 报告缺陷或提出功能需求。
-- **安全漏洞**：按 `SECURITY.md` 使用私密报告渠道。
-- 贡献与报告细节见 `CONTRIBUTING.md`（英文）。
-
-报告缺陷前请先用最新版本复现，并在相关阅读视图中使用 **复制诊断摘要**。不要上传含敏感内容的演示文稿、截图、文件名、路径或原文。
 
 ## 当前边界
 

@@ -1,0 +1,66 @@
+name: Feature request / 功能建议
+description: Propose an improvement to a real reading workflow / 为真实阅读工作流提出改进
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the job you are trying to complete before proposing a solution. This helps us understand whether the request advances a real knowledge workflow.
+
+        请先描述你想完成的任务，再提出解决方案。这有助于判断建议是否真正改善知识工作流。
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal or problem / 目标或问题
+      description: What are you trying to accomplish, and where do you get blocked? / 你想完成什么？目前在哪一步受阻？
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-workflow
+    attributes:
+      label: Current workflow / 当前工作流
+      description: How do you handle this today in Obsidian, PowerPoint, Keynote, or another tool? / 目前你如何在 Obsidian、PowerPoint、Keynote 或其他工具中完成？
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired-outcome
+    attributes:
+      label: Desired outcome / 期望结果
+      description: Describe the result you need. A possible solution is welcome but not required. / 请描述你需要的结果；可以补充解决方案，但不是必填。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 已尝试的替代方案
+      description: Optional. What workarounds have you tried, and what did they cost? / 可选：你尝试过哪些替代方案？它们有什么成本？
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does this workflow occur? / 这个工作流多久发生一次？
+      options:
+        - Daily / 每天
+        - Weekly / 每周
+        - Monthly / 每月
+        - Occasionally / 偶尔
+        - One-time need / 一次性需求
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation / 确认
+      options:
+        - label: This request describes one capability and a real workflow. / 此建议只描述一项能力，并基于真实工作流。
+          required: true
+        - label: I checked the README's current boundaries. / 我已查看 README 中的当前边界。
+          required: true

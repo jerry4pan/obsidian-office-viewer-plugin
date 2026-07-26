@@ -25,6 +25,23 @@ Download `main.js`, `manifest.json`, and `styles.css` from
 into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 **Office Viewer**.
 
+## Feedback and support
+
+- **Report a problem:** use the
+  [Bug report form](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues/new?template=bug-report.yml).
+- **Request an improvement:** use the
+  [Feature request form](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues/new?template=feature-request.yml).
+- **Share your real workflow:** start a
+  [Workflow story](https://github.com/jerry4pan/obsidian-office-viewer-plugin/discussions/categories/workflow-stories).
+- **Ask a question:** use
+  [GitHub Discussions Q&A](https://github.com/jerry4pan/obsidian-office-viewer-plugin/discussions/categories/q-a).
+- **Security vulnerabilities:** use the private reporting described in
+  `SECURITY.md`.
+
+Bug reports should use the latest release and include **Copy diagnostic
+summary** when available. Never upload confidential presentations, screenshots
+containing sensitive content, filenames, paths, slide text, or images.
+
 ## Features
 
 **Reading**
@@ -154,14 +171,6 @@ into `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
   Markdown files created only by an explicit action; plugin data stores only
   their Vault-relative path pairs. Slide-search queries, source-authored slide
   text, snippets, and results are not saved.
-
-## Feedback
-
-- **Bugs** and **feature requests**: open a
-  [GitHub Issue](https://github.com/jerry4pan/obsidian-office-viewer-plugin/issues).
-  Do not open a pull request to report a bug or propose a feature.
-- **Security vulnerabilities**: use private reporting described in `SECURITY.md`.
-- Contribution and reporting details are in `CONTRIBUTING.md`.
 
 ## Development install
 
