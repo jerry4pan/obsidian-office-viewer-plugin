@@ -1,6 +1,6 @@
 {
   "name": "obsidian-office-viewer-plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Read local PPTX and DOCX files in Obsidian, with document search and presentation references.",
   "main": "main.js",
   "type": "module",
