@@ -6,10 +6,15 @@ The normal viewing path does not upload files, call a cloud renderer, follow
 external media relationships, or send telemetry or analytics.
 
 The plugin reads `.pptx` and `.docx` source bytes through Obsidian's Vault API
-and never writes back to either source. Optional PPTX reading-position history stores only
-a Vault-relative path, file size, modification time, zero-based slide index,
-and update timestamp in the plugin data store. It can be disabled and cleared
-from settings.
+and never writes back to either source. Optional PPTX reading-position history
+stores only a Vault-relative path, file size, modification time, zero-based
+slide index, and update timestamp in the plugin data store. It can be disabled
+and cleared from settings.
+
+DOCX preview may rasterize Windows metafiles and chart cached series into local
+PNG images for display. That conversion stays in-process, uses only package
+bytes already present in the open document, and does not fetch external chart
+workbooks or media.
 
 Explicitly claimed **Presentation companion notes** are ordinary Vault Markdown
 files. The plugin creates or adopts them only when the reader invokes **Open

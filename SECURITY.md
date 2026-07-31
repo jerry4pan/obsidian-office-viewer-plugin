@@ -23,14 +23,14 @@ in Obsidian Community Plugins.
   content, resource limits, and other blocking failures are not controlled by
   that setting.
 
-Office Viewer is a previewer, not a malware scanner or a complete PowerPoint
-security boundary. Do not treat a successful preview as proof that a file is
-safe to open in another application.
+Office Viewer is a previewer, not a malware scanner or a complete PowerPoint or
+Word security boundary. Do not treat a successful preview as proof that a file
+is safe to open in another application.
 
 ## Reporting a vulnerability
 
-Do not attach confidential presentations or paste presentation content into a
-public issue. Use [GitHub's private vulnerability reporting](
+Do not attach confidential presentations or Word documents, or paste document
+content into a public issue. Use [GitHub's private vulnerability reporting](
 https://github.com/jerry4pan/obsidian-office-viewer-plugin/security/advisories/new)
 for this repository. Include the Office Viewer version, Obsidian version,
 operating system, stable error category, reproducible steps using a

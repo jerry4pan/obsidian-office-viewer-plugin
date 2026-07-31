@@ -18,6 +18,9 @@ to a matching paragraph without modifying or uploading the source.
   images, and hyperlinks in document order. Include inserted changes; exclude
   deleted changes, hidden text, headers, footers, notes, comments, and text
   boxes.
+- Rasterize common placeable Windows metafiles and Office charts that carry
+  usable cached series data into local PNG previews before display. Exact Word
+  print layout and unsupported chart types remain outside fidelity claims.
 - Search all visible main-body text in the current open document through the
   same toggleable search panel interaction as PPTX slide search. Return one
   result per matching paragraph with a match count and readable excerpt.

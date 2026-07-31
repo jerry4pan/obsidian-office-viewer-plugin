@@ -10,15 +10,18 @@ body:
       value: |
         Thanks for helping improve Office Viewer.
 
-        Please do not upload confidential presentations, screenshots containing sensitive content, filenames, paths, slide text, images, or raw renderer errors. The optional diagnostic summary is designed to exclude document content.
+        Please do not upload confidential presentations or Word documents,
+        screenshots containing sensitive content, filenames, paths, slide or
+        document text, images, or raw renderer errors. The optional diagnostic
+        summary is designed to exclude document content.
 
-        感谢你帮助改进 Office Viewer。请勿上传机密演示文稿、包含敏感内容的截图、文件名、路径、幻灯片原文、图像或原始渲染错误。可选的诊断摘要不会包含文档内容。
+        感谢你帮助改进 Office Viewer。请勿上传机密演示文稿或 Word 文档、包含敏感内容的截图、文件名、路径、幻灯片/正文原文、图像或原始渲染错误。可选的诊断摘要不会包含文档内容。
 
   - type: input
     id: plugin-version
     attributes:
       label: Office Viewer version / 插件版本
-      placeholder: "0.2.0"
+      placeholder: "0.2.1"
     validations:
       required: true
 

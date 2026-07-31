@@ -42,9 +42,10 @@ summary** in the affected viewer. Include:
 - the content-free diagnostic summary;
 - whether **Open in default application** displays the file correctly.
 
-Do not upload confidential presentations, screenshots containing sensitive
-content, filenames, paths, extracted text, or raw renderer errors. If a minimal
-file is needed, create a repository-authored reproduction with synthetic data.
+Do not upload confidential presentations or Word documents, screenshots
+containing sensitive content, filenames, paths, extracted text, or raw renderer
+errors. If a minimal file is needed, create a repository-authored reproduction
+with synthetic data.
 
 ### Feature requests
 

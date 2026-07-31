@@ -24,7 +24,7 @@ body:
     id: current-workflow
     attributes:
       label: Current workflow / 当前工作流
-      description: How do you handle this today in Obsidian, PowerPoint, Keynote, or another tool? / 目前你如何在 Obsidian、PowerPoint、Keynote 或其他工具中完成？
+      description: How do you handle this today in Obsidian, PowerPoint, Word, Keynote, or another tool? / 目前你如何在 Obsidian、PowerPoint、Word、Keynote 或其他工具中完成？
     validations:
       required: true
 

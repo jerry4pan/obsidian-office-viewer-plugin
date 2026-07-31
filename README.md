@@ -81,10 +81,16 @@ containing sensitive content, filenames, paths, slide text, or images.
 - Read final-view main-body headings, paragraphs, lists, tables, inline images,
   and safe hyperlinks. Headers, footers, comments, text boxes, and deleted or
   hidden text are outside the DOCX view.
-- Press `Cmd+F` or `Ctrl+F` to search the current document. Results are grouped
-  by paragraph and jump to a visible, session-only highlight.
+- Common embedded raster images, placeable Windows metafiles (WMF/EMF payloads
+  that convert locally), and Office charts with usable cached series data are
+  shown as preview images. Exact Word print layout is not claimed.
+- Press `Cmd+F` or `Ctrl+F` to open the document search panel and focus its
+  field; `Escape` closes it. Search covers visible main-body text in the current
+  document only. Results are one entry per matching paragraph, with a match
+  count and excerpt, and jump to a visible session-only highlight.
 - Very large documents use a clearly labelled simplified reading mode with a
-  bounded DOM. Detected content that cannot be represented is marked in flow.
+  bounded DOM. Detected content that cannot be represented is marked in flow
+  with a document-level notice.
 - DOCX does not create stable paragraph references, embeds, companion notes,
   persistent reading positions, or a Vault-wide search index.
 
@@ -104,8 +110,8 @@ containing sensitive content, filenames, paths, slide text, or images.
 
 **Fallback**
 
-- **Open in default application** sends the file to PowerPoint, Keynote, or
-  your system default when the preview is not enough.
+- **Open in default application** sends the file to PowerPoint, Keynote, Word,
+  Pages, or your system default when the preview is not enough.
 
 **Slide references and embeds**
 
@@ -150,12 +156,12 @@ containing sensitive content, filenames, paths, slide text, or images.
 
 **Error handling**
 
-- Corrupted, encrypted, or otherwise unreadable files show a clear explanation
-  rather than a blank screen or a cryptic error.
+- Corrupted, encrypted, or otherwise unreadable PPTX or DOCX files show a clear
+  explanation rather than a blank screen or a cryptic error.
 - Legacy `.ppt` files are recognized and explained without attempting to parse
-  them.
+  them. Legacy `.doc` and macro-enabled `.docm` are not registered.
 - Compatible files that run into a rendering problem show a warning while
-  keeping the last readable slide visible.
+  keeping the last readable slide or document content visible when possible.
 
 **Reading position**
 
@@ -202,10 +208,10 @@ containing sensitive content, filenames, paths, slide text, or images.
 **Privacy**
 
 - Everything stays local. The plugin never uploads files, phones home, or
-  collects telemetry. Source PPTX and DOCX files are never modified. Companion notes are
-  Markdown files created only by an explicit action; plugin data stores only
-  their Vault-relative path pairs. Slide-search queries, source-authored slide
-  text, snippets, and results are not saved.
+  collects telemetry. Source PPTX and DOCX files are never modified. Companion
+  notes are Markdown files created only by an explicit action; plugin data
+  stores only their Vault-relative path pairs. PPTX and DOCX search queries,
+  extracted text, snippets, and results are session-local and are not saved.
 
 ## Development install
 
@@ -297,7 +303,7 @@ supported-extension, license, and required-documentation consistency without
 requiring a version bump on `main`.
 `npm run release:check:publish` adds tag, commit, and GitHub-release guards
 for tagged releases only. Publish releases with the plain manifest version as
-the tag and release name, for example `0.2.0`, not `v0.2.0`; Obsidian matches
+the tag and release name, for example `0.2.1`, not `v0.2.1`; Obsidian matches
 the GitHub release directly against `manifest.json`.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
@@ -318,21 +324,20 @@ GitHub Release.
 - Read-only and local; the plugin never writes back to the source file.
 - Desktop Obsidian only; mobile and tablet are not supported.
 - No Office, LibreOffice, PDF conversion, cloud renderer, or document server.
-- Normal viewing does not upload presentation or document content, follow external
-  relationships, execute macros/scripts, or make a network request.
-- Rendering is a readable preview, not pixel-perfect PowerPoint fidelity;
-  embedded SVG and other advanced content can degrade. Use **Open in default
-  application** when the preview is not trustworthy.
+- Normal viewing does not upload presentation or document content, follow
+  external relationships, execute macros/scripts, or make a network request.
+- Rendering is a readable preview, not pixel-perfect PowerPoint or Word
+  fidelity. Embedded SVG, unsupported chart types, and other advanced content
+  can degrade or show in-flow placeholders. Use **Open in default application**
+  when the preview is not trustworthy.
 - Detectable unsupported media and unavailable fonts show compatibility
-  warnings only when **Diagnostic summary** is enabled. Unknown PowerPoint
-  differences may still exist.
+  warnings only when **Diagnostic summary** is enabled. Unknown PowerPoint or
+  Word differences may still exist.
 - Privacy and security details are in `PRIVACY.md` and `SECURITY.md`.
-- Post-release validation and v0.2 planning are tracked in M4; see the PRD and
-  GitHub Issues for current status.
-- Editing, saving, animations, legacy `.ppt`/`.doc` parsing, OCR, Vault-wide search,
-  main-slide search highlighting, multi-slide or full-deck embeds, prose-mixed
-  or multi-embed Live Preview lines, telemetry, accounts, licensing, and cloud
-  services are out of scope.
+- Editing, saving, animations, legacy `.ppt`/`.doc` parsing, OCR, Vault-wide
+  search, main-slide search highlighting, DOCX paragraph references or embeds,
+  multi-slide or full-deck embeds, prose-mixed or multi-embed Live Preview
+  lines, telemetry, accounts, licensing, and cloud services are out of scope.
 
 ## Test fixture
 
