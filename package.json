@@ -1,7 +1,7 @@
 {
   "name": "obsidian-office-viewer-plugin",
-  "version": "0.1.14",
-  "description": "Read, search, reference, and embed local PPTX files in Obsidian.",
+  "version": "0.2.0",
+  "description": "Read local PPTX and DOCX files in Obsidian, with document search and presentation references.",
   "main": "main.js",
   "type": "module",
   "scripts": {
@@ -15,20 +15,24 @@
     "fixtures:regenerate": "node scripts/generate-minimal-fixture.mjs --force",
     "fixtures:speaker-notes": "node scripts/generate-speaker-notes-fixture.mjs",
     "fixtures:speaker-notes:regenerate": "node scripts/generate-speaker-notes-fixture.mjs --force",
+    "fixtures:docx": "node scripts/generate-docx-exploration-fixtures.mjs",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node esbuild.config.mjs production",
     "build:aiden": "node scripts/run-renderer-candidate.mjs aiden build",
     "build:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview build",
     "test": "npm run build && vitest run --exclude tests/performance/performance-baseline.test.ts",
     "test:compatibility": "npm run fixtures:compatibility && npm run build && wdio run wdio.compatibility.conf.mts",
+    "test:compatibility:docx": "npm run fixtures:docx && npm run build && wdio run wdio.docx-compatibility.conf.mts",
     "test:compatibility:aiden": "node scripts/run-renderer-candidate.mjs aiden test:compatibility",
     "test:compatibility:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:compatibility",
     "test:e2e": "npm run fixtures:failure && npm run build && wdio run wdio.conf.mts && node scripts/run-degraded-e2e.mjs && npm run test:e2e:multilingual",
+    "test:e2e:docx": "npm run fixtures:docx && npm run build && wdio run wdio.docx.conf.mts",
     "test:e2e:live-preview:min": "npm run fixtures:failure && npm run build && wdio run wdio.live-preview-min.conf.mts",
     "test:e2e:multilingual": "npm run fixtures:speaker-notes && npm run build && wdio run wdio.multilingual.conf.mts",
     "test:e2e:aiden": "node scripts/run-renderer-candidate.mjs aiden test:e2e",
     "test:e2e:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:e2e",
     "test:performance": "npm run fixtures:performance && npm run build && wdio run wdio.performance.conf.mts",
+    "test:performance:docx": "npm run fixtures:docx && npm run build && wdio run wdio.docx-performance.conf.mts",
     "test:performance:aiden": "node scripts/run-renderer-candidate.mjs aiden test:performance",
     "test:performance:pptx-preview": "node scripts/run-renderer-candidate.mjs pptx-preview test:performance",
     "test:performance:baseline": "npm run build && vitest run tests/performance/performance-baseline.test.ts tests/performance/performance-run-provenance.test.ts",
@@ -38,12 +42,14 @@
     "release:check:publish": "node scripts/run-check-publish-release.mjs",
     "release:package": "npm run build && node scripts/package-release.mjs",
     "test:release": "npm run release:package && node scripts/prepare-release-test.mjs && wdio run wdio.release.conf.mts",
-    "verify": "npm run fixtures && npm run fixtures:speaker-notes && npm run fixtures:compatibility && npm run fixtures:performance && npm run fixtures:failure && npm test"
+    "verify": "npm run fixtures && npm run fixtures:speaker-notes && npm run fixtures:compatibility && npm run fixtures:performance && npm run fixtures:failure && npm run fixtures:docx && npm test"
   },
   "keywords": [
     "obsidian",
     "pptx",
     "powerpoint",
+    "docx",
+    "word",
     "viewer"
   ],
   "author": "Jerry Pan",
@@ -53,6 +59,7 @@
     "@codemirror/state": "6.5.0",
     "@codemirror/view": "6.38.6",
     "cfb": "1.2.2",
+    "docx-preview": "0.3.6",
     "jszip": "3.10.1"
   },
   "devDependencies": {

@@ -10,26 +10,38 @@ import {
   setDiagnosticSummaryEnabled,
 } from "./office-viewer-settings";
 
-async function sourceHash(): Promise<string> {
-  return browser.executeObsidian(async ({ app, obsidian, require }) => {
-    const file = app.vault.getAbstractFileByPath("minimal.pptx");
-    if (!(file instanceof obsidian.TFile)) throw new Error("Missing minimal.pptx");
+async function sourceHash(vaultPath: string): Promise<string> {
+  return browser.executeObsidian(async ({ app, obsidian, require }, path) => {
+    const file = app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof obsidian.TFile)) throw new Error(`Missing ${path}`);
     const bytes = await app.vault.readBinary(file);
     return require("node:crypto").createHash("sha256")
       .update(new Uint8Array(bytes)).digest("hex");
-  });
+  }, vaultPath);
 }
 
 describe("packaged release lifecycle", () => {
   it("installs in a clean Vault, rehearses an upgrade, and uninstalls cleanly", async () => {
     await installNetworkGuard();
-    const before = await sourceHash();
+    const pptxBefore = await sourceHash("minimal.pptx");
+    const docxBefore = await sourceHash("read-search-only.docx");
 
     await obsidianPage.openFile("minimal.pptx");
     const installed = await browser.$('.pptx-viewer[data-state="ready"]');
     await expect(installed).toHaveText(expect.stringContaining("Obsidian PPTX smoke test"));
     await expect(installed.$('[data-action="copy-diagnostics"]')).not.toExist();
-    expect(await sourceHash()).toBe(before);
+    expect(await sourceHash("minimal.pptx")).toBe(pptxBefore);
+
+    await obsidianPage.openFile("read-search-only.docx");
+    const docx = await browser.$(
+      '.office-viewer-docx-shell[data-state="ready"]',
+    );
+    await expect(docx).toHaveText(
+      expect.stringContaining("generated paragraph has no native identity"),
+    );
+    await docx.$(".office-viewer-docx-search").setValue("generated paragraph");
+    await expect(docx.$(".office-viewer-docx-search-result")).toExist();
+    expect(await sourceHash("read-search-only.docx")).toBe(docxBefore);
 
     await setDiagnosticSummaryEnabled(true, "Diagnostic summary");
     await closeSettings();
@@ -37,7 +49,7 @@ describe("packaged release lifecycle", () => {
     await expect(
       browser.$('.pptx-viewer[data-state="ready"] [data-action="copy-diagnostics"]'),
     ).toExist();
-    expect(await sourceHash()).toBe(before);
+    expect(await sourceHash("minimal.pptx")).toBe(pptxBefore);
 
     await browser.executeObsidian(
       async ({ app, require }, stagedPlugin) => {
@@ -50,6 +62,7 @@ describe("packaged release lifecycle", () => {
           };
         }).plugins;
         app.workspace.detachLeavesOfType("pptx-viewer");
+        app.workspace.detachLeavesOfType("docx-viewer");
         await plugins.disablePlugin("office-viewer");
         const vaultRoot = (app.vault.adapter as unknown as {
           getBasePath(): string;
@@ -67,7 +80,13 @@ describe("packaged release lifecycle", () => {
     await expect(browser.$('.pptx-viewer[data-state="ready"]')).toHaveText(
       expect.stringContaining("Obsidian PPTX smoke test"),
     );
-    expect(await sourceHash()).toBe(before);
+    expect(await sourceHash("minimal.pptx")).toBe(pptxBefore);
+
+    await obsidianPage.openFile("read-search-only.docx");
+    await expect(
+      browser.$('.office-viewer-docx-shell[data-state="ready"]'),
+    ).toHaveText(expect.stringContaining("generated paragraph has no native identity"));
+    expect(await sourceHash("read-search-only.docx")).toBe(docxBefore);
 
     await obsidianPage.disablePlugin("office-viewer");
     const removed = await browser.executeObsidian(async ({ app, require }) => {
@@ -82,7 +101,9 @@ describe("packaged release lifecycle", () => {
     });
     expect(removed).toBe(true);
     expect(await browser.$$(".pptx-viewer")).toHaveLength(0);
-    expect(await sourceHash()).toBe(before);
+    expect(await browser.$$(".office-viewer-docx-shell")).toHaveLength(0);
+    expect(await sourceHash("minimal.pptx")).toBe(pptxBefore);
+    expect(await sourceHash("read-search-only.docx")).toBe(docxBefore);
     await assertNoNetworkRequests();
   });
 });

@@ -8,7 +8,7 @@ import {
 const PERFORMANCE_EVIDENCE_IDS: Readonly<
   Record<PptxRendererCandidate, string>
 > = {
-  aiden: "aiden-pptx-renderer-1.2.4-2026-07-19",
+  aiden: "aiden-pptx-renderer-1.2.4-2026-07-31",
   "pptx-preview": "pptx-preview-1.0.7",
 };
 

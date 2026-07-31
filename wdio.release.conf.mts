@@ -7,10 +7,10 @@ export const config: WebdriverIO.Config = {
   maxInstances: 1,
   capabilities: [{
     browserName: "obsidian",
-    browserVersion: "latest",
+    browserVersion: "1.12.7",
     "goog:chromeOptions": { args: ["--lang=en-US"] },
     "wdio:obsidianOptions": {
-      installerVersion: "latest",
+      installerVersion: "1.12.7",
       plugins: ["artifacts/release/plugin"],
       vault: "artifacts/release/vault",
     },

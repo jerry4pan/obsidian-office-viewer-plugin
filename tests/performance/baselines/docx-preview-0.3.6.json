@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-07-31",
+  "environment": {
+    "platform": "darwin-arm64",
+    "macOS": "14.8.7",
+    "obsidian": "1.12.7",
+    "installer": "1.12.7",
+    "chromium": "142.0.7444.265",
+    "renderer": "docx-preview@0.3.6"
+  },
+  "protocol": {
+    "measuredRuns": 5,
+    "representativeParagraphs": 1000,
+    "stressParagraphs": 5000,
+    "firstReadableBudgetMs": 3000,
+    "searchReadyBudgetMs": 3000,
+    "queryBudgetMs": 100,
+    "cleanupBudgetMs": 2000,
+    "stressBodyDomElementBudget": 1200,
+    "stressHeapDeltaBudgetBytes": 268435456
+  },
+  "fixtures": {
+    "representativeSha256": "6236b68ff7cfe9e75e6d1de9df28c9cbaabd7e2ac920dd7089c9e974292438d6",
+    "stressSha256": "9f7d929638db8ec8446466b6bdb51be89406284b022d78a1bbedb5fe3a23f94e"
+  },
+  "bundleBytes": 1389799,
+  "samples": {
+    "firstReadableMs": [47, 30, 27.7, 29.6, 25.9],
+    "searchReadyMs": [17.9, 10.6, 10.9, 11.6, 9.8],
+    "queryMs": [2, 1.700000286102295, 1.5, 1.4000000953674316, 1.5],
+    "cleanupMs": [2.3999996185302734, 1.1999998092651367, 2.1999998092651367, 1.1999998092651367, 1.0999999046325684, 0.39999961853027344]
+  },
+  "p95": {
+    "firstReadableMs": 47,
+    "searchReadyMs": 17.9,
+    "queryMs": 2,
+    "cleanupMs": 2.3999996185302734
+  },
+  "stress": {
+    "bodyDomElements": 244,
+    "heapDeltaBytes": 1239048
+  },
+  "verdict": "pass"
+}

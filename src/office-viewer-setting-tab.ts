@@ -56,10 +56,18 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       {
         name: this.messages.text("settings.rememberPosition"),
         desc: this.messages.text("settings.rememberPositionDescription"),
-        control: {
-          type: "toggle",
-          key: "rememberReadingPosition",
-          defaultValue: true,
+        render: (setting) => {
+          setting.addToggle((toggle) => {
+            labelToggle(toggle, this.messages.text("settings.rememberPosition"));
+            toggle.setValue(this.store.settings.rememberReadingPosition).onChange((value) => {
+              void this.store.setRememberReadingPosition(value).catch((error: unknown) => {
+                reportNonFatalError(
+                  "Failed to save PPTX reading-position setting",
+                  error,
+                );
+              });
+            });
+          });
         },
       },
       {
@@ -73,10 +81,18 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
       {
         name: this.messages.text("settings.diagnostics"),
         desc: this.messages.text("settings.diagnosticsDescription"),
-        control: {
-          type: "toggle",
-          key: "diagnosticSummary",
-          defaultValue: false,
+        render: (setting) => {
+          setting.addToggle((toggle) => {
+            labelToggle(toggle, this.messages.text("settings.diagnostics"));
+            toggle.setValue(this.store.settings.diagnosticSummary).onChange((value) => {
+              void this.store.setDiagnosticSummary(value).catch((error: unknown) => {
+                reportNonFatalError(
+                  "Failed to save PPTX diagnostic-summary setting",
+                  error,
+                );
+              });
+            });
+          });
         },
       },
     ];

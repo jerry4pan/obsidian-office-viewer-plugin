@@ -30,4 +30,8 @@ await cp(
   path.join(root, "tests", "fixtures", "minimal.pptx"),
   path.join(vaultRoot, "minimal.pptx"),
 );
+await cp(
+  path.join(root, "tests", "fixtures", "docx-exploration", "read-search-only.docx"),
+  path.join(vaultRoot, "read-search-only.docx"),
+);
 process.stdout.write(`${pluginRoot}\n${vaultRoot}\n`);

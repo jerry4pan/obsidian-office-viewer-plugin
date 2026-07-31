@@ -14,6 +14,17 @@ const MANIFEST = JSON.parse(
 const VERSION = MANIFEST.version;
 
 describe("release artifacts", () => {
+  it("declares the production extension routes for both readers", async () => {
+    const contract = JSON.parse(
+      await readFile("release-contract.json", "utf-8"),
+    ) as { extensionRoutes?: Record<string, string[]> };
+
+    expect(contract.extensionRoutes).toEqual({
+      "pptx-viewer": ["pptx", "ppt"],
+      "docx-viewer": ["docx"],
+    });
+  });
+
   it("accepts synchronized package, manifest, versions, and required files", async () => {
     await expect(
       execFileAsync(process.execPath, ["scripts/check-release.mjs"]),
@@ -50,6 +61,7 @@ describe("release artifacts", () => {
     const zip = await JSZip.loadAsync(first.bytes);
     expect(Object.keys(zip.files).sort()).toEqual([
       "AIDEN-PPTX-RENDERER-LICENSE",
+      "DOCX-PREVIEW-LICENSE",
       "LICENSE",
       "NOTICE",
       "main.js",
@@ -58,6 +70,9 @@ describe("release artifacts", () => {
     ]);
     await expect(
       zip.file("AIDEN-PPTX-RENDERER-LICENSE")!.async("text"),
+    ).resolves.toContain("Apache License");
+    await expect(
+      zip.file("DOCX-PREVIEW-LICENSE")!.async("text"),
     ).resolves.toContain("Apache License");
     const packagedManifest = JSON.parse(
       await zip.file("manifest.json")!.async("text"),

@@ -22,11 +22,9 @@ if (
 ) {
   throw new Error(`Unsupported PPTX renderer test adapter "${rendererTestAdapter}"`);
 }
-
 const selectedRendererModule = rendererTestAdapter
   ? "tests/support/selected-pptx-renderer-adapter.degraded.ts"
   : `src/renderer/selected-pptx-renderer-adapter.${rendererCandidate}.ts`;
-
 const context = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,

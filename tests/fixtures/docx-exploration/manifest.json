@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-07-31",
+  "generator": "scripts/generate-docx-exploration-fixtures.mjs",
+  "fixtures": [
+    {
+      "path": "body-led-reference.docx",
+      "expected": "readable-body-led"
+    },
+    {
+      "path": "read-search-only.docx",
+      "expected": "readable-searchable"
+    },
+    {
+      "path": "final-revisions.docx",
+      "expected": "final-body-text-only"
+    },
+    {
+      "path": "unavailable-content.docx",
+      "expected": "readable-with-visible-degradation"
+    },
+    {
+      "path": "active-content.docx",
+      "expected": "incompatible"
+    },
+    {
+      "path": "performance-representative-1000-paragraphs.docx",
+      "expected": "performance-representative"
+    },
+    {
+      "path": "performance-stress-5000-paragraphs.docx",
+      "expected": "performance-stress"
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 import path from "node:path";
 
+const appVersion = process.env.OBSIDIAN_TEST_VERSION ?? "latest";
+const installerVersion =
+  process.env.OBSIDIAN_INSTALLER_VERSION ?? "latest";
+
 export const config: WebdriverIO.Config = {
   runner: "local",
   framework: "mocha",
@@ -13,12 +17,12 @@ export const config: WebdriverIO.Config = {
   capabilities: [
     {
       browserName: "obsidian",
-      browserVersion: "latest",
+      browserVersion: appVersion,
       "goog:chromeOptions": {
         args: ["--lang=en-US"],
       },
       "wdio:obsidianOptions": {
-        installerVersion: "latest",
+        installerVersion,
         plugins: ["."],
         vault: "tests/vault"
       }

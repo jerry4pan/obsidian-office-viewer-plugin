@@ -39,10 +39,15 @@ export async function checkRelease({ releaseTag = process.env.RELEASE_TAG } = {}
   if (manifest.id !== "office-viewer") errors.push("manifest id must be office-viewer");
   if (manifest.isDesktopOnly !== true) errors.push("manifest must remain desktop-only");
   if (
-    JSON.stringify(releaseContract.supportedExtensions) !==
-    JSON.stringify(["pptx", "ppt"])
+    JSON.stringify(releaseContract.extensionRoutes) !==
+    JSON.stringify({
+      "pptx-viewer": ["pptx", "ppt"],
+      "docx-viewer": ["docx"],
+    })
   ) {
-    errors.push("release contract must declare pptx and legacy ppt routing");
+    errors.push(
+      "release contract must route pptx/ppt to pptx-viewer and docx to docx-viewer",
+    );
   }
   if (
     releaseTag &&

@@ -1,5 +1,4 @@
 import { browser } from "@wdio/globals";
-import process from "node:process";
 
 export const DIAGNOSTIC_SUMMARY_LABELS = {
   en: "Diagnostic summary",
@@ -8,6 +7,9 @@ export const DIAGNOSTIC_SUMMARY_LABELS = {
 } as const;
 
 export type DiagnosticSummaryHostLanguage = keyof typeof DIAGNOSTIC_SUMMARY_LABELS;
+
+let settingsParentWindow: string | null = null;
+let settingsPopoutWindow: string | null = null;
 
 function diagnosticToggleSelector(toggleLabel: string): string {
   return `.vertical-tab-content input[type="checkbox"][aria-label="${toggleLabel}"]`;
@@ -21,7 +23,28 @@ async function waitForSettingsModal(): Promise<void> {
 }
 
 export async function openSettings(): Promise<void> {
-  await browser.keys([process.platform === "darwin" ? "Meta" : "Control", ","]);
+  const parentWindow = await browser.getWindowHandle();
+  const existingWindows = new Set(await browser.getWindowHandles());
+  const opened = await browser.execute(() =>
+    (window as unknown as {
+      app: { commands: { executeCommandById(id: string): boolean } };
+    }).app.commands.executeCommandById("app:open-settings")
+  );
+  if (!opened) throw new Error("Obsidian rejected the open-settings command");
+  await browser.waitUntil(async () => {
+    if (await browser.$(".modal.mod-settings").isExisting()) return true;
+    const popoutWindow = (await browser.getWindowHandles()).find(
+      (handle) => !existingWindows.has(handle),
+    );
+    if (popoutWindow === undefined) return false;
+    settingsParentWindow = parentWindow;
+    settingsPopoutWindow = popoutWindow;
+    await browser.switchToWindow(popoutWindow);
+    return browser.$(".modal.mod-settings").isExisting();
+  }, {
+    timeout: 15_000,
+    timeoutMsg: "Obsidian settings window did not open",
+  });
   await waitForSettingsModal();
 }
 
@@ -85,6 +108,23 @@ export async function setDiagnosticSummaryEnabled(
 }
 
 export async function closeSettings(): Promise<void> {
+  if (settingsPopoutWindow !== null && settingsParentWindow !== null) {
+    const popoutWindow = settingsPopoutWindow;
+    const parentWindow = settingsParentWindow;
+    await browser.switchToWindow(popoutWindow);
+    await browser.closeWindow();
+    await browser.waitUntil(
+      async () => !(await browser.getWindowHandles()).includes(popoutWindow),
+      {
+        timeout: 10_000,
+        timeoutMsg: "Obsidian settings window did not close",
+      },
+    );
+    await browser.switchToWindow(parentWindow);
+    settingsParentWindow = null;
+    settingsPopoutWindow = null;
+    return;
+  }
   const closeButton = browser.$(".modal.mod-settings .modal-close-button");
   await closeButton.waitForClickable({
     timeout: 10_000,

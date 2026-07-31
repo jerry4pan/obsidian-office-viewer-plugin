@@ -1,3 +1,6 @@
 {
-  "supportedExtensions": ["pptx", "ppt"]
+  "extensionRoutes": {
+    "pptx-viewer": ["pptx", "ppt"],
+    "docx-viewer": ["docx"]
+  }
 }

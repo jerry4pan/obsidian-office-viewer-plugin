@@ -9,26 +9,26 @@
 <h1 align="center">Office Viewer</h1>
 
 <p align="center">
-  <strong>Turn local PPTX presentations into searchable, source-preserving
-  knowledge in Obsidian.</strong>
+  <strong>Read and search local PowerPoint presentations and Word documents
+  in Obsidian.</strong>
 </p>
 
 <p align="center">
-  Read locally · Search presentation content · Reference exact slides · Embed
-  source-driven views
+  Read locally · Search PPTX and DOCX · Reference exact slides · Keep sources
+  unchanged
 </p>
 
 <p align="center">
   <a href="README.zh-Hans.md">简体中文</a>
 </p>
 
-Office Viewer helps you move from finding an idea in a presentation to using
-it in your notes without converting the deck to PDF, uploading it, or losing
-the connection to its source. It currently supports local `.pptx` files on
-desktop Obsidian.
+Office Viewer opens local `.pptx` presentations and `.docx` Word documents in
+desktop Obsidian without conversion or upload. PPTX keeps its slide-reference
+and embed workflows; DOCX deliberately focuses on continuous reading and
+search within the current document.
 
-The latest published release is **0.1.14** on GitHub and in Obsidian Community
-Plugins. The `main` branch may contain unreleased changes.
+The current release is **0.2.0**. GitHub receives the release first; Obsidian
+Community Plugins may follow after its catalog refreshes.
 
 ![Office Viewer reading a local PPTX with thumbnails](assets/readme/hero-reading-view.png)
 
@@ -74,6 +74,19 @@ containing sensitive content, filenames, paths, slide text, or images.
 - Each open file has its own independent reading position, thumbnail scroll
   state, and full-screen state across workspace panels.
 - The current slide always fills the available reading area automatically.
+
+**Word document reading and search**
+
+- Open `.docx` files directly from the Vault in a continuous, read-only view.
+- Read final-view main-body headings, paragraphs, lists, tables, inline images,
+  and safe hyperlinks. Headers, footers, comments, text boxes, and deleted or
+  hidden text are outside the DOCX view.
+- Press `Cmd+F` or `Ctrl+F` to search the current document. Results are grouped
+  by paragraph and jump to a visible, session-only highlight.
+- Very large documents use a clearly labelled simplified reading mode with a
+  bounded DOM. Detected content that cannot be represented is marked in flow.
+- DOCX does not create stable paragraph references, embeds, companion notes,
+  persistent reading positions, or a Vault-wide search index.
 
 **Thumbnails**
 
@@ -189,7 +202,7 @@ containing sensitive content, filenames, paths, slide text, or images.
 **Privacy**
 
 - Everything stays local. The plugin never uploads files, phones home, or
-  collects telemetry. Source PPTX files are never modified. Companion notes are
+  collects telemetry. Source PPTX and DOCX files are never modified. Companion notes are
   Markdown files created only by an explicit action; plugin data stores only
   their Vault-relative path pairs. Slide-search queries, source-authored slide
   text, snippets, and results are not saved.
@@ -205,8 +218,8 @@ mkdir -p /path/to/vault/.obsidian/plugins/office-viewer
 cp main.js manifest.json styles.css /path/to/vault/.obsidian/plugins/office-viewer/
 ```
 
-Enable **Office Viewer** under Community plugins, then open a `.pptx` from the
-Vault file explorer. Rebuild and copy the same three files after source
+Enable **Office Viewer** under Community plugins, then open a `.pptx` or
+`.docx` from the Vault file explorer. Rebuild and copy the same three files after source
 changes. `npm run test:e2e` performs the equivalent build-and-install path in a
 sandboxed test Vault without using a personal Obsidian configuration.
 
@@ -214,14 +227,14 @@ sandboxed test Vault without using a personal Obsidian configuration.
 
 A release ZIP contains the three runtime files (`main.js`, `manifest.json`,
 and `styles.css`) plus the project license, attribution notice, and bundled
-renderer license. GitHub Releases publish only the three Obsidian runtime
+renderer licenses. GitHub Releases publish only the three Obsidian runtime
 files (with build provenance attestations); the full ZIP stays available as the
 tag CI artifact from `npm run release:package`. Extract the ZIP contents to
 `<Vault>/.obsidian/plugins/office-viewer/`, reload Obsidian, and enable
 **Office Viewer**. To upgrade, disable the plugin, replace all three runtime
 files together, reload Obsidian, and re-enable it. To uninstall, disable the
 plugin and remove the `office-viewer` directory; the plugin never writes to
-source PPTX files.
+source PPTX or DOCX files.
 
 ## Development
 
@@ -230,8 +243,11 @@ npm install
 npm run fixtures
 npm run verify
 npm run test:e2e
+npm run test:e2e:docx
 npm run test:compatibility
+npm run test:compatibility:docx
 npm run test:performance
+npm run test:performance:docx
 npm run test:performance:baseline
 npm run release:check
 npm run release:package
@@ -251,6 +267,10 @@ with approved visual baselines, and writes ignored run artifacts under
 main content and meets the 80% M0 gate with known SVG degradation; see
 `docs/compatibility/aiden-pptx-renderer-1.2.4.md`.
 
+`npm run test:compatibility:docx` uses a pinned installed Obsidian environment
+and requires at least 90% readable main-body content. The accepted result is
+100%; see `docs/compatibility/docx-preview-0.3.6.md`.
+
 `npm run test:performance` repeats the installed-Obsidian benchmark on the
 current machine and writes ignored evidence under
 `artifacts/performance/aiden-pptx-renderer-1.2.4/`. The committed
@@ -259,6 +279,10 @@ reference-machine result for `@aiden0z/pptx-renderer@1.2.4` is
 human-readable report in
 `docs/performance/aiden-pptx-renderer-1.2.4.md`. Validate the committed evidence
 shape and fixed gate calculation with `npm run test:performance:baseline`.
+
+`npm run test:performance:docx` measures DOCX first-readable, search-ready,
+query, cleanup, stress DOM, and heap budgets in installed Obsidian. The accepted
+baseline is documented in `docs/performance/docx-preview-0.3.6.md`.
 
 To refresh the reference baseline, run `npm run test:performance` without
 changing its samples or thresholds, inspect the recorded verdict, then copy
@@ -273,11 +297,12 @@ supported-extension, license, and required-documentation consistency without
 requiring a version bump on `main`.
 `npm run release:check:publish` adds tag, commit, and GitHub-release guards
 for tagged releases only. Publish releases with the plain manifest version as
-the tag and release name, for example `0.1.14`, not `v0.1.14`; Obsidian matches
+the tag and release name, for example `0.2.0`, not `v0.2.0`; Obsidian matches
 the GitHub release directly against `manifest.json`.
 `npm run release:package` creates a
 deterministic `dist/office-viewer-<version>.zip`. `npm run test:release`
-installs that extracted ZIP into a clean test Vault, opens a real PPTX,
+installs that extracted ZIP into a clean test Vault, opens real PPTX and DOCX
+fixtures,
 rehearses an in-place package upgrade, and verifies disable/removal without
 network access or source mutation. Tag CI requires the exact manifest version
 as the tag name, runs publish checks, attests `main.js` / `manifest.json` /
@@ -287,12 +312,13 @@ GitHub Release.
 
 ## Current boundaries
 
-- `.pptx` is the only parsed format; legacy `.ppt` receives an explicit local
-  explanation and external-open fallback.
+- `.pptx` and `.docx` are parsed. Legacy `.ppt` receives an explicit local
+  explanation and external-open fallback; legacy `.doc` and macro-enabled
+  `.docm` are not registered.
 - Read-only and local; the plugin never writes back to the source file.
 - Desktop Obsidian only; mobile and tablet are not supported.
 - No Office, LibreOffice, PDF conversion, cloud renderer, or document server.
-- Normal viewing does not upload presentation content, follow external
+- Normal viewing does not upload presentation or document content, follow external
   relationships, execute macros/scripts, or make a network request.
 - Rendering is a readable preview, not pixel-perfect PowerPoint fidelity;
   embedded SVG and other advanced content can degrade. Use **Open in default
@@ -303,7 +329,7 @@ GitHub Release.
 - Privacy and security details are in `PRIVACY.md` and `SECURITY.md`.
 - Post-release validation and v0.2 planning are tracked in M4; see the PRD and
   GitHub Issues for current status.
-- Editing, saving, animations, legacy `.ppt` parsing, OCR, Vault-wide search,
+- Editing, saving, animations, legacy `.ppt`/`.doc` parsing, OCR, Vault-wide search,
   main-slide search highlighting, multi-slide or full-deck embeds, prose-mixed
   or multi-embed Live Preview lines, telemetry, accounts, licensing, and cloud
   services are out of scope.

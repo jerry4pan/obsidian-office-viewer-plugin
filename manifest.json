@@ -1,9 +1,9 @@
 {
   "id": "office-viewer",
   "name": "Office Viewer",
-  "version": "0.1.14",
+  "version": "0.2.0",
   "minAppVersion": "1.8.10",
-  "description": "Read, search, reference, and embed local PPTX files.",
+  "description": "Read local PPTX and DOCX files with document search and presentation references.",
   "author": "Jerry Pan",
   "authorUrl": "https://github.com/jerry4pan",
   "fundingUrl": {

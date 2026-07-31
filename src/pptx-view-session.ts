@@ -1049,8 +1049,11 @@ export class PptxViewSession<FileRef> {
         actionStatus.textContent = "";
         void Promise.resolve()
           .then(() => {
+            // Preserve the state represented by the button if Chromium briefly
+            // clears fullscreenElement while dispatching the second click.
+            const wasActive = lastKnownFullscreenState;
             const { active } = probeFullscreenState();
-            return active
+            return active || wasActive
               ? fullscreen.exit()
               : fullscreen.enter(this.root);
           })

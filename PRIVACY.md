@@ -1,11 +1,12 @@
 # Privacy
 
-Office Viewer processes presentation files locally inside desktop Obsidian.
+Office Viewer processes presentation and Word document files locally inside
+desktop Obsidian.
 The normal viewing path does not upload files, call a cloud renderer, follow
 external media relationships, or send telemetry or analytics.
 
-The plugin reads `.pptx` source bytes through Obsidian's Vault API and never
-writes back to the presentation. Optional reading-position history stores only
+The plugin reads `.pptx` and `.docx` source bytes through Obsidian's Vault API
+and never writes back to either source. Optional PPTX reading-position history stores only
 a Vault-relative path, file size, modification time, zero-based slide index,
 and update timestamp in the plugin data store. It can be disabled and cleared
 from settings.
@@ -37,6 +38,16 @@ speaker-note paragraphs read from package XML, normalized comparable text,
 snippets, highlights, scope choice, and results are not written to plugin data,
 diagnostics, logs, Markdown, or the source presentation. Search performance
 evidence contains only elapsed time and mounted-result counts.
+
+DOCX body search is likewise limited to one open document and one view
+lifecycle. The query, extracted body paragraphs, snippets, match counts, and
+active result are not persisted in plugin data, Markdown, diagnostics, or the
+source document. DOCX support does not create paragraph references, embeds,
+companion notes, or a Vault-wide index.
+
+Safe `http`, `https`, and `mailto` document links are opened only after an
+explicit click. They are never prefetched. Other external relationships are
+blocked or represented as unavailable content without a network request.
 
 **Open in default application** is an explicit action. After it is selected,
 the operating system and chosen application control any subsequent processing
