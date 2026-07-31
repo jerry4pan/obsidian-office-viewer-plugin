@@ -92,13 +92,7 @@ async function jumpTo(root: RootElement, page: number) {
 }
 
 async function clickFullscreenToggle(root: RootElement): Promise<void> {
-  await browser.execute((viewer) => {
-    const toggle = viewer.querySelector<HTMLButtonElement>(
-      '[data-action="toggle-fullscreen"]',
-    );
-    if (!toggle) throw new Error("PPTX full-screen control unavailable");
-    toggle.click();
-  }, root);
+  await root.$('[data-action="toggle-fullscreen"]').click();
 }
 
 async function installedStoreAction(
