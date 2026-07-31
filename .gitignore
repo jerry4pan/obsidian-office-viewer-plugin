@@ -10,3 +10,4 @@ artifacts/release/
 .VSCodeCounter/
 .scratch/
 .DS_Store
+.gstack/
