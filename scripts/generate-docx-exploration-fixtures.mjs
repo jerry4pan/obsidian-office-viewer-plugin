@@ -28,7 +28,10 @@ const onePixelPng = Buffer.from(
 const fixedZipDate = new Date("1980-01-01T00:00:00.000Z");
 
 function addZipFile(zip, partPath, contents) {
-  zip.file(partPath, contents, { date: fixedZipDate });
+  zip.file(partPath, contents, {
+    createFolders: false,
+    date: fixedZipDate,
+  });
 }
 
 function paragraph(id, text, options = {}) {

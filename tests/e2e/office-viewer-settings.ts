@@ -1,5 +1,4 @@
 import { browser } from "@wdio/globals";
-import process from "node:process";
 
 export const DIAGNOSTIC_SUMMARY_LABELS = {
   en: "Diagnostic summary",
@@ -21,7 +20,12 @@ async function waitForSettingsModal(): Promise<void> {
 }
 
 export async function openSettings(): Promise<void> {
-  await browser.keys([process.platform === "darwin" ? "Meta" : "Control", ","]);
+  const opened = await browser.execute(() =>
+    (window as unknown as {
+      app: { commands: { executeCommandById(id: string): boolean } };
+    }).app.commands.executeCommandById("app:open-settings")
+  );
+  if (!opened) throw new Error("Obsidian rejected the open-settings command");
   await waitForSettingsModal();
 }
 

@@ -27,8 +27,8 @@ desktop Obsidian without conversion or upload. PPTX keeps its slide-reference
 and embed workflows; DOCX deliberately focuses on continuous reading and
 search within the current document.
 
-The latest published release is **0.1.14** on GitHub and in Obsidian Community
-Plugins. The `main` branch may contain unreleased changes.
+The current release is **0.2.0**. GitHub receives the release first; Obsidian
+Community Plugins may follow after its catalog refreshes.
 
 ![Office Viewer reading a local PPTX with thumbnails](assets/readme/hero-reading-view.png)
 

@@ -91,6 +91,16 @@ async function jumpTo(root: RootElement, page: number) {
   await waitForPage(root, page);
 }
 
+async function clickFullscreenToggle(root: RootElement): Promise<void> {
+  await browser.execute((viewer) => {
+    const toggle = viewer.querySelector<HTMLButtonElement>(
+      '[data-action="toggle-fullscreen"]',
+    );
+    if (!toggle) throw new Error("PPTX full-screen control unavailable");
+    toggle.click();
+  }, root);
+}
+
 async function installedStoreAction(
   action: "clear-and-enable" | "disable-and-clear",
 ): Promise<{ rememberReadingPosition: boolean; positions: number }> {
@@ -197,13 +207,12 @@ describe("M2 installed PPTX reading experience", () => {
       delete leaf.dataset.e2eOriginalStyle;
     }, root);
 
-    const fullscreen = root.$('[data-action="toggle-fullscreen"]');
-    await fullscreen.click();
+    await clickFullscreenToggle(root);
     await browser.waitUntil(
       async () => (await root.getAttribute("data-fullscreen")) === "true",
       { timeout: 10_000, timeoutMsg: "viewer did not enter the real Fullscreen API" },
     );
-    await fullscreen.click();
+    await clickFullscreenToggle(root);
     await browser.waitUntil(
       async () => (await root.getAttribute("data-fullscreen")) === "false",
       { timeout: 10_000, timeoutMsg: "viewer did not exit the real Fullscreen API" },
@@ -417,11 +426,10 @@ describe("M2 installed PPTX reading experience", () => {
     });
     expect(Number(await secondRail.getProperty("scrollTop"))).toBe(secondScrollBefore);
 
-    const firstFullscreen = firstTagged.$('[data-action="toggle-fullscreen"]');
-    await firstFullscreen.click();
+    await clickFullscreenToggle(firstTagged);
     await expect(firstTagged).toHaveAttribute("data-fullscreen", "true");
     await expect(secondTagged).toHaveAttribute("data-fullscreen", "false");
-    await firstFullscreen.click();
+    await clickFullscreenToggle(firstTagged);
     await expect(firstTagged).toHaveAttribute("data-fullscreen", "false");
   });
 

@@ -20,8 +20,8 @@
     "stressHeapDeltaBudgetBytes": 268435456
   },
   "fixtures": {
-    "representativeSha256": "17a9315fbdcd3dcaf40d274e85cb2c25c85171f0c2274d342651f8fceac557ed",
-    "stressSha256": "0e21af701f92beb279728fe0a85d0d1ca0c0d5f78ca219ebd504f1ec0f3caa71"
+    "representativeSha256": "6236b68ff7cfe9e75e6d1de9df28c9cbaabd7e2ac920dd7089c9e974292438d6",
+    "stressSha256": "9f7d929638db8ec8446466b6bdb51be89406284b022d78a1bbedb5fe3a23f94e"
   },
   "bundleBytes": 1389799,
   "samples": {
