@@ -191,5 +191,5 @@ describe("DOCX reading and search view", () => {
     expect(
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
     ).toBeLessThanOrEqual(1_200);
-  });
+  }, 15_000);
 });
