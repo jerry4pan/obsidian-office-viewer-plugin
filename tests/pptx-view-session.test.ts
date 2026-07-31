@@ -1488,6 +1488,7 @@ describe("PptxViewSession", () => {
     await vi.waitFor(() => expect(root.dataset.fullscreen).toBe("true"));
     expect(fullscreen.api.enter).toHaveBeenCalledWith(root);
     expect(root.querySelector('[data-action="toggle-fullscreen"]')?.getAttribute("aria-label")).toBe("Exit full screen");
+    fullscreen.api.isActive.mockReturnValueOnce(false);
     root.querySelector<HTMLButtonElement>('[data-action="toggle-fullscreen"]')!.click();
     await vi.waitFor(() => expect(root.dataset.fullscreen).toBe("false"));
     expect(fullscreen.api.exit).toHaveBeenCalledOnce();
