@@ -1,6 +1,9 @@
 import path from "node:path";
 
 const hostLanguages = ["en-US", "zh-CN", "zh-TW", "fr"];
+const appVersion = process.env.OBSIDIAN_TEST_VERSION ?? "latest";
+const installerVersion =
+  process.env.OBSIDIAN_INSTALLER_VERSION ?? "latest";
 
 export const config: WebdriverIO.Config = {
   runner: "local",
@@ -9,12 +12,12 @@ export const config: WebdriverIO.Config = {
   maxInstances: 1,
   capabilities: hostLanguages.map((language) => ({
     browserName: "obsidian",
-    browserVersion: "latest",
+    browserVersion: appVersion,
     "goog:chromeOptions": {
       args: [`--lang=${language}`],
     },
     "wdio:obsidianOptions": {
-      installerVersion: "latest",
+      installerVersion,
       plugins: ["."],
       vault: "tests/vault",
     },

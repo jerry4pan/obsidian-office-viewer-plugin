@@ -1,7 +1,7 @@
 # Obsidian Office Viewer
 
-Obsidian Office Viewer provides a trustworthy, local, read-only presentation
-reading experience inside Obsidian.
+Obsidian Office Viewer provides trustworthy, local, read-only Office document
+reading experiences inside Obsidian.
 
 ## Knowledge workflow
 
@@ -11,6 +11,14 @@ needs to locate, reference, or reuse inside Obsidian without changing the
 source document. Format coverage is valuable only when it advances this
 workflow, not as a standalone measure of product breadth.
 _Avoid_: Supported file, Office file
+
+**Body-led DOCX knowledge material**:
+DOCX **Knowledge material** whose reader value resides primarily in ordered
+main-body prose, headings, lists, tables, and inline images rather than exact
+print layout or auxiliary content stories. Reports, research material,
+proposals, memoranda, and explanatory documents are the first target; forms,
+mail-merge templates, brochures, and other layout-led documents are not.
+_Avoid_: Word file, General DOCX, Print artifact
 
 **Presentation companion note**:
 The single presentation-level Markdown note a reader explicitly associates
@@ -28,9 +36,16 @@ _Avoid_: Duplicate companion note, Automatic reassociation
 **Knowledge reference loop**:
 The complete reader journey from finding relevant content, opening its precise
 location, copying or embedding it with its source, and returning to that
-location later. A new document format is useful only when this loop works; a
-standalone preview is not the completed journey.
+location later. Reading and search may deliver useful format coverage without
+claiming that this complete loop exists.
 _Avoid_: Preview flow, Open-file flow
+
+**Document reading workflow**:
+The local, read-only journey of opening one DOCX, reading its main-body content,
+searching within that document, and navigating to a matching paragraph during
+the current session. It does not create Markdown references, persistent search
+state, or a Vault-wide index.
+_Avoid_: Knowledge reference loop, DOCX reference workflow, Word preview
 
 **Knowledge reference loop technical exploration**:
 A bounded engineering phase that tests the technical feasibility of supporting
@@ -61,6 +76,14 @@ text boxes, shapes, or table cells. It excludes speaker notes, master or layout
 text, chart or SmartArt data, and text contained in images.
 _Avoid_: Extracted text, All slide text
 
+**Source-authored document body text**:
+Reader-visible text directly authored in the main body of DOCX **Knowledge
+material**, including headings, ordinary paragraphs, list items, and paragraphs
+inside table cells. Inserted revision content is included as final body text;
+headers, footers, footnotes, endnotes, comments, text boxes, hidden text,
+deleted revision content, and revision metadata are excluded.
+_Avoid_: Extracted text, All document text, Word text
+
 **Speaker note content**:
 Reader-authored explanatory text associated with one slide but not visible on
 the slide canvas. It is part of the presentation's **Knowledge material** when
@@ -80,6 +103,26 @@ The content surfaces included in one **Presentation content search**:
 source-authored slide text only, speaker note content only, or both.
 _Avoid_: Search filter, Search mode
 
+**Document body search**:
+A session-local search within one open DOCX **Knowledge material** that returns
+matching **Source-authored document body text** as precise paragraph locations.
+Its query, temporary index, and results do not outlive the active reading
+session and never become a persistent or Vault-wide content index.
+_Avoid_: Vault search, File search, Word search
+
+**Document paragraph search result**:
+One paragraph-level result from **Document body search**, anchored to that
+paragraph and summarizing one or more matches within it. Multiple matches do
+not create separate results for character positions.
+_Avoid_: Text occurrence, Character match, Search hit
+
+**Active document paragraph**:
+The single searchable non-empty body paragraph a reader has selected in the
+**DOCX reading view** by direct activation or search navigation. It is a
+session-local reading location, not a character selection, deep link, viewport
+guess, or persisted reading position.
+_Avoid_: Selected text, Current page, Reading position
+
 **Slide search result**:
 One slide-level result from **Slide content search** or **Presentation content
 search**, anchored to the slide's stable identity and summarizing one or more
@@ -95,6 +138,36 @@ current ordinal. Following it returns the reader to that presentation and
 slide, while a deleted target is reported as unavailable rather than silently
 redirected to the same ordinal position.
 _Avoid_: Page link, Deep link, PPTX link
+
+**DOCX reading view**:
+A local, read-only, continuously flowing representation of DOCX
+**Knowledge material** that preserves its reader-meaningful content structure.
+It does not promise Word pagination, print-layout fidelity, or pixel-level
+formatting equivalence.
+_Avoid_: Word preview, Page view, Print preview
+
+**Unavailable document body content**:
+Reader-visible content detected in the main body of DOCX **Knowledge material**
+but not representable in the **DOCX reading view**. It retains an in-flow
+placeholder and a visible document-level degradation notice instead of being
+silently omitted; formatting differences and deliberately excluded non-body
+content are not unavailable document body content.
+_Avoid_: Omitted content, Hidden degradation, Formatting difference
+
+**Document hyperlink**:
+A source-authored hyperlink in **Source-authored document body text** whose
+visible label remains part of its paragraph and whose `https`, `http`, or
+`mailto` target opens only after explicit reader activation. Targets are never
+prefetched or opened during rendering, search, or reference resolution; all
+other external protocols and local paths are blocked.
+_Avoid_: External resource, Embedded asset, Automatic navigation
+
+**Document bookmark navigation**:
+An explicit reader-activated jump from a source-authored internal DOCX link to
+the unique main-body paragraph containing its bookmark target. It activates the
+paragraph only for the current reading session and does not create a persistent
+reference; excluded, missing, or ambiguous targets are unavailable.
+_Avoid_: Persistent document reference, Persisted bookmark, External link
 
 **Slide embed**:
 An inline, read-only view of the current local source slide identified by a
@@ -112,13 +185,12 @@ _Avoid_: Editable slide, PPTX edit mode, Live Preview PPTX editor
 
 ## Example dialogue
 
-> **Developer:** Does opening another Office format advance the Knowledge
-> reference loop?
+> **Developer:** What does the first DOCX release promise?
 >
-> **Domain expert:** Not by itself. First use Knowledge reference loop technical
-> exploration to prove that a Slide reference and Slide embed can safely return
-> to a precise location. Real-reader workflow value still needs separate
-> validation.
+> **Domain expert:** A Document reading workflow: local main-body reading,
+> current-document search, and session-local result navigation. It deliberately
+> does not claim a stable DOCX reference or complete the Knowledge reference
+> loop.
 
 ## Globalization
 

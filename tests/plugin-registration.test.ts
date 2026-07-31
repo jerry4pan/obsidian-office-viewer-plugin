@@ -127,7 +127,7 @@ describe("OfficeViewerPlugin", () => {
     },
   );
 
-  it("registers PPTX reading and legacy PPT explanation with the dedicated view", async () => {
+  it("registers PPTX and DOCX reading with dedicated views", async () => {
     let releaseLoad!: () => void;
     const loadPending = new Promise<void>((resolve) => {
       releaseLoad = resolve;
@@ -143,15 +143,12 @@ describe("OfficeViewerPlugin", () => {
     releaseLoad();
     await loading;
 
-    expect(plugin.registerView).toHaveBeenCalledOnce();
-    expect(plugin.registerView).toHaveBeenCalledWith(
-      "pptx-viewer",
-      expect.any(Function),
-    );
-    expect(plugin.registerExtensions).toHaveBeenCalledWith(
-      ["pptx", "ppt"],
-      "pptx-viewer",
-    );
+    expect(vi.mocked(plugin.registerView).mock.calls.map(([type]) => type))
+      .toEqual(["pptx-viewer", "docx-viewer"]);
+    expect(vi.mocked(plugin.registerExtensions).mock.calls).toEqual([
+      [["pptx", "ppt"], "pptx-viewer"],
+      [["docx"], "docx-viewer"],
+    ]);
     expect(plugin.addSettingTab).toHaveBeenCalledOnce();
     expect(plugin.registerMarkdownPostProcessor).toHaveBeenCalledWith(
       expect.any(Function),

@@ -7,15 +7,16 @@ in Obsidian Community Plugins.
 
 ## Security model
 
-- PPTX packages are inspected before renderer allocation.
+- PPTX and DOCX packages are inspected before renderer allocation.
 - ZIP entry, expanded-size, media, and XML limits bound resource use.
 - Macros, VBA, ActiveX, embedded executable content, and external media are
   rejected and never executed or fetched.
-- External hyperlinks are not followed automatically.
+- External hyperlinks are not followed automatically; DOCX links are limited
+  to `http`, `https`, and `mailto` after an explicit click.
 - Source files are read-only and are never modified by the viewer.
 - Rendering is isolated per Obsidian view and cancellation/disposal is scoped
   to the open generation.
-- Candidate exceptions are mapped to stable categories before user display or
+- Renderer exceptions are mapped to stable categories before user display or
   diagnostic export.
 - Non-blocking compatibility warnings can be disabled by turning off
   **Diagnostic summary**. Security rejections for macros, ActiveX, external

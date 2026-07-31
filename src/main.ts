@@ -25,6 +25,25 @@ import { createExternalOpenAction } from "./external-open";
 import { resolveSlideEmbedFile } from "./resolve-slide-embed-file";
 import { createCompanionNoteVault } from "./companion-note-vault";
 import { PresentationCompanionNoteService } from "./presentation-companion-note-service";
+import { DocxFileView, DOCX_VIEW_TYPE } from "./docx/docx-file-view";
+import { createDocxMessageTranslator } from "./docx/docx-messages";
+import { createDocxRendererAdapter } from "./docx/renderer/create-docx-renderer-adapter";
+
+async function openExternalUrl(url: string): Promise<void> {
+  const protocol = new URL(url).protocol;
+  if (
+    protocol !== "https:" &&
+    protocol !== "http:" &&
+    protocol !== "mailto:"
+  ) {
+    throw new Error("Blocked external URL protocol");
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron shell is available in desktop Obsidian
+  const { shell } = require("electron") as {
+    shell: { openExternal(url: string): Promise<void> };
+  };
+  await shell.openExternal(url);
+}
 
 function fingerprint(file: TFile): FileFingerprint {
   return {
@@ -36,6 +55,7 @@ function fingerprint(file: TFile): FileFingerprint {
 
 export default class OfficeViewerPlugin extends Plugin {
   private readonly views = new Set<PptxFileView>();
+  private readonly docxViews = new Set<DocxFileView>();
   private store: OfficeViewerDataStore | undefined;
   private companionNotes: PresentationCompanionNoteService | undefined;
   private embedScheduler: SlideEmbedScheduler | undefined;
@@ -44,7 +64,8 @@ export default class OfficeViewerPlugin extends Plugin {
 
   override async onload(): Promise<void> {
     this.unloading = false;
-    const messages = createMessageTranslator(getLanguage());
+    const language = getLanguage();
+    const messages = createMessageTranslator(language);
     const diagnosticEnvironment = {
       pluginVersion: manifest.version,
       obsidianVersion: apiVersion,
@@ -143,8 +164,30 @@ export default class OfficeViewerPlugin extends Plugin {
       this.views.add(view);
       return view;
     });
-    const embedRenderer = createPptxRendererAdapter();
+    const docxMessages = createDocxMessageTranslator(language);
     const openExternally = createExternalOpenAction(this.app);
+    this.registerView(DOCX_VIEW_TYPE, (leaf) => {
+      let view: DocxFileView;
+      view = new DocxFileView(
+        leaf,
+        {
+          renderer: createDocxRendererAdapter({
+            unavailablePlaceholder:
+              docxMessages.text("unavailablePlaceholder"),
+          }),
+          messages: docxMessages,
+          openExternalUrl,
+          openInDefaultApplication:
+            openExternally === undefined
+              ? undefined
+              : (file: TFile) => openExternally(file),
+        },
+        () => this.docxViews.delete(view),
+      );
+      this.docxViews.add(view);
+      return view;
+    });
+    const embedRenderer = createPptxRendererAdapter();
     this.registerMarkdownPostProcessor((element, context) => {
       processPptxSlideEmbeds(element, context, {
         app: this.app,
@@ -177,13 +220,22 @@ export default class OfficeViewerPlugin extends Plugin {
         },
       }),
     );
-    this.registerExtensions([...releaseContract.supportedExtensions], PPTX_VIEW_TYPE);
+    this.registerExtensions(
+      releaseContract.extensionRoutes[PPTX_VIEW_TYPE],
+      PPTX_VIEW_TYPE,
+    );
+    this.registerExtensions(
+      releaseContract.extensionRoutes[DOCX_VIEW_TYPE],
+      DOCX_VIEW_TYPE,
+    );
   }
 
   override onunload(): void {
     this.unloading = true;
     for (const view of [...this.views]) view.dispose();
     this.views.clear();
+    for (const view of [...this.docxViews]) view.dispose();
+    this.docxViews.clear();
     for (const child of [...this.embedChildren]) child.unload();
     this.embedChildren.clear();
     this.embedScheduler?.dispose();

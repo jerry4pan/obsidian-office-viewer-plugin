@@ -8,13 +8,16 @@ Use Node.js 22 and run:
 npm ci
 npm run verify
 npm run test:e2e
+npm run test:e2e:docx
 npm run test:compatibility
+npm run test:compatibility:docx
 npm run test:performance:baseline
+npm run test:performance:docx
 npm run release:check
 ```
 
-Keep renderer-specific objects behind `PptxRendererAdapter`, read presentation
-bytes only through the Vault API, and do not add network, conversion, editing,
+Keep renderer-specific objects behind their PPTX or DOCX adapter, read Office
+file bytes only through the Vault API, and do not add network, conversion, editing,
 telemetry, or source-write behavior. Any English user-facing message change
 must update the Simplified and Traditional Chinese catalogs and retain the
 human-review evidence described in `docs/globalization/multilingual-ui.md`.

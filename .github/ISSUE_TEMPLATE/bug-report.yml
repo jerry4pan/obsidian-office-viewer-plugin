@@ -18,7 +18,7 @@ body:
     id: plugin-version
     attributes:
       label: Office Viewer version / 插件版本
-      placeholder: "0.1.14"
+      placeholder: "0.2.0"
     validations:
       required: true
 
@@ -47,6 +47,7 @@ body:
       label: Affected area / 相关功能
       options:
         - Opening a PPTX / 打开 PPTX
+        - Opening or searching a DOCX / 打开或搜索 DOCX
         - Reading or navigation / 阅读或导航
         - Thumbnails or fullscreen / 缩略图或全屏
         - Presentation search / 演示文稿搜索

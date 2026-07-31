@@ -8,6 +8,10 @@ export const releaseFileSources = Object.freeze([
     archivePath: "AIDEN-PPTX-RENDERER-LICENSE",
     sourcePath: "node_modules/@aiden0z/pptx-renderer/LICENSE",
   },
+  {
+    archivePath: "DOCX-PREVIEW-LICENSE",
+    sourcePath: "node_modules/docx-preview/LICENSE",
+  },
 ]);
 
 export const releaseArchivePaths = Object.freeze(
