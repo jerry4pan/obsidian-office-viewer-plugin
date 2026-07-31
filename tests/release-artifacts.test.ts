@@ -64,6 +64,7 @@ describe("release artifacts", () => {
       "DOCX-PREVIEW-LICENSE",
       "LICENSE",
       "NOTICE",
+      "WMF-LICENSE",
       "main.js",
       "manifest.json",
       "styles.css",
@@ -74,6 +75,9 @@ describe("release artifacts", () => {
     await expect(
       zip.file("DOCX-PREVIEW-LICENSE")!.async("text"),
     ).resolves.toContain("Apache License");
+    await expect(zip.file("WMF-LICENSE")!.async("text")).resolves.toContain(
+      "Apache License",
+    );
     const packagedManifest = JSON.parse(
       await zip.file("manifest.json")!.async("text"),
     ) as { version: string };

@@ -1,6 +1,8 @@
 import CFB from "cfb";
 import JSZip, { type JSZipObject } from "jszip";
+import { convertWindowsMetafileToPng } from "./convert-windows-metafile";
 import { DocxOpenError } from "./docx-open-error";
+import { materializeDocxChartsAsImages } from "./materialize-docx-charts";
 
 const WORDPROCESSING_NAMESPACE =
   "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -65,6 +67,10 @@ export type DocxUnavailableContentKind =
   | "embedded-object"
   | "alt-chunk"
   | "external-image";
+
+function isChartGraphicElement(element: Element): boolean {
+  return element.localName === "chart" || element.localName === "chartEx";
+}
 
 export interface DocxSemanticParagraph {
   readonly ordinal: number;
@@ -758,6 +764,51 @@ export async function inspectDocxPackage(
   };
 }
 
+async function convertEmbeddedWindowsMetafiles(
+  zip: JSZip,
+  signal: AbortSignal,
+): Promise<void> {
+  const renames: Array<{ readonly from: string; readonly to: string }> = [];
+  for (const [path, part] of Object.entries(zip.files)) {
+    if (part.dir || !/^word\/media\/.+\.(?:wmf|emf)$/i.test(path)) continue;
+    signal.throwIfAborted();
+    const bytes = new Uint8Array(await part.async("arraybuffer"));
+    const png = convertWindowsMetafileToPng(bytes);
+    if (png === null) continue;
+    const pngPath = path.replace(/\.(?:wmf|emf)$/i, ".png");
+    zip.remove(path);
+    zip.file(pngPath, png);
+    renames.push({
+      from: path.slice("word/".length),
+      to: pngPath.slice("word/".length),
+    });
+  }
+  if (renames.length === 0) return;
+
+  for (const [path, part] of Object.entries(zip.files)) {
+    if (part.dir || !path.endsWith(".rels")) continue;
+    let text = await part.async("string");
+    let changed = false;
+    for (const { from, to } of renames) {
+      if (!text.includes(from)) continue;
+      text = text.split(from).join(to);
+      changed = true;
+    }
+    if (changed) zip.file(path, text);
+  }
+
+  const contentTypesPart = zip.file("[Content_Types].xml");
+  if (contentTypesPart === null) return;
+  let contentTypes = await contentTypesPart.async("string");
+  if (!/Extension="png"/i.test(contentTypes)) {
+    contentTypes = contentTypes.replace(
+      /<Types([^>]*)>/,
+      '<Types$1><Default Extension="png" ContentType="image/png"/>',
+    );
+    zip.file("[Content_Types].xml", contentTypes);
+  }
+}
+
 export async function createSafeDocxRendererBuffer(
   buffer: ArrayBuffer,
   signal: AbortSignal,
@@ -769,14 +820,16 @@ export async function createSafeDocxRendererBuffer(
   } catch (error) {
     throw malformed("Unable to prepare the DOCX renderer input", error);
   }
+  await convertEmbeddedWindowsMetafiles(zip, signal);
   const documentPart = zip.file("word/document.xml");
   if (documentPart === null) throw malformed("Missing DOCX main document");
   const document = await readXml(documentPart, signal);
   const relationshipsPart = zip.file("word/_rels/document.xml.rels");
   const externalImageIds = new Set<string>();
   const removableRelationshipIds = new Set<string>();
+  let relationshipDocument: Document | null = null;
   if (relationshipsPart !== null) {
-    const relationshipDocument = await readXml(relationshipsPart, signal);
+    relationshipDocument = await readXml(relationshipsPart, signal);
     for (const relationship of relationshipDocument.getElementsByTagNameNS(
       "*",
       "Relationship",
@@ -801,10 +854,6 @@ export async function createSafeDocxRendererBuffer(
         relationship.remove();
       }
     }
-    zip.file(
-      relationshipsPart.name,
-      new XMLSerializer().serializeToString(relationshipDocument),
-    );
   }
 
   for (const deletion of Array.from(
@@ -886,7 +935,27 @@ export async function createSafeDocxRendererBuffer(
       }
     }
   }
+  // docx-preview cannot paint DrawingML charts. Rasterize cached chart series
+  // into PNG pictures first; strip any leftover chart drawings.
+  await materializeDocxChartsAsImages(
+    zip,
+    document,
+    relationshipDocument,
+    signal,
+  );
+  for (const element of Array.from(document.getElementsByTagName("*"))) {
+    if (!isChartGraphicElement(element)) continue;
+    (
+      closestElement(element, WORDPROCESSING_NAMESPACE, "drawing") ?? element
+    ).remove();
+  }
   signal.throwIfAborted();
+  if (relationshipsPart !== null && relationshipDocument !== null) {
+    zip.file(
+      relationshipsPart.name,
+      new XMLSerializer().serializeToString(relationshipDocument),
+    );
+  }
   zip.file(
     documentPart.name,
     new XMLSerializer().serializeToString(document),

@@ -262,6 +262,74 @@ describe("DOCX project-owned semantic model", () => {
     ]);
   });
 
+  it("materializes native charts into PNG pictures for the renderer", async () => {
+    const chartXml = `<?xml version="1.0" encoding="UTF-8"?>
+      <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <c:chart>
+          <c:title><c:tx><c:rich><a:p><a:r><a:t>Demo</a:t></a:r></a:p></c:rich></c:tx></c:title>
+          <c:plotArea>
+            <c:lineChart>
+              <c:ser>
+                <c:tx><c:strRef><c:strCache><c:pt idx="0"><c:v>A</c:v></c:pt></c:strCache></c:strRef></c:tx>
+                <c:cat><c:strRef><c:strCache>
+                  <c:pt idx="0"><c:v>202301</c:v></c:pt>
+                  <c:pt idx="1"><c:v>202302</c:v></c:pt>
+                </c:strCache></c:strRef></c:cat>
+                <c:val><c:numRef><c:numCache>
+                  <c:pt idx="0"><c:v>0.99</c:v></c:pt>
+                  <c:pt idx="1"><c:v>0.98</c:v></c:pt>
+                </c:numCache></c:numRef></c:val>
+              </c:ser>
+            </c:lineChart>
+          </c:plotArea>
+        </c:chart>
+      </c:chartSpace>`;
+    const source = await docxFixture({
+      relationships: `
+        <Relationship Id="rChart" Type="${R}/chart" Target="charts/chart1.xml"/>
+      `,
+      extraParts: { "word/charts/chart1.xml": chartXml },
+      body: `
+        <w:p w14:paraId="00000001">
+          <w:r><w:t>Before chart</w:t></w:r>
+        </w:p>
+        <w:p w14:paraId="00000002">
+          <w:r><w:drawing>
+            <wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+              <wp:extent cx="5274310" cy="2139315"/>
+              <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="rChart"/>
+            </wp:inline>
+          </w:drawing></w:r>
+        </w:p>
+        <w:p w14:paraId="00000003">
+          <w:r><w:t>After chart</w:t></w:r>
+        </w:p>
+      `,
+    });
+
+    const safe = await createSafeDocxRendererBuffer(
+      source,
+      new AbortController().signal,
+    );
+    const safeZip = await JSZip.loadAsync(safe);
+    const safeDocument = await safeZip.file("word/document.xml")!.async("text");
+    const safeRels = await safeZip
+      .file("word/_rels/document.xml.rels")!
+      .async("text");
+
+    expect(safeDocument).not.toContain("<c:chart");
+    expect(safeDocument).toContain("a:blip");
+    expect(safeDocument).toContain("Before chart");
+    expect(safeDocument).toContain("After chart");
+    expect(safeRels).toContain("docx-chart-");
+    expect(
+      Object.keys(safeZip.files).some((name) =>
+        /^word\/media\/docx-chart-\d+\.png$/.test(name),
+      ),
+    ).toBe(true);
+  });
+
   it("detects and removes externally linked images that use r:link", async () => {
     const relationships = `
       <Relationship Id="rImage" Type="${R}/image"

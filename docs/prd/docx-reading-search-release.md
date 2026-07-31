@@ -18,10 +18,12 @@ to a matching paragraph without modifying or uploading the source.
   images, and hyperlinks in document order. Include inserted changes; exclude
   deleted changes, hidden text, headers, footers, notes, comments, and text
   boxes.
-- Search all visible main-body text in the current open document. Return one
+- Search all visible main-body text in the current open document through the
+  same toggleable search panel interaction as PPTX slide search. Return one
   result per matching paragraph with a match count and readable excerpt.
 - Activate, reveal, and visibly highlight a result in the current session.
-  `Cmd+F`/`Ctrl+F` focuses the document search field.
+  `Cmd+F`/`Ctrl+F` opens the document search panel and focuses its field;
+  `Escape` closes it.
 - Preserve explicit `http`, `https`, and `mailto` hyperlinks and unique
   main-body bookmark jumps. Never prefetch or automatically open them.
 - Mark every detected unrepresentable main-body unit with an in-flow

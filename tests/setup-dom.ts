@@ -1,3 +1,53 @@
+import { createCanvas, Image, ImageData } from "canvas";
+
+type NodeCanvas = ReturnType<typeof createCanvas>;
+
+function canvasDataUrl(
+  canvas: NodeCanvas,
+  type?: string,
+  quality?: number,
+): string {
+  if (type === undefined) return canvas.toDataURL();
+  return canvas.toDataURL(type as "image/png");
+}
+
+// jsdom has no canvas implementation; wire node-canvas for WMF→PNG conversion tests.
+Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+  value(this: HTMLCanvasElement, type: string) {
+    if (type !== "2d") return null;
+    const backing = createCanvas(this.width || 1, this.height || 1);
+    const context = backing.getContext("2d");
+    Object.defineProperty(this, "__nodeCanvas", {
+      value: backing,
+      configurable: true,
+    });
+    return context;
+  },
+});
+Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
+  value(this: HTMLCanvasElement, type?: string, quality?: number) {
+    const backing = (this as HTMLCanvasElement & {
+      __nodeCanvas?: NodeCanvas;
+    }).__nodeCanvas;
+    if (backing === undefined) {
+      return canvasDataUrl(
+        createCanvas(this.width || 1, this.height || 1),
+        type,
+        quality,
+      );
+    }
+    // Keep dimensions in sync when wmf mutates canvas.width/height.
+    if (backing.width !== this.width || backing.height !== this.height) {
+      const resized = createCanvas(this.width || 1, this.height || 1);
+      resized.getContext("2d").drawImage(backing, 0, 0);
+      return canvasDataUrl(resized, type, quality);
+    }
+    return canvasDataUrl(backing, type, quality);
+  },
+});
+(globalThis as unknown as { Image: typeof Image }).Image = Image;
+(globalThis as unknown as { ImageData: typeof ImageData }).ImageData = ImageData;
+
 class TestResizeObserver implements ResizeObserver {
   disconnect(): void {}
   observe(): void {}

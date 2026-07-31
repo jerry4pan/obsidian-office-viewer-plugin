@@ -50,9 +50,10 @@ describe("installed DOCX performance gates", () => {
       await expect(root).toHaveAttribute("data-renderer", "docx-preview");
       firstReadable.push(Number(await root.getAttribute("data-first-readable-ms")));
       searchReady.push(Number(await root.getAttribute("data-search-ready-ms")));
+      await root.$('[data-action="open-docx-search"]').click();
       query.push(await browser.execute(() => {
         const input = document.querySelector<HTMLInputElement>(
-          ".workspace-leaf.mod-active .office-viewer-docx-search",
+          ".workspace-leaf.mod-active [data-action=\"docx-search-input\"]",
         );
         if (input === null) throw new Error("DOCX search input is unavailable");
         const started = performance.now();

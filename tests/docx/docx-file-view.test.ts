@@ -85,16 +85,29 @@ describe("DOCX reading and search view", () => {
     );
     expect(root.textContent).not.toContain("stable source identities");
     expect(
-      Array.from(root.querySelectorAll("button"), (item) => item.textContent),
-    ).toEqual(["Open in default application"]);
+      root.querySelector('[data-action="open-docx-search"]'),
+    ).not.toBeNull();
+    expect(
+      root.querySelector(".office-viewer-docx-toolbar button:last-child")
+        ?.textContent,
+    ).toBe("Open in default application");
 
-    const search = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+    root
+      .querySelector<HTMLButtonElement>('[data-action="open-docx-search"]')!
+      .click();
+    expect(root.dataset.searchOpen).toBe("true");
+    const search = root.querySelector<HTMLInputElement>(
+      '[data-action="docx-search-input"]',
+    )!;
     search.value = "generated paragraph";
     search.dispatchEvent(new Event("input"));
     const result = root.querySelector<HTMLButtonElement>(
       ".office-viewer-docx-search-result",
     )!;
-    expect(result.textContent).toContain("Paragraph 2, matches: 1");
+    expect(result.getAttribute("aria-label")).toContain(
+      "Paragraph 2, matches: 1",
+    );
+    expect(result.textContent).toContain("generated paragraph");
     result.click();
     expect(
       root
@@ -177,7 +190,12 @@ describe("DOCX reading and search view", () => {
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
     ).toBeLessThanOrEqual(1_200);
 
-    const search = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+    root
+      .querySelector<HTMLButtonElement>('[data-action="open-docx-search"]')!
+      .click();
+    const search = root.querySelector<HTMLInputElement>(
+      '[data-action="docx-search-input"]',
+    )!;
     search.value = "Stress paragraph 4999:";
     search.dispatchEvent(new Event("input"));
     root

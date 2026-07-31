@@ -12,6 +12,10 @@ export const releaseFileSources = Object.freeze([
     archivePath: "DOCX-PREVIEW-LICENSE",
     sourcePath: "node_modules/docx-preview/LICENSE",
   },
+  {
+    archivePath: "WMF-LICENSE",
+    sourcePath: "node_modules/wmf/LICENSE",
+  },
 ]);
 
 export const releaseArchivePaths = Object.freeze(

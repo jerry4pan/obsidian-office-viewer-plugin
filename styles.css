@@ -677,7 +677,7 @@
   background: var(--background-primary);
   color: var(--text-normal);
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
@@ -688,12 +688,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-4-2);
+  justify-content: flex-end;
   padding: var(--size-4-2) var(--size-4-3);
 }
 
-.office-viewer-docx-search {
-  flex: 1 1 16rem;
-  min-width: 10rem;
+.office-viewer-docx-toolbar [data-action="open-docx-search"] {
+  margin-inline-end: auto;
 }
 
 .office-viewer-docx-notices:not(:empty),
@@ -707,34 +707,171 @@
   color: var(--text-muted);
 }
 
-.office-viewer-docx-results:not(:empty) {
-  border-bottom: 1px solid var(--background-modifier-border);
+.office-viewer-docx-main {
   display: flex;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.office-viewer-docx-search-rail {
+  background: var(--background-secondary);
+  border-inline-end: 1px solid var(--background-modifier-border);
+  display: none;
+  flex: 0 0 18rem;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.office-viewer-docx-shell[data-search-open="true"]
+  .office-viewer-docx-search-rail {
+  display: block;
+}
+
+.office-viewer-docx-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  height: 100%;
+  min-height: 0;
+  padding: var(--size-4-2);
+}
+
+.office-viewer-docx-search-input {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.office-viewer-docx-search-summary {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  font-size: var(--font-ui-smaller);
+}
+
+.office-viewer-docx-search-summary:empty {
+  display: none;
+}
+
+.office-viewer-docx-search-results {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: var(--size-4-1);
-  max-height: 12rem;
-  overflow: auto;
-  padding: var(--size-4-2) var(--size-4-3);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.office-viewer-docx-search-pagination {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--size-4-1);
+  justify-content: space-between;
+}
+
+.office-viewer-docx-search-range {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
 }
 
 .office-viewer-docx-search-result {
+  align-items: stretch;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-normal);
+  display: flex;
   flex: 0 0 auto;
-  max-width: min(28rem, 80vw);
-  overflow: hidden;
+  flex-direction: column;
+  gap: var(--size-4-1);
+  height: auto;
+  min-height: var(--input-height);
+  overflow: visible;
+  padding: var(--size-4-2);
   text-align: start;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  width: 100%;
+}
+
+.office-viewer-docx-search-result:hover {
+  background: var(--background-modifier-hover);
+}
+
+.office-viewer-docx-search-result-title {
+  font-weight: var(--font-semibold);
+}
+
+.office-viewer-docx-search-snippet,
+.office-viewer-docx-search-match-count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.office-viewer-docx-search-snippet mark {
+  background: var(--text-highlight-bg);
+  color: var(--text-normal);
 }
 
 .office-viewer-docx-reading-body {
+  flex: 1 1 auto;
   line-height: 1.65;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
-  padding: clamp(1.25rem, 4vw, 3.5rem);
+  padding: var(--size-4-4) 0;
 }
 
 .office-viewer-docx-reading-body > .office-viewer-docx {
   margin: 0 auto;
   max-width: 52rem;
+  width: min(100%, 52rem);
+}
+
+/* Collapse docx-preview's grey wrapper + white page into one reading surface. */
+.office-viewer-docx-reading-body .docx-wrapper {
+  align-items: stretch !important;
+  background: transparent !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+.office-viewer-docx-reading-body .docx-wrapper > section.docx {
+  box-shadow: none !important;
+  margin: 0 auto !important;
+  max-width: 52rem;
+  width: min(100%, 52rem) !important;
+}
+
+/*
+ * Follow Obsidian appearance: Word's authored black-on-white page is harsh in
+ * dark themes. Invert the page while restoring media so charts/photos keep
+ * natural colors. Soften contrast so the result lands near Obsidian dark
+ * charcoal / off-white (--background-primary / --text-normal) instead of pure
+ * #000 / #fff. Light themes keep the native Word surface.
+ */
+.theme-dark .office-viewer-docx-reading-body .docx-wrapper > section.docx {
+  background: #ffffff !important;
+  filter: invert(1) hue-rotate(180deg) contrast(0.78);
+}
+
+.theme-dark
+  .office-viewer-docx-reading-body
+  .docx-wrapper
+  > section.docx
+  :is(img, svg, video, canvas) {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.theme-dark .office-viewer-docx--bounded-semantic {
+  color: var(--text-normal);
+}
+
+.theme-light .office-viewer-docx-reading-body .docx-wrapper > section.docx {
+  background: #ffffff !important;
+  color: #000000;
 }
 
 .office-viewer-docx--bounded-semantic {

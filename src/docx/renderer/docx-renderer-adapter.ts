@@ -29,6 +29,15 @@ export function normalizedRenderedParagraphText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Mapping comparison ignores whitespace differences that docx-preview
+ * introduces around breaks and hyperlink boundaries, while still requiring
+ * identical visible characters in document order.
+ */
+export function comparableParagraphText(value: string): string {
+  return value.replace(/\s+/g, "");
+}
+
 const PARAGRAPH_SELECTOR = "p, h1, h2, h3, h4, h5, h6, li";
 
 function leafRenderedParagraphs(container: HTMLElement): HTMLElement[] {
@@ -39,14 +48,18 @@ function leafRenderedParagraphs(container: HTMLElement): HTMLElement[] {
   );
 }
 
+function visibleRenderedParagraphs(container: HTMLElement): HTMLElement[] {
+  return leafRenderedParagraphs(container).filter(
+    (element) =>
+      comparableParagraphText(element.textContent ?? "").length > 0,
+  );
+}
+
 export function mapRenderedParagraphs(
   container: HTMLElement,
   paragraphs: readonly DocxSemanticParagraph[],
 ): ReadonlyMap<number, HTMLElement> {
-  const rendered = leafRenderedParagraphs(container).filter(
-    (element) =>
-      normalizedRenderedParagraphText(element.textContent ?? "").length > 0,
-  );
+  const rendered = visibleRenderedParagraphs(container);
   if (rendered.length !== paragraphs.length) {
     throw new Error(
       `Renderer paragraph count ${rendered.length} does not match semantic paragraph count ${paragraphs.length}`,
@@ -59,10 +72,8 @@ export function mapRenderedParagraphs(
     if (semantic === undefined || element === undefined) {
       throw new Error("Renderer paragraph mapping is incomplete");
     }
-    const semanticText = normalizedRenderedParagraphText(semantic.text);
-    const renderedText = normalizedRenderedParagraphText(
-      element.textContent ?? "",
-    );
+    const semanticText = comparableParagraphText(semantic.text);
+    const renderedText = comparableParagraphText(element.textContent ?? "");
     if (semanticText !== renderedText) {
       throw new Error(
         `Renderer paragraph ${semantic.ordinal} text does not match the semantic model`,
@@ -70,6 +81,39 @@ export function mapRenderedParagraphs(
     }
     element.dataset.docxParagraphOrdinal = String(semantic.ordinal);
     mapping.set(semantic.ordinal, element);
+  }
+  return mapping;
+}
+
+/**
+ * Order-preserving exact-character mapping used when positional mapping fails.
+ * Only binds paragraphs whose comparable text matches; never invents a binding.
+ */
+export function alignRenderedParagraphs(
+  container: HTMLElement,
+  paragraphs: readonly DocxSemanticParagraph[],
+): ReadonlyMap<number, HTMLElement> {
+  const rendered = visibleRenderedParagraphs(container);
+  const mapping = new Map<number, HTMLElement>();
+  let renderedIndex = 0;
+  for (const semantic of paragraphs) {
+    const semanticText = comparableParagraphText(semantic.text);
+    if (semanticText.length === 0) continue;
+    let found = -1;
+    for (let index = renderedIndex; index < rendered.length; index += 1) {
+      const element = rendered[index];
+      if (element === undefined) continue;
+      if (comparableParagraphText(element.textContent ?? "") === semanticText) {
+        found = index;
+        break;
+      }
+    }
+    if (found < 0) continue;
+    const element = rendered[found];
+    if (element === undefined) continue;
+    element.dataset.docxParagraphOrdinal = String(semantic.ordinal);
+    mapping.set(semantic.ordinal, element);
+    renderedIndex = found + 1;
   }
   return mapping;
 }

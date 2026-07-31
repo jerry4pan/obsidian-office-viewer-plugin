@@ -122,6 +122,42 @@ describe("DOCX renderer mapping and sanitization", () => {
     ).toThrow(/does not match/);
   });
 
+  it("treats hyperlink break whitespace as equivalent for mapping", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <p>【腾讯文档】记录https://docs.qq.com/sheet/A</p>
+      <p>Next paragraph</p>
+    `;
+    const mapping = mapRenderedParagraphs(container, [
+      {
+        ordinal: 1,
+        text: "【腾讯文档】记录\nhttps://docs.qq.com/sheet/A",
+        searchText: "【腾讯文档】记录\nhttps://docs.qq.com/sheet/a",
+        styleId: null,
+        listItem: false,
+        tableDepth: 0,
+        bookmarks: [],
+        hyperlinks: [],
+        inlineImageCount: 0,
+        unavailableContent: [],
+      },
+      {
+        ordinal: 2,
+        text: "Next paragraph",
+        searchText: "next paragraph",
+        styleId: null,
+        listItem: false,
+        tableDepth: 0,
+        bookmarks: [],
+        hyperlinks: [],
+        inlineImageCount: 0,
+        unavailableContent: [],
+      },
+    ]);
+    expect(mapping.get(1)?.dataset.docxParagraphOrdinal).toBe("1");
+    expect(mapping.size).toBe(2);
+  });
+
   it("blocks active DOM and unsafe navigation while retaining allowlisted links", () => {
     const container = document.createElement("div");
     container.innerHTML = `
@@ -173,6 +209,73 @@ describe("docx-preview renderer adapter", () => {
       .toHaveLength(3);
     session.dispose();
     expect(container.childElementCount).toBe(0);
+  });
+
+  it("keeps a readable preview when only one hyperlink paragraph disagrees on whitespace", async () => {
+    const zip = new JSZip();
+    const R =
+      "http://schemas.openxmlformats.org/package/2006/relationships";
+    const PR =
+      "http://schemas.openxmlformats.org/package/2006/content-types";
+    const OR =
+      "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    zip.file(
+      "[Content_Types].xml",
+      `<?xml version="1.0" encoding="UTF-8"?>
+        <Types xmlns="${PR}">
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+          <Default Extension="xml" ContentType="application/xml"/>
+          <Override PartName="/word/document.xml"
+            ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+        </Types>`,
+    );
+    zip.file(
+      "_rels/.rels",
+      `<?xml version="1.0" encoding="UTF-8"?>
+        <Relationships xmlns="${R}">
+          <Relationship Id="rId1" Type="${OR}/officeDocument" Target="word/document.xml"/>
+        </Relationships>`,
+    );
+    zip.file(
+      "word/_rels/document.xml.rels",
+      `<?xml version="1.0" encoding="UTF-8"?>
+        <Relationships xmlns="${R}">
+          <Relationship Id="rId1" Type="${OR}/hyperlink"
+            Target="https://docs.qq.com/sheet/A" TargetMode="External"/>
+        </Relationships>`,
+    );
+    zip.file(
+      "word/document.xml",
+      `<?xml version="1.0" encoding="UTF-8"?>
+        <w:document xmlns:w="${W}" xmlns:r="${OR}" xmlns:w14="${W14}">
+          <w:body>
+            <w:p w14:paraId="00000001">
+              <w:r><w:t>Before</w:t></w:r>
+            </w:p>
+            <w:p w14:paraId="00000002">
+              <w:r><w:t>【腾讯文档】记录</w:t></w:r>
+              <w:r><w:br/></w:r>
+              <w:hyperlink r:id="rId1">
+                <w:r><w:t>https://docs.qq.com/sheet/A</w:t></w:r>
+              </w:hyperlink>
+            </w:p>
+            <w:p w14:paraId="00000003">
+              <w:r><w:t>After</w:t></w:r>
+            </w:p>
+            <w:sectPr/>
+          </w:body>
+        </w:document>`,
+    );
+    const bytes = await zip.generateAsync({ type: "arraybuffer" });
+    const signal = new AbortController().signal;
+    const model = await inspectDocxPackage(bytes, signal);
+    const container = document.createElement("div");
+    const session = await createAdapter().open(bytes, container, model, signal);
+    expect(session.candidate).toBe("docx-preview");
+    expect(session.paragraphElements.size).toBe(model.paragraphs.length);
+    expect(container.textContent).toContain("【腾讯文档】记录");
+    expect(container.textContent).toContain("https://docs.qq.com/sheet/A");
+    session.dispose();
   });
 
   it("does not mutate the destination when already aborted", async () => {

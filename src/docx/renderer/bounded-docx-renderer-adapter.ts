@@ -1,3 +1,4 @@
+import { DocxOpenError } from "../docx-open-error";
 import type {
   DocxSemanticModel,
   DocxSemanticParagraph,
@@ -137,8 +138,34 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
     signal: AbortSignal,
   ): Promise<DocxRendererSession> {
     if (model.paragraphs.length <= this.options.largeParagraphThreshold) {
-      return this.delegate.open(buffer, container, model, signal);
+      try {
+        return await this.delegate.open(buffer, container, model, signal);
+      } catch (error) {
+        signal.throwIfAborted();
+        if (
+          !(error instanceof DocxOpenError) ||
+          error.category !== "incompatible"
+        ) {
+          throw error;
+        }
+        // Preview could not bind safely: fall back to semantic reading instead
+        // of failing the whole open.
+        return this.openBoundedSemantic(container, model, signal, [
+          "preview-unavailable-simplified-rendering",
+        ]);
+      }
     }
+    return this.openBoundedSemantic(container, model, signal, [
+      "large-document-simplified-rendering",
+    ]);
+  }
+
+  private async openBoundedSemantic(
+    container: HTMLElement,
+    model: DocxSemanticModel,
+    signal: AbortSignal,
+    warnings: readonly string[],
+  ): Promise<DocxRendererSession> {
     signal.throwIfAborted();
 
     const root = document.createElement("div");
@@ -238,7 +265,7 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
     return {
       candidate: "bounded-semantic",
       paragraphElements: mounted,
-      warnings: ["large-document-simplified-rendering"],
+      warnings,
       managesUnavailableContent: true,
       revealParagraph: (ordinal) => {
         if (!Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > count) {

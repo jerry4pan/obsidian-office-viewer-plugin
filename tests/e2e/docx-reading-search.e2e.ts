@@ -32,15 +32,17 @@ describe("installed DOCX reading and search", () => {
     );
     await expect(root).toExist();
     await expect(root).toHaveText(expect.stringContaining("Market outlook"));
-    await expect(root.$(".office-viewer-docx-search")).toExist();
-    await expect(root.$(".office-viewer-docx-toolbar button")).toHaveText(
-      "Open in default application",
-    );
+    await expect(root.$('[data-action="open-docx-search"]')).toExist();
+    await expect(
+      root.$(".office-viewer-docx-toolbar button:last-child"),
+    ).toHaveText("Open in default application");
     await expect(
       root.$('a[data-docx-external-link="true"]'),
     ).toHaveAttribute("href", "https://example.com/evidence");
 
-    const search = root.$(".office-viewer-docx-search");
+    await root.$('[data-action="open-docx-search"]').click();
+    await expect(root).toHaveAttribute("data-search-open", "true");
+    const search = root.$('[data-action="docx-search-input"]');
     await search.setValue("confidential reports");
     const result = root.$(".office-viewer-docx-search-result");
     await expect(result).toHaveText(expect.stringContaining("Paragraph 3"));
@@ -101,7 +103,10 @@ describe("installed DOCX reading and search", () => {
         ).length),
     ).toBeLessThanOrEqual(1_200);
 
-    await root.$(".office-viewer-docx-search").setValue("Stress paragraph 4999:");
+    await root.$('[data-action="open-docx-search"]').click();
+    await root
+      .$('[data-action="docx-search-input"]')
+      .setValue("Stress paragraph 4999:");
     await root.$(".office-viewer-docx-search-result").click();
     await expect(
       root.$('[data-docx-paragraph-ordinal="4999"]'),

@@ -39,7 +39,10 @@ describe("packaged release lifecycle", () => {
     await expect(docx).toHaveText(
       expect.stringContaining("generated paragraph has no native identity"),
     );
-    await docx.$(".office-viewer-docx-search").setValue("generated paragraph");
+    await docx.$('[data-action="open-docx-search"]').click();
+    await docx
+      .$('[data-action="docx-search-input"]')
+      .setValue("generated paragraph");
     await expect(docx.$(".office-viewer-docx-search-result")).toExist();
     expect(await sourceHash("read-search-only.docx")).toBe(docxBefore);
 

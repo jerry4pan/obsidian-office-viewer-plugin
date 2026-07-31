@@ -20,6 +20,8 @@ const WP =
   "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
 const PIC =
   "http://schemas.openxmlformats.org/drawingml/2006/picture";
+const C =
+  "http://schemas.openxmlformats.org/drawingml/2006/chart";
 
 const onePixelPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -100,7 +102,8 @@ const numbering = `<?xml version="1.0" encoding="UTF-8"?>
 function mainDocument(body) {
   return `<?xml version="1.0" encoding="UTF-8"?>
     <w:document xmlns:w="${W}" xmlns:w14="${W14}" xmlns:r="${R}"
-      xmlns:m="${M}" xmlns:a="${A}" xmlns:wp="${WP}" xmlns:pic="${PIC}">
+      xmlns:m="${M}" xmlns:a="${A}" xmlns:wp="${WP}" xmlns:pic="${PIC}"
+      xmlns:c="${C}">
       <w:body>${body}<w:sectPr/></w:body>
     </w:document>`;
 }
@@ -232,9 +235,18 @@ fixtures.set(
     relationships: `
       <Relationship Id="rExternalImage" Type="${R}/image"
         Target="https://example.com/private.png" TargetMode="External"/>
+      <Relationship Id="rChart" Type="${R}/chart" Target="charts/chart1.xml"/>
       <Relationship Id="rChunk" Type="${R}/aFChunk" Target="chunks/content.html"/>
     `,
-    extraParts: { "word/chunks/content.html": "<script>alert(1)</script>" },
+    extraParts: {
+      "word/chunks/content.html": "<script>alert(1)</script>",
+      "word/charts/chart1.xml": `<?xml version="1.0" encoding="UTF-8"?>
+        <c:chartSpace xmlns:c="${C}"><c:chart/></c:chartSpace>`,
+    },
+    extraContentTypes: `
+      <Override PartName="/word/charts/chart1.xml"
+        ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
+    `,
     body: `
       ${paragraph("40000001", "Visible before unavailable content.")}
       <w:p w14:paraId="40000002"><w:object/></w:p>
@@ -246,8 +258,18 @@ fixtures.set(
         <w:r><w:t>External image follows.</w:t></w:r>
         <w:r><w:drawing><a:blip r:embed="rExternalImage"/></w:drawing></w:r>
       </w:p>
+      <w:p w14:paraId="40000005">
+        <w:r><w:drawing>
+          <wp:inline>
+            <wp:extent cx="5486400" cy="3200400"/>
+            <a:graphic><a:graphicData uri="${C}">
+              <c:chart r:id="rChart"/>
+            </a:graphicData></a:graphic>
+          </wp:inline>
+        </w:drawing></w:r>
+      </w:p>
       <w:altChunk r:id="rChunk"/>
-      ${paragraph("40000005", "Visible after unavailable content.")}
+      ${paragraph("40000006", "Visible after unavailable content.")}
     `,
   }),
 );

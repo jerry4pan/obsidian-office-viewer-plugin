@@ -8,10 +8,10 @@ import type {
   DocxMessageTranslator,
 } from "./docx-messages";
 import { DocxOpenError } from "./docx-open-error";
+import { DocxSearchPanel } from "./docx-search-panel";
 import {
   createSafeDocxRendererBuffer,
   inspectDocxPackage,
-  searchDocxBody,
   type DocxSemanticModel,
   type DocxSemanticParagraph,
 } from "./docx-semantic-model";
@@ -60,12 +60,14 @@ function safeExternalProtocol(url: string): boolean {
 export class DocxFileView extends FileView {
   private readonly root = document.createElement("div");
   private readonly toolbar = document.createElement("div");
+  private readonly searchButton: HTMLButtonElement;
   private readonly externalButton: HTMLButtonElement;
-  private readonly searchInput = document.createElement("input");
   private readonly notices = document.createElement("div");
   private readonly actionStatus = document.createElement("div");
-  private readonly results = document.createElement("div");
+  private readonly main = document.createElement("div");
+  private readonly searchRail = document.createElement("div");
   private readonly readingBody = document.createElement("div");
+  private readonly searchPanel: DocxSearchPanel;
   private currentFile: TFile | null = null;
   private model: DocxSemanticModel | null = null;
   private rendererSession: DocxRendererSession | null = null;
@@ -90,40 +92,47 @@ export class DocxFileView extends FileView {
     this.root.className = "office-viewer-docx-shell";
     this.root.dataset.state = "idle";
     this.toolbar.className = "office-viewer-docx-toolbar";
+    this.searchButton = button("⌕");
+    this.searchButton.title = dependencies.messages.text("searchOpen");
+    this.searchButton.setAttribute("data-action", "open-docx-search");
+    this.searchButton.setAttribute(
+      "aria-label",
+      dependencies.messages.text("searchOpen"),
+    );
+    this.searchButton.setAttribute("aria-pressed", "false");
     this.externalButton = button(
       dependencies.messages.text("openDefault"),
     );
-    this.searchInput.type = "search";
-    this.searchInput.className = "office-viewer-docx-search";
-    this.searchInput.setAttribute(
-      "aria-label",
-      dependencies.messages.text("searchLabel"),
-    );
-    this.searchInput.placeholder =
-      dependencies.messages.text("searchPlaceholder");
     this.notices.className = "office-viewer-docx-notices";
     this.notices.setAttribute("role", "status");
     this.actionStatus.className = "office-viewer-docx-action-status";
     this.actionStatus.setAttribute("aria-live", "polite");
-    this.results.className = "office-viewer-docx-results";
-    this.results.setAttribute("role", "list");
+    this.main.className = "office-viewer-docx-main";
+    this.searchRail.className = "office-viewer-docx-search-rail";
     this.readingBody.className = "office-viewer-docx-reading-body";
     this.readingBody.setAttribute("role", "document");
 
-    this.toolbar.append(
-      this.searchInput,
-      this.externalButton,
-    );
+    this.searchPanel = new DocxSearchPanel(this.root, this.searchRail, {
+      messages: dependencies.messages,
+      getModel: () => this.model,
+      currentParagraphOrdinal: () => this.activeParagraph?.ordinal ?? null,
+      onNavigate: (paragraphOrdinal) => {
+        this.activateOrdinal(paragraphOrdinal, true);
+      },
+      onDismiss: () => this.closeSearch(),
+    });
+
+    this.toolbar.append(this.searchButton, this.externalButton);
+    this.main.append(this.searchRail, this.readingBody);
     this.root.append(
       this.toolbar,
       this.notices,
       this.actionStatus,
-      this.results,
-      this.readingBody,
+      this.main,
     );
     this.contentEl.replaceChildren(this.root);
 
-    this.searchInput.addEventListener("input", () => this.updateSearch());
+    this.searchButton.addEventListener("click", () => this.toggleSearch());
     this.externalButton.addEventListener("click", () => {
       void this.openCurrentFileExternally();
     });
@@ -132,8 +141,7 @@ export class DocxFileView extends FileView {
     });
     this.scope = new Scope(this.app.scope);
     this.scope.register(["Mod"], "f", () => {
-      this.searchInput.focus();
-      this.searchInput.select();
+      this.openSearch();
       return false;
     });
   }
@@ -167,8 +175,8 @@ export class DocxFileView extends FileView {
     delete this.root.dataset.searchReadyMs;
     this.model = null;
     this.setActiveParagraph(null, false);
-    this.searchInput.value = "";
-    this.results.replaceChildren();
+    this.searchPanel.close();
+    this.updateSearchButton();
     this.readingBody.replaceChildren();
     this.setNotice(this.dependencies.messages.text("loading"));
     this.actionStatus.textContent = "";
@@ -245,6 +253,7 @@ export class DocxFileView extends FileView {
     this.openGeneration += 1;
     this.abortController?.abort();
     this.abortController = null;
+    this.searchPanel.dispose();
     this.rendererSession?.dispose();
     this.rendererSession = null;
     this.model = null;
@@ -254,6 +263,38 @@ export class DocxFileView extends FileView {
     this.onDisposed();
   }
 
+  private openSearch(): void {
+    if (this.searchPanel.isOpen) {
+      this.searchPanel.open();
+      return;
+    }
+    this.searchPanel.open();
+    this.updateSearchButton();
+  }
+
+  private closeSearch(): void {
+    const wasOpen = this.searchPanel.isOpen;
+    this.searchPanel.close();
+    this.updateSearchButton();
+    if (wasOpen) this.searchButton.focus();
+  }
+
+  private toggleSearch(): void {
+    if (this.searchPanel.isOpen) this.closeSearch();
+    else this.openSearch();
+  }
+
+  private updateSearchButton(): void {
+    const open = this.searchPanel.isOpen;
+    this.searchButton.setAttribute("aria-pressed", String(open));
+    const key = open ? "searchClose" : "searchOpen";
+    this.searchButton.title = this.dependencies.messages.text(key);
+    this.searchButton.setAttribute(
+      "aria-label",
+      this.dependencies.messages.text(key),
+    );
+  }
+
   private renderDocumentNotices(
     model: DocxSemanticModel,
     session: DocxRendererSession,
@@ -261,6 +302,16 @@ export class DocxFileView extends FileView {
     const notices: string[] = [];
     if (session.warnings.includes("large-document-simplified-rendering")) {
       notices.push(this.dependencies.messages.text("largeDocumentSimplified"));
+    }
+    if (
+      session.warnings.includes("preview-unavailable-simplified-rendering")
+    ) {
+      notices.push(
+        this.dependencies.messages.text("previewUnavailableSimplified"),
+      );
+    }
+    if (session.warnings.includes("preview-paragraph-mapping-degraded")) {
+      notices.push(this.dependencies.messages.text("mappingDegraded"));
     }
     if (model.hasUnavailableBodyContent) {
       notices.push(this.dependencies.messages.text("unavailableContent"));
@@ -335,33 +386,6 @@ export class DocxFileView extends FileView {
     if (paragraph === undefined || paragraph.ordinal !== ordinal) return false;
     this.setActiveParagraph(paragraph, reveal);
     return true;
-  }
-
-  private updateSearch(): void {
-    this.results.replaceChildren();
-    const model = this.model;
-    if (model === null) return;
-    const query = this.searchInput.value;
-    if (query.trim().length === 0) return;
-    const matches = searchDocxBody(model, query);
-    if (matches.length === 0) {
-      this.results.textContent = this.dependencies.messages.text("noResults");
-      return;
-    }
-    for (const match of matches) {
-      const item = button(
-        `${this.dependencies.messages.text("resultLabel", {
-          paragraph: match.paragraphOrdinal,
-          matches: match.matchCount,
-        })}: ${match.text}`,
-      );
-      item.className = "office-viewer-docx-search-result";
-      item.setAttribute("role", "listitem");
-      item.addEventListener("click", () => {
-        this.activateOrdinal(match.paragraphOrdinal, true);
-      });
-      this.results.append(item);
-    }
   }
 
   private async handleReadingBodyClick(event: MouseEvent): Promise<void> {
