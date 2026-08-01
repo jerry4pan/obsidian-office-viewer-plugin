@@ -224,6 +224,8 @@
   min-width: 0;
   overflow: auto;
   padding: var(--size-4-2);
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .pptx-viewer .pptx-viewer__slide > * {
@@ -1017,6 +1019,8 @@
   min-width: 0;
   overflow: auto;
   padding: var(--size-4-4) 0;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .office-viewer-docx-reading-body > .office-viewer-docx {

@@ -46,6 +46,51 @@ describe("installed DOCX reading and search", () => {
       root.$('a[data-docx-external-link="true"]'),
     ).toHaveAttribute("href", "https://example.com/evidence");
 
+    const nativeSelection = await browser.execute(() => {
+      const readingBody = document.querySelector<HTMLElement>(
+        ".workspace-leaf.mod-active .office-viewer-docx-reading-body",
+      );
+      if (readingBody === null) throw new Error("Missing DOCX reading body");
+      const paragraph = readingBody.querySelector<HTMLElement>(
+        "[data-docx-paragraph-ordinal]",
+      );
+      if (paragraph === null) throw new Error("Missing rendered DOCX paragraph");
+      const walker = document.createTreeWalker(
+        paragraph,
+        NodeFilter.SHOW_TEXT,
+      );
+      let textNode: Text | null = null;
+      while (walker.nextNode()) {
+        const candidate = walker.currentNode as Text;
+        if ((candidate.textContent?.trim().length ?? 0) >= 4) {
+          textNode = candidate;
+          break;
+        }
+      }
+      if (textNode === null || textNode.textContent === null) {
+        throw new Error("Missing selectable DOCX text");
+      }
+      const firstNonWhitespace = textNode.textContent.search(/\S/);
+      const end = Math.min(textNode.textContent.length, firstNonWhitespace + 12);
+      const range = document.createRange();
+      range.setStart(textNode, firstNonWhitespace);
+      range.setEnd(textNode, end);
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      const nativeCopy = new Event("copy", {
+        bubbles: true,
+        cancelable: true,
+      });
+      readingBody.dispatchEvent(nativeCopy);
+      return {
+        text: selection?.toString() ?? "",
+        copyPrevented: nativeCopy.defaultPrevented,
+      };
+    });
+    expect(nativeSelection.text.trim().length).toBeGreaterThan(0);
+    expect(nativeSelection.copyPrevented).toBe(false);
+
     await root.$('[data-action="open-docx-search"]').click();
     await expect(root).toHaveAttribute("data-search-open", "true");
     const search = root.$('[data-action="docx-search-input"]');
