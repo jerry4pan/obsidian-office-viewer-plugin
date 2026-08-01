@@ -85,7 +85,7 @@ export function convertWindowsMetafileToPng(
     const size = wmf.image_size(payload);
     const width = Math.max(1, Math.ceil(Math.abs(size[0]) || 1));
     const height = Math.max(1, Math.ceil(Math.abs(size[1]) || 1));
-    const canvas = document.createElement("canvas");
+    const canvas = createEl("canvas");
     canvas.width = width;
     canvas.height = height;
     wmf.render_canvas(actions, canvas);

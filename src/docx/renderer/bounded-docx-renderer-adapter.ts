@@ -31,13 +31,13 @@ function hyperlinkElement(
   hyperlink: DocxSemanticParagraph["hyperlinks"][number],
 ): HTMLElement {
   if (hyperlink.kind === "blocked") {
-    const blocked = document.createElement("span");
+    const blocked = createSpan();
     blocked.className = "office-viewer-docx-blocked-link";
     blocked.dataset.docxBlockedLink = "true";
     blocked.textContent = hyperlink.label;
     return blocked;
   }
-  const anchor = document.createElement("a");
+  const anchor = createEl("a");
   anchor.textContent = hyperlink.label;
   if (hyperlink.kind === "external") {
     anchor.href = hyperlink.target;
@@ -71,7 +71,7 @@ function unavailablePlaceholder(
   kinds: readonly string[],
   text: string,
 ): HTMLElement {
-  const placeholder = document.createElement("span");
+  const placeholder = createSpan();
   placeholder.className = "office-viewer-docx-unavailable-content";
   placeholder.setAttribute("role", "note");
   placeholder.dataset.docxUnavailableKinds = kinds.join(",");
@@ -89,7 +89,7 @@ function paragraphElement(
       ? "li"
       : "p"
     : (`h${heading[1]}` as keyof HTMLElementTagNameMap);
-  const element = document.createElement(tag);
+  const element = createEl(tag);
   appendParagraphText(element, paragraph);
   element.dataset.docxParagraphOrdinal = String(paragraph.ordinal);
   if (paragraph.listItem) {
@@ -168,15 +168,15 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
   ): Promise<DocxRendererSession> {
     signal.throwIfAborted();
 
-    const root = document.createElement("div");
+    const root = createDiv();
     root.className =
       "office-viewer-docx office-viewer-docx--bounded-semantic";
-    const topSpacer = document.createElement("div");
+    const topSpacer = createDiv();
     topSpacer.className = "office-viewer-docx-bounded-spacer";
     topSpacer.setAttribute("aria-hidden", "true");
-    const window = document.createElement("div");
+    const window = createDiv();
     window.className = "office-viewer-docx-bounded-window";
-    const bottomSpacer = document.createElement("div");
+    const bottomSpacer = createDiv();
     bottomSpacer.className = "office-viewer-docx-bounded-spacer";
     bottomSpacer.setAttribute("aria-hidden", "true");
     root.append(topSpacer, window, bottomSpacer);

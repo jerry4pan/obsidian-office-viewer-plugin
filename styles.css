@@ -95,7 +95,7 @@
   font: inherit;
   line-height: inherit;
   padding: 0;
-  text-decoration: none;
+  text-decoration-line: none;
 }
 
 .pptx-slide-embed__footer .pptx-slide-embed__action:hover,
@@ -432,18 +432,18 @@
 .pptx-viewer .pptx-viewer__thumbnail-rail {
   background: var(--background-secondary);
   border-right: 1px solid var(--background-modifier-border);
-  flex: 0 0 168px;
+  flex: 0 0 var(--pptx-thumbnail-rail-width, 168px);
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   position: relative;
-  width: 168px;
+  width: var(--pptx-thumbnail-rail-width, 168px);
 }
 
 .pptx-viewer .pptx-viewer__thumbnail-rail[data-search-open="true"] {
-  flex-basis: clamp(16rem, 28vw, 22rem) !important;
+  flex-basis: clamp(16rem, 28vw, 22rem);
   overflow: hidden;
-  width: clamp(16rem, 28vw, 22rem) !important;
+  width: clamp(16rem, 28vw, 22rem);
 }
 
 .pptx-viewer .pptx-viewer__slide-search {
@@ -488,7 +488,7 @@
   overflow-y: auto;
 }
 
-.pptx-viewer .pptx-viewer__slide-search-pagination {
+.pptx-viewer .pptx-viewer__slide-search-pagination:not([hidden]) {
   align-items: center;
   display: flex;
   flex: 0 0 auto;
@@ -497,7 +497,7 @@
 }
 
 .pptx-viewer .pptx-viewer__slide-search-pagination[hidden] {
-  display: none !important;
+  display: none;
 }
 
 .pptx-viewer .pptx-viewer__slide-search-range {
@@ -710,7 +710,7 @@
 .office-viewer-donate__button {
   display: inline-flex;
   line-height: 0;
-  text-decoration: none;
+  text-decoration-line: none;
 }
 
 .office-viewer-donate__image {
@@ -951,7 +951,7 @@
   overflow-y: auto;
 }
 
-.office-viewer-docx-search-pagination {
+.office-viewer-docx-search-pagination:not([hidden]) {
   align-items: center;
   display: flex;
   flex: 0 0 auto;
@@ -960,7 +960,7 @@
 }
 
 .office-viewer-docx-search-pagination[hidden] {
-  display: none !important;
+  display: none;
 }
 
 .office-viewer-docx-search-range {
@@ -1031,19 +1031,19 @@
 
 /* Collapse docx-preview's grey wrapper + white page into one reading surface. */
 .office-viewer-docx-reading-body .docx-wrapper {
-  align-items: stretch !important;
-  background: transparent !important;
-  padding: 0 !important;
-  width: 100% !important;
+  align-items: stretch;
+  background: transparent;
+  padding: 0;
+  width: 100%;
 }
 
 .office-viewer-docx-reading-body .docx-wrapper > section.docx {
   box-sizing: border-box;
-  box-shadow: none !important;
-  margin: 0 auto !important;
+  box-shadow: none;
+  margin: 0 auto;
   max-width: 52rem;
-  padding-inline: clamp(1.5rem, 12cqi, 7.5rem) !important;
-  width: min(100%, 52rem) !important;
+  padding-inline: clamp(1.5rem, 12cqi, 7.5rem);
+  width: min(100%, 52rem);
 }
 
 /*
@@ -1052,49 +1052,49 @@
  * pane so narrow Obsidian splits do not clip them or gain horizontal scrolling.
  */
 .office-viewer-docx-reading-body .office-viewer-docx-media-wrapper {
-  box-sizing: border-box !important;
-  height: auto !important;
-  max-width: 100% !important;
+  box-sizing: border-box;
+  height: auto;
+  max-width: 100%;
   width: min(
     100%,
     var(--office-viewer-docx-media-width, 100%)
-  ) !important;
+  );
 }
 
 .office-viewer-docx-reading-body
   .office-viewer-docx-media-wrapper
   > .office-viewer-docx-media {
   display: block;
-  height: auto !important;
-  max-width: 100% !important;
-  width: 100% !important;
+  height: auto;
+  max-width: 100%;
+  width: 100%;
 }
 
 .office-viewer-docx-reading-body .office-viewer-docx-media {
-  height: auto !important;
-  max-width: 100% !important;
+  height: auto;
+  max-width: 100%;
 }
 
 .office-viewer-docx-reading-body .office-viewer-docx-table {
-  box-sizing: border-box !important;
-  max-width: 100% !important;
-  table-layout: fixed !important;
+  box-sizing: border-box;
+  max-width: 100%;
+  table-layout: fixed;
   width: min(
     100%,
     var(--office-viewer-docx-table-width, 100%)
-  ) !important;
+  );
 }
 
 .office-viewer-docx-reading-body
   .office-viewer-docx-table
   :is(td, th) {
-  min-width: 0 !important;
+  min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .office-viewer-docx-reading-body .office-viewer-docx-table col {
-  width: var(--office-viewer-docx-column-width, auto) !important;
+  width: var(--office-viewer-docx-column-width, auto);
 }
 
 /*
@@ -1105,7 +1105,7 @@
  * #000 / #fff. Light themes keep the native Word surface.
  */
 .theme-dark .office-viewer-docx-reading-body .docx-wrapper > section.docx {
-  background: #ffffff !important;
+  background: #ffffff;
   filter: invert(1) hue-rotate(180deg) contrast(0.78);
 }
 
@@ -1122,7 +1122,7 @@
 }
 
 .theme-light .office-viewer-docx-reading-body .docx-wrapper > section.docx {
-  background: #ffffff !important;
+  background: #ffffff;
   color: #000000;
 }
 
@@ -1148,7 +1148,7 @@
 
 .office-viewer-docx-blocked-link {
   color: var(--text-muted);
-  text-decoration: line-through;
+  text-decoration-line: line-through;
   text-decoration-style: dotted;
 }
 

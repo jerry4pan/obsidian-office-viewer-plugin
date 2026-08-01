@@ -203,7 +203,7 @@ export class PptxFileView extends FileView {
     this.dispose();
   }
 
-  dispose(): void {
+  dispose = (): void => {
     if (this.disposed) return;
     this.disposed = true;
     this.companionActionGeneration += 1;
@@ -213,7 +213,7 @@ export class PptxFileView extends FileView {
     this.session.dispose();
     this.contentEl.replaceChildren();
     this.onDisposed();
-  }
+  };
 
   private async openCompanionNote(file: TFile): Promise<string> {
     const ensure = this.state?.ensureCompanionNote;

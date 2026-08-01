@@ -145,6 +145,15 @@ describe("Live Preview slide embed extension", () => {
     const frame = document.createElement("iframe");
     document.body.append(frame);
     const popoutDocument = frame.contentDocument!;
+    const popoutElementPrototype = (frame.contentWindow as unknown as {
+      HTMLElement: typeof HTMLElement;
+    }).HTMLElement.prototype;
+    for (const helper of ["createEl", "createDiv", "createSpan"] as const) {
+      Object.defineProperty(popoutElementPrototype, helper, {
+        configurable: true,
+        value: HTMLElement.prototype[helper],
+      });
+    }
     const embed = "![[deck.pptx#slide-id=261&slide=1|deck — Slide 1]]";
     const { view } = createHarness(`intro\n\n${embed}\n\noutro`, {
       ownerDocument: popoutDocument,

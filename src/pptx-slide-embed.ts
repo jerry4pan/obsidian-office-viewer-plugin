@@ -206,8 +206,9 @@ export function processPptxSlideEmbeds(
     const nativeEmbed = element.parentNode === null ? null : element;
     const host = nativeEmbed === null
       ? element
-      : element.ownerDocument.createElement("div");
+      : element.createDiv();
     if (host !== element) {
+      host.remove();
       host.dataset.pptxSlideEmbedProcessed = "true";
       element.after(host);
       element.hidden = true;

@@ -43,7 +43,7 @@ export interface DocxViewPerformanceDiagnostics {
 }
 
 function button(label: string): HTMLButtonElement {
-  const element = document.createElement("button");
+  const element = createEl("button");
   element.type = "button";
   element.textContent = label;
   return element;
@@ -63,18 +63,18 @@ function safeExternalProtocol(url: string): boolean {
 }
 
 export class DocxFileView extends FileView {
-  private readonly root = document.createElement("div");
+  private readonly root = createDiv();
   private readonly toolbar = createOfficeViewerToolbar({
     format: "DOCX",
     extraClassName: "office-viewer-docx-toolbar",
   });
   private readonly searchButton: HTMLButtonElement;
   private readonly externalButton: HTMLButtonElement;
-  private readonly notices = document.createElement("div");
-  private readonly actionStatus = document.createElement("div");
-  private readonly main = document.createElement("div");
-  private readonly searchRail = document.createElement("div");
-  private readonly readingBody = document.createElement("div");
+  private readonly notices = createDiv();
+  private readonly actionStatus = createDiv();
+  private readonly main = createDiv();
+  private readonly searchRail = createDiv();
+  private readonly readingBody = createDiv();
   private readonly searchPanel: DocxSearchPanel;
   private currentFile: TFile | null = null;
   private model: DocxSemanticModel | null = null;
@@ -346,7 +346,7 @@ export class DocxFileView extends FileView {
       if (paragraph.unavailableContent.length === 0) continue;
       const element = session.paragraphElements.get(paragraph.ordinal);
       if (element === undefined) continue;
-      const placeholder = document.createElement("span");
+      const placeholder = createSpan();
       placeholder.className = "office-viewer-docx-unavailable-content";
       placeholder.setAttribute("role", "note");
       placeholder.dataset.docxUnavailableKinds =
@@ -355,7 +355,7 @@ export class DocxFileView extends FileView {
       element.append(placeholder);
     }
     for (const block of model.unavailableBodyBlocks) {
-      const placeholder = document.createElement("div");
+      const placeholder = createDiv();
       placeholder.className = "office-viewer-docx-unavailable-content";
       placeholder.setAttribute("role", "note");
       placeholder.dataset.docxUnavailableKinds = block.kinds.join(",");

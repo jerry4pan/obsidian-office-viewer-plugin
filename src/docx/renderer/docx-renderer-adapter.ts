@@ -135,7 +135,7 @@ export function sanitizeRenderedDocx(container: HTMLElement): void {
         element.removeAttribute(attribute.name);
       }
     }
-    if (element instanceof HTMLAnchorElement) {
+    if (element.instanceOf(HTMLAnchorElement)) {
       const rawHref = element.getAttribute("href");
       if (rawHref === null) continue;
       if (rawHref.startsWith("#")) {
@@ -160,7 +160,7 @@ export function sanitizeRenderedDocx(container: HTMLElement): void {
         element.setAttribute("rel", "noopener noreferrer");
       }
     }
-    if (element instanceof HTMLImageElement) {
+    if (element.instanceOf(HTMLImageElement)) {
       const source = element.getAttribute("src") ?? "";
       if (!source.startsWith("data:") && !source.startsWith("blob:")) {
         element.removeAttribute("src");
@@ -187,8 +187,26 @@ export function sanitizeRenderedDocx(container: HTMLElement): void {
 export function prepareRenderedDocxReadingLayout(
   container: HTMLElement,
 ): void {
+  const wrapper = container.querySelector<HTMLElement>(".docx-wrapper");
+  if (wrapper !== null) {
+    wrapper.style.removeProperty("align-items");
+    wrapper.style.removeProperty("background");
+    wrapper.style.removeProperty("padding");
+    wrapper.style.removeProperty("width");
+  }
+  const page = wrapper?.querySelector<HTMLElement>(":scope > section.docx");
+  if (page !== null && page !== undefined) {
+    page.style.removeProperty("box-shadow");
+    page.style.removeProperty("margin");
+    page.style.removeProperty("padding");
+    page.style.removeProperty("padding-inline");
+    page.style.removeProperty("width");
+  }
   for (const image of container.querySelectorAll<HTMLImageElement>("img")) {
     image.classList.add("office-viewer-docx-media");
+    image.style.removeProperty("height");
+    image.style.removeProperty("max-width");
+    image.style.removeProperty("width");
     const wrapper = image.parentElement;
     if (
       wrapper === null ||
@@ -207,6 +225,9 @@ export function prepareRenderedDocxReadingLayout(
         authoredWidth,
       );
     }
+    wrapper.style.removeProperty("height");
+    wrapper.style.removeProperty("max-width");
+    wrapper.style.removeProperty("width");
   }
   for (const table of container.querySelectorAll<HTMLTableElement>("table")) {
     table.classList.add("office-viewer-docx-table");
@@ -217,6 +238,9 @@ export function prepareRenderedDocxReadingLayout(
         authoredWidth,
       );
     }
+    table.style.removeProperty("max-width");
+    table.style.removeProperty("table-layout");
+    table.style.removeProperty("width");
     const columns = Array.from(
       table.querySelectorAll<HTMLTableColElement>("col"),
     ).filter((column) => column.closest("table") === table);
@@ -248,6 +272,8 @@ export function prepareRenderedDocxReadingLayout(
         "--office-viewer-docx-column-width",
         `${(width.value / total) * 100}%`,
       );
+      column.style.removeProperty("min-width");
+      column.style.removeProperty("width");
     });
   }
 }

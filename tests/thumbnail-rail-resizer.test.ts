@@ -58,7 +58,8 @@ describe("ThumbnailRailResizer", () => {
       createResizeObserver: () => ({ observe: vi.fn(), disconnect: vi.fn() }),
     });
 
-    expect(railElement.style.width).toBe("180px");
+    expect(railElement.style.getPropertyValue("--pptx-thumbnail-rail-width"))
+      .toBe("180px");
     resizer.element.dispatchEvent(
       new KeyboardEvent("keydown", {
         bubbles: true,
@@ -67,11 +68,13 @@ describe("ThumbnailRailResizer", () => {
       }),
     );
     expect(onCommit).toHaveBeenLastCalledWith(416);
-    expect(railElement.style.width).toBe("180px");
+    expect(railElement.style.getPropertyValue("--pptx-thumbnail-rail-width"))
+      .toBe("180px");
 
     resizer.element.dispatchEvent(pointer("pointerdown", 180));
     window.dispatchEvent(pointer("pointermove", 164));
-    expect(railElement.style.width).toBe("164px");
+    expect(railElement.style.getPropertyValue("--pptx-thumbnail-rail-width"))
+      .toBe("164px");
     window.dispatchEvent(pointer("pointerup", 164));
     expect(onCommit).toHaveBeenLastCalledWith(164);
 

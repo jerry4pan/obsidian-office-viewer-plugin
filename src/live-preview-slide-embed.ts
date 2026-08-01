@@ -71,7 +71,8 @@ class LivePreviewSlideEmbedWidget<
   }
 
   override toDOM(view: EditorView): HTMLElement {
-    const host = view.dom.ownerDocument.createElement("div");
+    const host = view.dom.createDiv();
+    host.remove();
     const file = this.options.resolveFile(this.sourcePath, this.notePath);
     const { options, notePath, sourcePath, target, from } = this;
     this.controller = new SlideEmbedController(host, {

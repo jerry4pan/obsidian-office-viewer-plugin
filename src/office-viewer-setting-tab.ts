@@ -20,24 +20,23 @@ function labelToggle(toggle: import("obsidian").ToggleComponent, label: string):
 }
 
 function createDonateImageLink(
-  document: Document,
+  parent: HTMLElement,
   label: string,
   href: string,
   imageSrc: string,
 ): HTMLAnchorElement {
-  const link = document.createElement("a");
+  const link = parent.createEl("a");
   link.className = "office-viewer-donate__button";
   link.href = href;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   link.setAttribute("aria-label", label);
   link.title = label;
-  const image = document.createElement("img");
+  const image = link.createEl("img");
   image.className = "office-viewer-donate__image";
   image.src = imageSrc;
   image.alt = label;
   image.height = 40;
-  link.append(image);
   return link;
 }
 
@@ -183,13 +182,13 @@ export class OfficeViewerSettingTab extends PluginSettingTab {
     });
     donateActions.append(
       createDonateImageLink(
-        donateActions.ownerDocument,
+        donateActions,
         this.messages.text("settings.supportDevelopmentGitHub"),
         GITHUB_SPONSORS_URL,
         GITHUB_SPONSORS_BUTTON_SRC,
       ),
       createDonateImageLink(
-        donateActions.ownerDocument,
+        donateActions,
         this.messages.text("settings.supportDevelopmentCoffee"),
         BUY_ME_A_COFFEE_URL,
         BUY_ME_A_COFFEE_BUTTON_SRC,

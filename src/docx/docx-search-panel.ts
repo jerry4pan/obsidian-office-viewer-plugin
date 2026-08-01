@@ -49,7 +49,7 @@ function snippetFor(text: string, query: string): DocxSearchSnippet {
 }
 
 export class DocxSearchPanel {
-  private readonly panel = document.createElement("div");
+  private readonly panel = createDiv();
   private readonly input: HTMLInputElement;
   private readonly summary: HTMLElement;
   private readonly results: HTMLElement;
@@ -72,9 +72,9 @@ export class DocxSearchPanel {
     this.panel.setAttribute("role", "search");
     this.panel.setAttribute("aria-label", messages.text("searchOpen"));
 
-    const header = document.createElement("div");
+    const header = createDiv();
     header.className = "office-viewer-search-header";
-    this.closeButton = document.createElement("button");
+    this.closeButton = createEl("button");
     this.closeButton.type = "button";
     this.closeButton.setAttribute("data-action", "close-docx-search");
     this.closeButton.title = messages.text("searchClose");
@@ -85,7 +85,7 @@ export class DocxSearchPanel {
     });
     header.append(this.closeButton);
 
-    this.input = document.createElement("input");
+    this.input = createEl("input");
     this.input.type = "search";
     this.input.className = "office-viewer-docx-search-input";
     this.input.setAttribute("aria-label", messages.text("searchLabel"));
@@ -93,19 +93,19 @@ export class DocxSearchPanel {
     this.input.maxLength = MAX_DOCX_SEARCH_QUERY_CHARACTERS;
     this.input.placeholder = messages.text("searchPlaceholder");
 
-    this.summary = document.createElement("div");
+    this.summary = createDiv();
     this.summary.className = "office-viewer-docx-search-summary";
     this.summary.setAttribute("role", "status");
     this.summary.setAttribute("aria-live", "polite");
 
-    this.results = document.createElement("div");
+    this.results = createDiv();
     this.results.className = "office-viewer-docx-search-results";
     this.results.setAttribute("role", "list");
     this.results.setAttribute("aria-label", messages.text("resultsLabel"));
 
-    this.pagination = document.createElement("div");
+    this.pagination = createDiv();
     this.pagination.className = "office-viewer-docx-search-pagination";
-    this.previousResults = document.createElement("button");
+    this.previousResults = createEl("button");
     this.previousResults.type = "button";
     this.previousResults.textContent = "←";
     this.previousResults.setAttribute(
@@ -113,10 +113,10 @@ export class DocxSearchPanel {
       messages.text("previousResults"),
     );
     this.previousResults.setAttribute("data-action", "previous-search-results");
-    this.range = document.createElement("span");
+    this.range = createSpan();
     this.range.className = "office-viewer-docx-search-range";
     this.range.setAttribute("aria-live", "polite");
-    this.nextResults = document.createElement("button");
+    this.nextResults = createEl("button");
     this.nextResults.type = "button";
     this.nextResults.textContent = "→";
     this.nextResults.setAttribute("aria-label", messages.text("nextResults"));
@@ -277,9 +277,9 @@ export class DocxSearchPanel {
     );
     const current = this.options.currentParagraphOrdinal();
     for (const result of this.matches.slice(start, end)) {
-      const item = document.createElement("div");
+      const item = createDiv();
       item.setAttribute("role", "listitem");
-      const button = document.createElement("button");
+      const button = createEl("button");
       button.type = "button";
       button.className =
         "office-viewer-docx-search-result office-viewer-search-result";
@@ -296,24 +296,24 @@ export class DocxSearchPanel {
         button.setAttribute("aria-current", "location");
       }
 
-      const title = document.createElement("span");
+      const title = createSpan();
       title.className = "office-viewer-docx-search-result-title";
       title.textContent = this.options.messages.text("paragraph", {
         paragraph: result.paragraphOrdinal,
       });
 
-      const snippet = document.createElement("span");
+      const snippet = createSpan();
       snippet.className = "office-viewer-docx-search-snippet";
       const parts = snippetFor(result.text, query);
       snippet.append(document.createTextNode(parts.before));
       if (parts.match.length > 0) {
-        const mark = document.createElement("mark");
+        const mark = createEl("mark");
         mark.textContent = parts.match;
         snippet.append(mark);
       }
       snippet.append(document.createTextNode(parts.after));
 
-      const matchCount = document.createElement("span");
+      const matchCount = createSpan();
       matchCount.className = "office-viewer-docx-search-match-count";
       matchCount.textContent = this.options.messages.text("matchCount", {
         count: result.matchCount,

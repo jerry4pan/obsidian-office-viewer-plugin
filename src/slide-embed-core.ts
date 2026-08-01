@@ -68,13 +68,12 @@ function appendEmbedElement<K extends keyof HTMLElementTagNameMap>(
   tagName: K,
   options: EmbedElementOptions = {},
 ): HTMLElementTagNameMap[K] {
-  const element = parent.ownerDocument.createElement(tagName);
+  const element = parent.createEl(tagName);
   if (options.className !== undefined) element.className = options.className;
   if (options.text !== undefined) element.textContent = options.text;
   for (const [name, value] of Object.entries(options.attributes ?? {})) {
     element.setAttribute(name, value);
   }
-  parent.append(element);
   return element;
 }
 

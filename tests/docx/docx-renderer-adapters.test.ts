@@ -187,6 +187,34 @@ describe("DOCX renderer mapping and sanitization", () => {
     );
   });
 
+  it("sanitizes links and images created by another window", () => {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const frameNode = (frame.contentWindow as unknown as { Node: typeof Node })
+      .Node;
+    Object.defineProperty(frameNode.prototype, "instanceOf", {
+      configurable: true,
+      value: Node.prototype.instanceOf,
+    });
+    const frameDocument = frame.contentDocument;
+    expect(frameDocument).not.toBeNull();
+    const container = frameDocument!.createElement("div");
+    container.innerHTML = `
+      <a id="safe" href="https://example.com">safe</a>
+      <a id="local" href="file:///tmp/private">local</a>
+      <img id="remote" src="https://example.com/private.png">
+    `;
+
+    sanitizeRenderedDocx(container);
+
+    expect(container.querySelector("#safe")?.getAttribute("href")).toBe(
+      "https://example.com",
+    );
+    expect(container.querySelector("#local")?.getAttribute("href")).toBeNull();
+    expect(container.querySelector("#remote")?.getAttribute("src")).toBeNull();
+    frame.remove();
+  });
+
   it("marks fixed-size docx-preview content for responsive reading", () => {
     const container = document.createElement("div");
     container.innerHTML = `
@@ -218,6 +246,8 @@ describe("DOCX renderer mapping and sanitization", () => {
     expect(
       large?.style.getPropertyValue("--office-viewer-docx-media-width"),
     ).toBe("428.65pt");
+    expect(large?.style.width).toBe("");
+    expect(large?.style.height).toBe("");
     expect(small?.classList.contains("office-viewer-docx-media-wrapper")).toBe(
       true,
     );
@@ -234,8 +264,13 @@ describe("DOCX renderer mapping and sanitization", () => {
         image.classList.contains("office-viewer-docx-media"),
       ),
     ).toBe(true);
+    expect(container.querySelector<HTMLElement>("#large-image")?.style.width)
+      .toBe("");
+    expect(container.querySelector<HTMLElement>("#large-image")?.style.height)
+      .toBe("");
     const table = container.querySelector<HTMLElement>("#wide-table");
     expect(table?.classList.contains("office-viewer-docx-table")).toBe(true);
+    expect(table?.style.width).toBe("");
     expect(
       table?.style.getPropertyValue("--office-viewer-docx-table-width"),
     ).toBe("457.95pt");
@@ -249,6 +284,8 @@ describe("DOCX renderer mapping and sanitization", () => {
         .querySelector<HTMLElement>("#wide-column")
         ?.style.getPropertyValue("--office-viewer-docx-column-width"),
     ).toBe("75%");
+    expect(container.querySelector<HTMLElement>("#narrow-column")?.style.width)
+      .toBe("");
   });
 });
 

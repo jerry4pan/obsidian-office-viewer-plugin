@@ -1225,7 +1225,9 @@ describe("PptxViewSession", () => {
     );
     expect(divider?.tabIndex).toBe(0);
     expect(divider?.getAttribute("aria-valuenow")).toBe("300");
-    expect(rail?.style.width).toBe("300px");
+    expect(rail?.style.getPropertyValue("--pptx-thumbnail-rail-width")).toBe(
+      "300px",
+    );
 
     divider?.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -1299,7 +1301,9 @@ describe("PptxViewSession", () => {
     divider.dispatchEvent(pointer("pointerdown", 300));
     window.dispatchEvent(pointer("pointermove", 400));
 
-    expect(rail.style.width).toBe("400px");
+    expect(rail.style.getPropertyValue("--pptx-thumbnail-rail-width")).toBe(
+      "400px",
+    );
     expect(recordWidth).not.toHaveBeenCalled();
     expect(vi.mocked(rendererSession.renderThumbnail!).mock.calls).toHaveLength(
       callsBeforeDrag,

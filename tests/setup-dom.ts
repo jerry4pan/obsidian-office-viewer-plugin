@@ -71,6 +71,18 @@ class TestIntersectionObserver implements IntersectionObserver {
 globalThis.ResizeObserver = TestResizeObserver;
 globalThis.IntersectionObserver = TestIntersectionObserver;
 
+// Polyfill Obsidian's cross-window Node.instanceOf helper.
+Object.defineProperty(Node.prototype, "instanceOf", {
+  configurable: true,
+  value(this: Node, type: { new (): unknown }): boolean {
+    const localWindow = this.ownerDocument?.defaultView;
+    const localType = localWindow?.[type.name as keyof Window];
+    return typeof localType === "function"
+      ? this instanceof (localType as { new (): object })
+      : this instanceof type;
+  },
+});
+
 // Polyfill for Obsidian's createEl on HTMLElement.prototype
 interface DomElementInfo {
   cls?: string;
@@ -139,7 +151,9 @@ function createDetachedEl<K extends keyof HTMLElementTagNameMap>(
   options?: DomElementInfo | string,
   callback?: (el: HTMLElementTagNameMap[K]) => void,
 ): HTMLElementTagNameMap[K] {
-  const el = createDetachedEl(tag, options, callback);
+  const el = this.ownerDocument.createElement(tag) as HTMLElementTagNameMap[K];
+  applyDomElementInfo(el as HTMLElement, options);
+  if (callback) callback(el);
   const prepend =
     typeof options === "object" && options !== null && options.prepend;
   if (prepend) {

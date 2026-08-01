@@ -52,13 +52,13 @@ export interface OfficeViewerToolbar {
 export function createOfficeViewerErrorSurface(
   options: OfficeViewerErrorSurfaceOptions,
 ): OfficeViewerErrorSurface {
-  const panel = document.createElement("div");
+  const panel = createDiv();
   panel.className = classNames(
     "office-viewer-error",
     options.classNames?.root,
   );
 
-  const status = document.createElement("div");
+  const status = createDiv();
   status.className = classNames(
     "office-viewer-error__status",
     options.classNames?.status,
@@ -66,14 +66,14 @@ export function createOfficeViewerErrorSurface(
   status.textContent = options.title;
   status.setAttribute("role", "status");
 
-  const safety = document.createElement("p");
+  const safety = createEl("p");
   safety.className = classNames(
     "office-viewer-error__safety-note",
     options.classNames?.safetyNote,
   );
   safety.textContent = options.safetyNote;
 
-  const actions = document.createElement("div");
+  const actions = createDiv();
   actions.className = classNames(
     "office-viewer-error__actions",
     options.classNames?.actions,
@@ -90,7 +90,7 @@ export function createOfficeViewerErrorSurface(
     actions.append(createActionButton(options.openExternal));
   }
 
-  const actionStatus = document.createElement("div");
+  const actionStatus = createDiv();
   actionStatus.className = classNames(
     "office-viewer-error__action-status",
     options.classNames?.actionStatus,
@@ -109,15 +109,15 @@ export function createOfficeViewerErrorSurface(
 export function createOfficeViewerToolbar(
   options: OfficeViewerToolbarOptions,
 ): OfficeViewerToolbar {
-  const root = document.createElement("div");
+  const root = createDiv();
   root.className = classNames(
     "office-viewer-toolbar",
     options.extraClassName,
   );
   const brand = createOfficeViewerBrand(options.format);
-  const primary = document.createElement("div");
+  const primary = createDiv();
   primary.className = "office-viewer-toolbar__primary";
-  const secondary = document.createElement("div");
+  const secondary = createDiv();
   secondary.className = "office-viewer-toolbar__secondary";
   root.append(brand, primary, secondary);
   return { root, primary, secondary };
@@ -134,23 +134,23 @@ export function decorateOfficeViewerIconButton(
 }
 
 function createOfficeViewerBrand(format: OfficeViewerFormat): HTMLElement {
-  const brand = document.createElement("div");
+  const brand = createDiv();
   brand.className = "office-viewer-brand";
   brand.dataset.officeViewerBrand = "true";
   brand.dataset.officeFormat = format;
 
-  const mark = document.createElement("img");
+  const mark = createEl("img");
   mark.className = "office-viewer-brand__mark";
   mark.src = OFFICE_VIEWER_MARK_DATA_URL;
   mark.alt = "";
   mark.setAttribute("aria-hidden", "true");
   mark.draggable = false;
 
-  const product = document.createElement("span");
+  const product = createSpan();
   product.className = "office-viewer-brand__product";
   product.textContent = OFFICE_VIEWER_PRODUCT_NAME;
 
-  const formatBadge = document.createElement("span");
+  const formatBadge = createSpan();
   formatBadge.className = "office-viewer-brand__format";
   formatBadge.textContent = format;
 
@@ -161,7 +161,7 @@ function createOfficeViewerBrand(format: OfficeViewerFormat): HTMLElement {
 function createActionButton(
   action: OfficeViewerErrorAction,
 ): HTMLButtonElement {
-  const button = document.createElement("button");
+  const button = createEl("button");
   button.type = "button";
   button.textContent = action.label;
   button.setAttribute("data-action", action.action);

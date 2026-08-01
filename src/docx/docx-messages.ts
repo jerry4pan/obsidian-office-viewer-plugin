@@ -132,7 +132,10 @@ function interpolate(
   template: string,
   parameters: MessageParameters = {},
 ): string {
-  return template.replace(/\{([a-z][a-zA-Z0-9]*)\}/g, (placeholder, name) => {
+  return template.replace(/\{([a-z][a-zA-Z0-9]*)\}/g, (
+    placeholder: string,
+    name: string,
+  ) => {
     const value: string | number | undefined = parameters[name];
     return value === undefined ? placeholder : String(value);
   });

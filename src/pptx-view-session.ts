@@ -232,7 +232,7 @@ export class PptxViewSession<FileRef> {
       format: "PPTX",
       extraClassName: "pptx-viewer__toolbar",
     });
-    this.contentHost = document.createElement("div");
+    this.contentHost = createDiv();
     this.contentHost.className = "pptx-viewer__content";
     this.root.append(this.toolbar.root, this.contentHost);
     return { toolbar: this.toolbar, content: this.contentHost };

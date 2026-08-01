@@ -45,7 +45,7 @@ export class DocxPreviewRendererAdapter implements DocxRendererAdapter {
     signal: AbortSignal,
   ): Promise<DocxRendererSession> {
     signal.throwIfAborted();
-    const staging = document.createElement("div");
+    const staging = createDiv();
     staging.className = "office-viewer-docx office-viewer-docx--preview";
     try {
       await renderAsync(buffer.slice(0), staging, staging, {

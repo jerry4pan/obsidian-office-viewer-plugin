@@ -174,7 +174,7 @@ export function renderDocxChartToPng(
   if (chart.kind !== "line" && chart.kind !== "bar") return null;
   const width = Math.max(320, Math.round(widthPx));
   const height = Math.max(200, Math.round(heightPx));
-  const canvas = document.createElement("canvas");
+  const canvas = createEl("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");

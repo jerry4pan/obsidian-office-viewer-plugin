@@ -169,8 +169,10 @@ export class ThumbnailRailResizer {
     const minimum = Math.min(MIN_THUMBNAIL_RAIL_WIDTH, maximum);
     const actualWidthChanged = actualWidth !== this.actualWidth;
     this.actualWidth = actualWidth;
-    this.railElement.style.flexBasis = `${actualWidth}px`;
-    this.railElement.style.width = `${actualWidth}px`;
+    this.railElement.style.setProperty(
+      "--pptx-thumbnail-rail-width",
+      `${actualWidth}px`,
+    );
     this.element.setAttribute("aria-valuemin", String(minimum));
     this.element.setAttribute("aria-valuemax", String(maximum));
     this.element.setAttribute("aria-valuenow", String(actualWidth));
