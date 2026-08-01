@@ -1,8 +1,8 @@
 {
-  "capturedAt": "2026-07-31",
+  "capturedAt": "2026-08-02",
   "environment": {
     "platform": "darwin-arm64",
-    "macOS": "14.8.7",
+    "macOS": "15.7.3",
     "obsidian": "1.12.7",
     "installer": "1.12.7",
     "chromium": "142.0.7444.265",
@@ -20,25 +20,25 @@
     "stressHeapDeltaBudgetBytes": 268435456
   },
   "fixtures": {
-    "representativeSha256": "6236b68ff7cfe9e75e6d1de9df28c9cbaabd7e2ac920dd7089c9e974292438d6",
-    "stressSha256": "9f7d929638db8ec8446466b6bdb51be89406284b022d78a1bbedb5fe3a23f94e"
+    "representativeSha256": "bd7e1c1d14df9eac583ca2cde341719232af7cb288b2c47bb621ade79a871edd",
+    "stressSha256": "ba3e1f0721185e5c9aaba5c3c43972e9403ab90647f1ca80d776177250469209"
   },
-  "bundleBytes": 1389799,
+  "bundleBytes": 1440982,
   "samples": {
-    "firstReadableMs": [47, 30, 27.7, 29.6, 25.9],
-    "searchReadyMs": [17.9, 10.6, 10.9, 11.6, 9.8],
-    "queryMs": [2, 1.700000286102295, 1.5, 1.4000000953674316, 1.5],
-    "cleanupMs": [2.3999996185302734, 1.1999998092651367, 2.1999998092651367, 1.1999998092651367, 1.0999999046325684, 0.39999961853027344]
+    "firstReadableMs": [43.2, 34.3, 24.5, 28, 24.8],
+    "searchReadyMs": [18.7, 9, 9.3, 10.7, 8.7],
+    "queryMs": [1.3000000715255737, 0.6000000238418579, 0.6000000238418579, 0.5, 0.5],
+    "cleanupMs": [2, 1.600000023841858, 2, 1.7999999523162842, 1.7999999523162842, 0.3999999761581421]
   },
   "p95": {
-    "firstReadableMs": 47,
-    "searchReadyMs": 17.9,
-    "queryMs": 2,
-    "cleanupMs": 2.3999996185302734
+    "firstReadableMs": 43.2,
+    "searchReadyMs": 18.7,
+    "queryMs": 1.3000000715255737,
+    "cleanupMs": 2
   },
   "stress": {
     "bodyDomElements": 244,
-    "heapDeltaBytes": 1239048
+    "heapDeltaBytes": 790628
   },
   "verdict": "pass"
 }
