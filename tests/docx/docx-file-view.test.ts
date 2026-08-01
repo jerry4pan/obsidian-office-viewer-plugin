@@ -232,5 +232,6 @@ describe("DOCX reading and search view", () => {
     expect(
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
     ).toBeLessThanOrEqual(1_200);
-  }, 15_000);
+  // This test asserts bounded behavior; installed performance tests own timing budgets.
+  }, 30_000);
 });
