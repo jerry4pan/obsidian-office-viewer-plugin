@@ -20,7 +20,7 @@ Office Viewer 可在桌面版 Obsidian 中直接打开本地 `.pptx` 演示文�
 Word 文档，无需转 PDF、无需上传。PPTX 保留幻灯片引用与嵌入能力；DOCX 聚焦连续
 阅读和当前文档搜索。
 
-当前发布版本为 **0.2.2**。GitHub Release 会先更新；Obsidian 社区插件目录可能稍后刷新。
+当前发布版本为 **0.2.3**。GitHub Release 会先更新；Obsidian 社区插件目录可能稍后刷新。
 
 完整说明、开发与发布流程以英文 [README.md](README.md) 为准。本文是面向中文用户的摘要。
 
