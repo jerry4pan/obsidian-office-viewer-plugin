@@ -36,6 +36,16 @@ Retain `pptx-preview@1.0.7` only as an exact-pinned development dependency so
 the rejected candidate's evidence remains reproducible. It must not ship in
 the default production bundle.
 
+Security maintenance note (2026-08-02): npm overrides keep the rejected
+candidate's transitive ECharts and UUID packages, and the test runner's
+transitive packages, above their published patched versions. The selected
+Aiden production bundle remains unchanged. The committed `pptx-preview@1.0.7`
+results remain historical evidence for the original dependency tree; current
+candidate runs use the secure transitive tree. An A/B run with and without the
+ECharts override produced the same 14 / 20 readable result under the newer
+shared reading shell, so the candidate's already-stale visual baseline and
+readability drift are not caused by the security override.
+
 The M0 prerequisite PRs have landed, their linked issues are closed, and the
 integrated branch passes the full verification suite. This decision authorizes
 M1 engineering. It does not authorize a public release or a claim of

@@ -86,5 +86,15 @@
     "vitest": "4.1.10",
     "wdio-obsidian-reporter": "3.1.1",
     "wdio-obsidian-service": "3.1.1"
+  },
+  "overrides": {
+    "brace-expansion": "2.1.3",
+    "echarts": "6.1.0",
+    "mocha": {
+      "diff": "8.0.3",
+      "serialize-javascript": "7.0.5"
+    },
+    "tar": "7.5.22",
+    "uuid": "11.1.1"
   }
 }

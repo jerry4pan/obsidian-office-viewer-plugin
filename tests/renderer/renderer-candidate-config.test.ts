@@ -77,6 +77,7 @@ describe("renderer candidate acceptance configuration", () => {
   it("exposes the same installed acceptance commands for both candidates", () => {
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
       scripts: Record<string, string>;
+      overrides: Record<string, string | Record<string, string>>;
     };
     for (const task of ["build", "test:e2e", "test:compatibility", "test:performance"]) {
       expect(packageJson.scripts[`${task}:aiden`]).toContain(
@@ -86,5 +87,15 @@ describe("renderer candidate acceptance configuration", () => {
         `pptx-preview ${task}`,
       );
     }
+    expect(packageJson.overrides).toMatchObject({
+      "brace-expansion": "2.1.3",
+      echarts: "6.1.0",
+      mocha: {
+        diff: "8.0.3",
+        "serialize-javascript": "7.0.5",
+      },
+      tar: "7.5.22",
+      uuid: "11.1.1",
+    });
   });
 });
