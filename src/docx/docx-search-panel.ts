@@ -4,6 +4,7 @@ import {
   type DocxSearchResult,
   type DocxSemanticModel,
 } from "./docx-semantic-model";
+import { decorateOfficeViewerIconButton } from "../office-viewer-chrome";
 
 export const MAX_MOUNTED_DOCX_SEARCH_RESULTS = 50;
 export const MAX_DOCX_SEARCH_QUERY_CHARACTERS = 200;
@@ -52,9 +53,11 @@ export class DocxSearchPanel {
   private readonly input: HTMLInputElement;
   private readonly summary: HTMLElement;
   private readonly results: HTMLElement;
+  private readonly pagination: HTMLElement;
   private readonly range: HTMLElement;
   private readonly previousResults: HTMLButtonElement;
   private readonly nextResults: HTMLButtonElement;
+  private readonly closeButton: HTMLButtonElement;
   private matches: readonly DocxSearchResult[] = [];
   private resultPage = 0;
   private disposed = false;
@@ -65,9 +68,22 @@ export class DocxSearchPanel {
     private readonly options: DocxSearchPanelOptions,
   ) {
     const { messages } = options;
-    this.panel.className = "office-viewer-docx-search";
+    this.panel.className = "office-viewer-docx-search office-viewer-search";
     this.panel.setAttribute("role", "search");
     this.panel.setAttribute("aria-label", messages.text("searchOpen"));
+
+    const header = document.createElement("div");
+    header.className = "office-viewer-search-header";
+    this.closeButton = document.createElement("button");
+    this.closeButton.type = "button";
+    this.closeButton.setAttribute("data-action", "close-docx-search");
+    this.closeButton.title = messages.text("searchClose");
+    this.closeButton.setAttribute("aria-label", messages.text("searchClose"));
+    decorateOfficeViewerIconButton(this.closeButton, "lucide-x");
+    this.closeButton.addEventListener("click", () => {
+      if (!this.disposed) this.options.onDismiss();
+    });
+    header.append(this.closeButton);
 
     this.input = document.createElement("input");
     this.input.type = "search";
@@ -87,8 +103,8 @@ export class DocxSearchPanel {
     this.results.setAttribute("role", "list");
     this.results.setAttribute("aria-label", messages.text("resultsLabel"));
 
-    const pagination = document.createElement("div");
-    pagination.className = "office-viewer-docx-search-pagination";
+    this.pagination = document.createElement("div");
+    this.pagination.className = "office-viewer-docx-search-pagination";
     this.previousResults = document.createElement("button");
     this.previousResults.type = "button";
     this.previousResults.textContent = "←";
@@ -105,11 +121,16 @@ export class DocxSearchPanel {
     this.nextResults.textContent = "→";
     this.nextResults.setAttribute("aria-label", messages.text("nextResults"));
     this.nextResults.setAttribute("data-action", "next-search-results");
-    this.previousResults.hidden = true;
-    this.nextResults.hidden = true;
-    pagination.append(this.previousResults, this.range, this.nextResults);
+    this.pagination.hidden = true;
+    this.pagination.append(this.previousResults, this.range, this.nextResults);
 
-    this.panel.append(this.input, this.summary, this.results, pagination);
+    this.panel.append(
+      header,
+      this.input,
+      this.summary,
+      this.results,
+      this.pagination,
+    );
     this.input.addEventListener("input", this.onInput);
     this.input.addEventListener("keydown", this.onKeyDown);
     this.previousResults.addEventListener("click", this.onPreviousResults);
@@ -133,6 +154,28 @@ export class DocxSearchPanel {
     delete this.root.dataset.searchHasQuery;
     this.input.value = "";
     this.render();
+  }
+
+  /** Keep search-result current semantics in sync with the active paragraph. */
+  syncCurrentResult(): void {
+    if (this.disposed || !this.isOpen || this.matches.length === 0) return;
+    const current = this.options.currentParagraphOrdinal();
+    const resultIndex = current === null
+      ? -1
+      : this.matches.findIndex(
+        ({ paragraphOrdinal }) => paragraphOrdinal === current,
+      );
+    if (resultIndex >= 0) {
+      const resultPage = Math.floor(
+        resultIndex / MAX_MOUNTED_DOCX_SEARCH_RESULTS,
+      );
+      if (resultPage !== this.resultPage) {
+        this.resultPage = resultPage;
+        this.renderResultPage();
+        return;
+      }
+    }
+    this.applyCurrentResult(current);
   }
 
   dispose(): void {
@@ -192,6 +235,7 @@ export class DocxSearchPanel {
         ) ?? this.matches[0];
     if (target !== undefined) {
       this.options.onNavigate(target.paragraphOrdinal);
+      this.syncCurrentResult();
     }
   };
 
@@ -207,8 +251,7 @@ export class DocxSearchPanel {
       this.summary.textContent = "";
       this.results.replaceChildren();
       this.range.textContent = "";
-      this.previousResults.hidden = true;
-      this.nextResults.hidden = true;
+      this.pagination.hidden = true;
       delete this.root.dataset.lastSearchMs;
       this.root.dataset.mountedSearchResultCount = "0";
       if (hadActiveQuery && this.isOpen) this.options.onDismiss();
@@ -238,7 +281,8 @@ export class DocxSearchPanel {
       item.setAttribute("role", "listitem");
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "office-viewer-docx-search-result";
+      button.className =
+        "office-viewer-docx-search-result office-viewer-search-result";
       button.setAttribute("data-action", "docx-search-result");
       button.dataset.paragraphOrdinal = String(result.paragraphOrdinal);
       button.setAttribute(
@@ -249,7 +293,7 @@ export class DocxSearchPanel {
         }),
       );
       if (current === result.paragraphOrdinal) {
-        button.setAttribute("aria-current", "true");
+        button.setAttribute("aria-current", "location");
       }
 
       const title = document.createElement("span");
@@ -279,6 +323,7 @@ export class DocxSearchPanel {
       button.addEventListener("click", () => {
         if (!this.disposed) {
           this.options.onNavigate(result.paragraphOrdinal);
+          this.syncCurrentResult();
         }
       });
       item.append(button);
@@ -294,10 +339,21 @@ export class DocxSearchPanel {
           count: this.matches.length,
         })
       : "";
-    this.previousResults.hidden = !hasMultiplePages;
-    this.nextResults.hidden = !hasMultiplePages;
+    this.pagination.hidden = !hasMultiplePages;
     this.previousResults.disabled = start === 0;
     this.nextResults.disabled = end >= this.matches.length;
     this.root.dataset.mountedSearchResultCount = String(end - start);
+  }
+
+  private applyCurrentResult(current: number | null): void {
+    for (const button of this.results.querySelectorAll<HTMLElement>(
+      "[data-paragraph-ordinal]",
+    )) {
+      if (Number(button.dataset.paragraphOrdinal) === current) {
+        button.setAttribute("aria-current", "location");
+      } else {
+        button.removeAttribute("aria-current");
+      }
+    }
   }
 }

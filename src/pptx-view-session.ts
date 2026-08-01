@@ -13,6 +13,11 @@ import {
   type DiagnosticEnvironment,
 } from "./diagnostic-summary";
 import {
+  createOfficeViewerErrorSurface,
+  createOfficeViewerToolbar,
+  decorateOfficeViewerIconButton,
+} from "./office-viewer-chrome";
+import {
   PptxOpenError,
   type PptxOpenErrorCategory,
 } from "./pptx-open-error";
@@ -212,6 +217,9 @@ export class PptxViewSession<FileRef> {
 
     this.root.replaceChildren();
 
+    const toolbar = createOfficeViewerToolbar("pptx-viewer__toolbar");
+    this.root.append(toolbar.root);
+
     const header = this.root.createDiv({
       cls: "pptx-viewer__header pptx-viewer__status",
     });
@@ -220,9 +228,7 @@ export class PptxViewSession<FileRef> {
       text: this.messages.text("viewer.loading"),
       attr: { role: "status", "aria-live": "polite" },
     });
-    const headerActions = header.createDiv({
-      cls: "pptx-viewer__header-actions",
-    });
+    const headerActions = toolbar.secondary;
 
     const compatibility = this.root.createDiv({
       cls: "pptx-viewer__compatibility",
@@ -321,36 +327,42 @@ export class PptxViewSession<FileRef> {
       ? null
       : headerActions.createEl("button", {
           type: "button",
-          text: "↗",
           title: this.messages.text("reference.copy"),
           attr: {
             "data-action": "copy-slide-reference",
             "aria-label": this.messages.text("reference.copy"),
           },
         });
+    if (copyReferenceButton) {
+      decorateOfficeViewerIconButton(copyReferenceButton, "lucide-link");
+    }
     const copyEmbedButton = this.options.slideReferences === undefined
       ? null
       : headerActions.createEl("button", {
           type: "button",
-          text: "⊞",
           title: this.messages.text("reference.copyEmbed"),
           attr: {
             "data-action": "copy-slide-embed",
             "aria-label": this.messages.text("reference.copyEmbed"),
           },
         });
+    if (copyEmbedButton) {
+      decorateOfficeViewerIconButton(copyEmbedButton, "lucide-panel-top");
+    }
     const copyNotesButton =
       this.options.slideReferences?.copyNotes === undefined
         ? null
         : headerActions.createEl("button", {
             type: "button",
-            text: "≡",
             title: this.messages.text("notes.copy"),
             attr: {
               "data-action": "copy-speaker-notes",
               "aria-label": this.messages.text("notes.copy"),
             },
           });
+    if (copyNotesButton) {
+      decorateOfficeViewerIconButton(copyNotesButton, "lucide-notebook-text");
+    }
     if (copyReferenceButton) copyReferenceButton.disabled = true;
     if (copyEmbedButton) copyEmbedButton.disabled = true;
     if (copyNotesButton) copyNotesButton.disabled = true;
@@ -373,10 +385,10 @@ export class PptxViewSession<FileRef> {
       generation,
       actionStatus,
     );
-    if (openExternally) controls.append(openExternally);
+    if (openExternally) headerActions.append(openExternally);
     const diagnosticButton = this.createDiagnosticButton(actionStatus);
     if (diagnosticButton) {
-      diagnosticButton.textContent = "⧉";
+      decorateOfficeViewerIconButton(diagnosticButton, "lucide-clipboard-copy");
       diagnosticButton.setAttribute(
         "aria-label",
         this.messages.text("diagnostics.copy"),
@@ -830,9 +842,8 @@ export class PptxViewSession<FileRef> {
           const searchCloseKey = presentationSearchAvailable
             ? "search.closePresentation"
             : "search.close";
-          const searchButton = headerActions.createEl("button", {
+          const searchButton = toolbar.primary.createEl("button", {
             type: "button",
-            text: "⌕",
             title: this.messages.text(searchOpenKey),
             attr: {
               "data-action": "open-slide-search",
@@ -840,6 +851,7 @@ export class PptxViewSession<FileRef> {
               "aria-pressed": "false",
             },
           });
+          decorateOfficeViewerIconButton(searchButton, "lucide-search");
           const updateSearchButton = () => {
             searchButton.setAttribute(
               "aria-pressed",
@@ -1199,58 +1211,58 @@ export class PptxViewSession<FileRef> {
     generation: number,
   ): void {
     this.root.replaceChildren();
-    const panel = this.root.createDiv({ cls: "pptx-viewer__error" });
-    panel.createDiv({
-      cls: "pptx-viewer__status",
-      text: this.messages.text(errorMessageKeys[error.category]),
-    });
-    panel.createEl("p", {
-      cls: "pptx-viewer__safety-note",
-      text: this.messages.text(
+    const { panel, actionStatus } = createOfficeViewerErrorSurface({
+      title: this.messages.text(errorMessageKeys[error.category]),
+      safetyNote: this.messages.text(
         error.category === "unsupported-legacy"
           ? "error.sourceUnmodifiedLegacy"
           : "error.sourceUnmodified",
       ),
-    });
-    const actions = panel.createDiv({ cls: "pptx-viewer__actions" });
-    const retry = actions.createEl("button", {
-      type: "button",
-      text: this.messages.text("error.retry"),
-      attr: { "data-action": "retry" },
-    });
-    retry.addEventListener("click", () => {
-      if (error.category === "unsupported-legacy") {
-        this.openUnsupportedLegacy(
-          file,
-          this.diagnosticSourceBytes ?? undefined,
-        );
-        return;
-      }
-      void this.open(file);
+      retry: {
+        label: this.messages.text("error.retry"),
+        action: "retry",
+        onClick: () => {
+          if (error.category === "unsupported-legacy") {
+            this.openUnsupportedLegacy(
+              file,
+              this.diagnosticSourceBytes ?? undefined,
+            );
+            return;
+          }
+          void this.open(file);
+        },
+      },
+      classNames: {
+        root: "pptx-viewer__error",
+        status: "pptx-viewer__status",
+        safetyNote: "pptx-viewer__safety-note",
+        actions: "pptx-viewer__actions",
+        actionStatus: "pptx-viewer__action-status",
+      },
     });
 
-    const actionStatus = panel.createDiv({
-      cls: "pptx-viewer__action-status",
-      attr: { role: "status", "aria-live": "polite" },
-    });
-    if (error.category !== "unsupported-legacy") {
-      const companionButton = this.createCompanionNoteButton(
+    const actions = panel.querySelector(".office-viewer-error__actions");
+    if (actions !== null) {
+      if (error.category !== "unsupported-legacy") {
+        const companionButton = this.createCompanionNoteButton(
+          file,
+          generation,
+          actionStatus,
+          () => this.options.fullscreen ?? createDefaultFullscreenActions(),
+        );
+        if (companionButton) actions.append(companionButton);
+      }
+      const openExternally = this.createExternalOpenButton(
         file,
         generation,
         actionStatus,
-        () => this.options.fullscreen ?? createDefaultFullscreenActions(),
       );
-      if (companionButton) actions.append(companionButton);
+      if (openExternally) actions.append(openExternally);
+      const diagnosticButton = this.createDiagnosticButton(actionStatus);
+      if (diagnosticButton) actions.append(diagnosticButton);
     }
-    const openExternally = this.createExternalOpenButton(
-      file,
-      generation,
-      actionStatus,
-    );
-    if (openExternally) actions.append(openExternally);
-    const diagnosticButton = this.createDiagnosticButton(actionStatus);
-    if (diagnosticButton) actions.append(diagnosticButton);
 
+    this.root.append(panel);
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = error.category;
     this.diagnosticError = error.category;
@@ -1266,13 +1278,13 @@ export class PptxViewSession<FileRef> {
     if (this.options.companionNote === undefined) return null;
     const button = createEl("button", {
       type: "button",
-      text: "✎",
       title: this.messages.text("companion.open"),
       attr: {
         "data-action": "open-companion-note",
         "aria-label": this.messages.text("companion.openLabel"),
       },
     });
+    decorateOfficeViewerIconButton(button, "lucide-pen-line");
     button.addEventListener("click", () => {
       if (generation !== this.generation || this.disposed) return;
       actionStatus.textContent = "";

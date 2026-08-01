@@ -526,7 +526,7 @@ describe("PptxViewSession", () => {
     expect(
       root.querySelector('[data-action="slide-search-result"]')
         ?.getAttribute("aria-current"),
-    ).toBe("page");
+    ).toBe("location");
 
     input.value = "missing";
     input.dispatchEvent(new Event("input", { bubbles: true }));

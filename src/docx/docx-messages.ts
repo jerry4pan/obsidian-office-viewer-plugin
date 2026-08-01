@@ -22,6 +22,7 @@ const ENGLISH_DOCX_MESSAGES = {
   matchCount: "Matches: {count}",
   openDefault: "Open in default application",
   openDefaultFailure: "Unable to open the default application.",
+  retry: "Retry",
   unavailableContent:
     "Some main-body content cannot be represented here. In-flow placeholders mark every detected omission.",
   unavailablePlaceholder: "This document content cannot be displayed.",
@@ -65,6 +66,7 @@ const SIMPLIFIED_CHINESE_DOCX_MESSAGES = {
   matchCount: "{count} 处匹配",
   openDefault: "在默认应用中打开",
   openDefaultFailure: "无法打开默认应用。",
+  retry: "重试",
   unavailableContent:
     "部分正文内容无法在此呈现；所有检测到的缺失位置均已显示占位提示。",
   unavailablePlaceholder: "无法显示此文档内容。",
@@ -101,6 +103,7 @@ const TRADITIONAL_CHINESE_DOCX_MESSAGES = {
   matchCount: "{count} 處相符",
   openDefault: "在預設應用程式中開啟",
   openDefaultFailure: "無法開啟預設應用程式。",
+  retry: "重試",
   unavailableContent:
     "部分正文內容無法在此呈現；所有偵測到的缺失位置均已顯示占位提示。",
   unavailablePlaceholder: "無法顯示此文件內容。",

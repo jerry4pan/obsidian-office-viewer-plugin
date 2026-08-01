@@ -88,7 +88,7 @@ describe("DOCX reading and search view", () => {
       root.querySelector('[data-action="open-docx-search"]'),
     ).not.toBeNull();
     expect(
-      root.querySelector(".office-viewer-docx-toolbar button:last-child")
+      root.querySelector('[data-action="open-externally"]')
         ?.textContent,
     ).toBe("Open in default application");
 
@@ -114,6 +114,7 @@ describe("DOCX reading and search view", () => {
         .querySelector('[data-docx-paragraph-ordinal="2"]')
         ?.classList.contains("is-active-docx-paragraph"),
     ).toBe(true);
+    expect(result.getAttribute("aria-current")).toBe("location");
     expect(new Uint8Array(source)).toEqual(sourceBefore);
   });
 
@@ -129,6 +130,7 @@ describe("DOCX reading and search view", () => {
       {
         renderer: new SemanticTestRenderer(),
         messages: createDocxMessageTranslator("en"),
+        openInDefaultApplication: vi.fn(async () => undefined),
       },
     );
     const file = Object.assign(new TFile(), {
@@ -145,6 +147,12 @@ describe("DOCX reading and search view", () => {
     )!;
     expect(root.dataset.state).toBe("error");
     expect(root.dataset.errorCategory).toBe("malformed");
+    expect(root.querySelector(".office-viewer-error")).not.toBeNull();
+    expect(root.querySelector('[data-action="retry"]')?.textContent).toBe(
+      "Retry",
+    );
+    expect(root.querySelector('[data-action="open-externally"]')?.textContent)
+      .toBe("Open in default application");
     expect(root.textContent).toContain("original DOCX file was not modified");
     expect(new Uint8Array(source)).toEqual(sourceBefore);
   });

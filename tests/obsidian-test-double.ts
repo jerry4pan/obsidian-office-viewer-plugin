@@ -4,6 +4,12 @@ import { vi } from "vitest";
 export const getLanguage = vi.fn(() => "en");
 export const apiVersion = "1.13.1";
 
+/** Stand-in for Obsidian's lucide icon injector. */
+export function setIcon(parent: HTMLElement, iconId: string): void {
+  parent.replaceChildren();
+  parent.dataset.icon = iconId;
+}
+
 export class Plugin {
   app: unknown;
   registerView = vi.fn();

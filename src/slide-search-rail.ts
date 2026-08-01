@@ -2,6 +2,7 @@ import {
   ENGLISH_MESSAGE_TRANSLATOR,
   type MessageTranslator,
 } from "./i18n";
+import { decorateOfficeViewerIconButton } from "./office-viewer-chrome";
 import type {
   PptxSourceAuthoredSlideText,
   PptxSpeakerNoteContent,
@@ -44,9 +45,11 @@ export class SlideSearchRail {
   private readonly summary: HTMLElement;
   private readonly scopeGroup: HTMLElement | null;
   private readonly results: HTMLElement;
+  private readonly pagination: HTMLElement;
   private readonly range: HTMLElement;
   private readonly previousResults: HTMLButtonElement;
   private readonly nextResults: HTMLButtonElement;
+  private readonly closeButton: HTMLButtonElement;
   private readonly messages: MessageTranslator;
   private readonly slideOnlyIndex: SlideContentSearchIndex | null;
   private readonly presentationIndex: PresentationContentSearchIndex | null;
@@ -74,7 +77,8 @@ export class SlideSearchRail {
       this.presentationIndex = null;
       this.slideOnlyIndex = createSlideContentSearchIndex(slides);
     }
-    this.panel.className = "pptx-viewer__slide-search";
+    this.panel.className =
+      "pptx-viewer__slide-search office-viewer-search";
     this.panel.setAttribute("role", "search");
     this.panel.setAttribute(
       "aria-label",
@@ -82,6 +86,29 @@ export class SlideSearchRail {
         this.presentationSearch ? "search.openPresentation" : "search.open",
       ),
     );
+    const header = this.panel.createDiv({
+      cls: "office-viewer-search-header",
+    });
+    this.closeButton = header.createEl("button", {
+      type: "button",
+      attr: {
+        "data-action": "close-slide-search",
+        "aria-label": this.messages.text(
+          this.presentationSearch
+            ? "search.closePresentation"
+            : "search.close",
+        ),
+      },
+      title: this.messages.text(
+        this.presentationSearch
+          ? "search.closePresentation"
+          : "search.close",
+      ),
+    });
+    decorateOfficeViewerIconButton(this.closeButton, "lucide-x");
+    this.closeButton.addEventListener("click", () => {
+      if (!this.disposed) this.options.onDismiss();
+    });
     this.input = this.panel.createEl("input", {
       type: "search",
       attr: {
@@ -113,10 +140,10 @@ export class SlideSearchRail {
         "aria-label": this.messages.text("search.resultsLabel"),
       },
     });
-    const pagination = this.panel.createDiv({
+    this.pagination = this.panel.createDiv({
       cls: "pptx-viewer__slide-search-pagination",
     });
-    this.previousResults = pagination.createEl("button", {
+    this.previousResults = this.pagination.createEl("button", {
       type: "button",
       text: "←",
       attr: {
@@ -124,11 +151,11 @@ export class SlideSearchRail {
         "data-action": "previous-search-results",
       },
     });
-    this.range = pagination.createSpan({
+    this.range = this.pagination.createSpan({
       cls: "pptx-viewer__slide-search-range",
       attr: { "aria-live": "polite" },
     });
-    this.nextResults = pagination.createEl("button", {
+    this.nextResults = this.pagination.createEl("button", {
       type: "button",
       text: "→",
       attr: {
@@ -136,8 +163,7 @@ export class SlideSearchRail {
         "data-action": "next-search-results",
       },
     });
-    this.previousResults.hidden = true;
-    this.nextResults.hidden = true;
+    this.pagination.hidden = true;
     this.input.addEventListener("input", this.onInput);
     this.input.addEventListener("keydown", this.onKeyDown);
     this.previousResults.addEventListener("click", this.onPreviousResults);
@@ -179,15 +205,7 @@ export class SlideSearchRail {
       this.renderResultPage();
       return;
     }
-    for (const button of this.results.querySelectorAll<HTMLElement>(
-      "[data-slide-index]",
-    )) {
-      if (Number(button.dataset.slideIndex) === index) {
-        button.setAttribute("aria-current", "page");
-      } else {
-        button.removeAttribute("aria-current");
-      }
-    }
+    this.applyCurrentResult(index);
   }
 
   dispose(): void {
@@ -332,8 +350,7 @@ export class SlideSearchRail {
       this.summary.textContent = "";
       this.results.replaceChildren();
       this.range.textContent = "";
-      this.previousResults.hidden = true;
-      this.nextResults.hidden = true;
+      this.pagination.hidden = true;
       delete this.root.dataset.lastSearchMs;
       this.root.dataset.mountedSearchResultCount = "0";
       if (hadActiveQuery && this.isOpen) this.options.onDismiss();
@@ -370,16 +387,21 @@ export class SlideSearchRail {
           count: this.matches.length,
         })
       : "";
-    this.previousResults.hidden = !hasMultiplePages;
-    this.nextResults.hidden = !hasMultiplePages;
+    this.pagination.hidden = !hasMultiplePages;
     this.previousResults.disabled = start === 0;
     this.nextResults.disabled = end >= this.matches.length;
     this.root.dataset.mountedSearchResultCount = String(end - start);
+    this.applyCurrentResult(this.options.currentSlideIndex());
+  }
+
+  private applyCurrentResult(index: number): void {
     for (const button of this.results.querySelectorAll<HTMLElement>(
       "[data-slide-index]",
     )) {
-      if (Number(button.dataset.slideIndex) === this.options.currentSlideIndex()) {
-        button.setAttribute("aria-current", "page");
+      if (Number(button.dataset.slideIndex) === index) {
+        button.setAttribute("aria-current", "location");
+      } else {
+        button.removeAttribute("aria-current");
       }
     }
   }
@@ -390,7 +412,7 @@ export class SlideSearchRail {
   ): void {
     const button = item.createEl("button", {
       type: "button",
-      cls: "pptx-viewer__slide-search-result",
+      cls: "pptx-viewer__slide-search-result office-viewer-search-result",
       attr: {
         "data-action": "slide-search-result",
         "data-slide-id": String(result.slideId),
@@ -424,7 +446,7 @@ export class SlideSearchRail {
     result: SlideSearchResult,
   ): void {
     const card = item.createDiv({
-      cls: "pptx-viewer__slide-search-result pptx-viewer__slide-search-result--presentation",
+      cls: "pptx-viewer__slide-search-result pptx-viewer__slide-search-result--presentation office-viewer-search-result",
     });
     const title = card.createEl("button", {
       type: "button",

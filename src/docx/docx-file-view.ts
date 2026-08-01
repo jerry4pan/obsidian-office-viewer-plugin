@@ -4,6 +4,11 @@ import {
   TFile,
   type WorkspaceLeaf,
 } from "obsidian";
+import {
+  createOfficeViewerErrorSurface,
+  createOfficeViewerToolbar,
+  decorateOfficeViewerIconButton,
+} from "../office-viewer-chrome";
 import type {
   DocxMessageTranslator,
 } from "./docx-messages";
@@ -59,7 +64,9 @@ function safeExternalProtocol(url: string): boolean {
 
 export class DocxFileView extends FileView {
   private readonly root = document.createElement("div");
-  private readonly toolbar = document.createElement("div");
+  private readonly toolbar = createOfficeViewerToolbar(
+    "office-viewer-docx-toolbar",
+  );
   private readonly searchButton: HTMLButtonElement;
   private readonly externalButton: HTMLButtonElement;
   private readonly notices = document.createElement("div");
@@ -91,8 +98,8 @@ export class DocxFileView extends FileView {
     super(leaf);
     this.root.className = "office-viewer-docx-shell";
     this.root.dataset.state = "idle";
-    this.toolbar.className = "office-viewer-docx-toolbar";
-    this.searchButton = button("⌕");
+    this.searchButton = button("");
+    decorateOfficeViewerIconButton(this.searchButton, "lucide-search");
     this.searchButton.title = dependencies.messages.text("searchOpen");
     this.searchButton.setAttribute("data-action", "open-docx-search");
     this.searchButton.setAttribute(
@@ -103,6 +110,7 @@ export class DocxFileView extends FileView {
     this.externalButton = button(
       dependencies.messages.text("openDefault"),
     );
+    this.externalButton.setAttribute("data-action", "open-externally");
     this.notices.className = "office-viewer-docx-notices";
     this.notices.setAttribute("role", "status");
     this.actionStatus.className = "office-viewer-docx-action-status";
@@ -122,10 +130,11 @@ export class DocxFileView extends FileView {
       onDismiss: () => this.closeSearch(),
     });
 
-    this.toolbar.append(this.searchButton, this.externalButton);
+    this.toolbar.primary.append(this.searchButton);
+    this.toolbar.secondary.append(this.externalButton);
     this.main.append(this.searchRail, this.readingBody);
     this.root.append(
-      this.toolbar,
+      this.toolbar.root,
       this.notices,
       this.actionStatus,
       this.main,
@@ -177,9 +186,11 @@ export class DocxFileView extends FileView {
     this.setActiveParagraph(null, false);
     this.searchPanel.close();
     this.updateSearchButton();
+    this.restoreReadingShell();
     this.readingBody.replaceChildren();
     this.setNotice(this.dependencies.messages.text("loading"));
     this.actionStatus.textContent = "";
+    this.searchButton.disabled = false;
     this.externalButton.disabled =
       this.dependencies.openInDefaultApplication === undefined;
     this.diagnostics = {
@@ -369,7 +380,10 @@ export class DocxFileView extends FileView {
       element.removeAttribute("aria-current");
     }
     this.activeParagraph = paragraph;
-    if (paragraph === null) return;
+    if (paragraph === null) {
+      this.searchPanel.syncCurrentResult();
+      return;
+    }
     const element = reveal
       ? this.rendererSession?.revealParagraph(paragraph.ordinal)
       : this.rendererSession?.paragraphElements.get(paragraph.ordinal);
@@ -379,6 +393,7 @@ export class DocxFileView extends FileView {
     if (reveal) {
       element.scrollIntoView({ block: "center", behavior: "auto" });
     }
+    this.searchPanel.syncCurrentResult();
   }
 
   private activateOrdinal(ordinal: number, reveal: boolean): boolean {
@@ -460,6 +475,10 @@ export class DocxFileView extends FileView {
     this.readingBody.replaceChildren();
     this.model = null;
     this.rendererSession = null;
+    this.searchPanel.close();
+    this.updateSearchButton();
+    this.setNotice("");
+    this.actionStatus.textContent = "";
     const key =
       error instanceof DocxOpenError
         ? error.category === "resource-exhausted"
@@ -468,9 +487,38 @@ export class DocxFileView extends FileView {
         : "unknown";
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = key;
-    this.setNotice(
-      `${this.dependencies.messages.text(key)} ` +
-      this.dependencies.messages.text("sourceUnmodified"),
-    );
+    this.searchButton.disabled = true;
+    const file = this.currentFile;
+    const { panel } = createOfficeViewerErrorSurface({
+      title: this.dependencies.messages.text(key),
+      safetyNote: this.dependencies.messages.text("sourceUnmodified"),
+      retry: {
+        label: this.dependencies.messages.text("retry"),
+        action: "retry",
+        onClick: () => {
+          if (file !== null) void this.onLoadFile(file);
+        },
+      },
+      openExternal:
+        file !== null &&
+        this.dependencies.openInDefaultApplication !== undefined
+          ? {
+              label: this.dependencies.messages.text("openDefault"),
+              action: "open-externally",
+              onClick: () => {
+                void this.openCurrentFileExternally();
+              },
+            }
+          : undefined,
+      classNames: {
+        root: "office-viewer-docx-error",
+      },
+    });
+    this.main.replaceChildren(panel);
+  }
+
+  private restoreReadingShell(): void {
+    if (this.main.contains(this.readingBody)) return;
+    this.main.replaceChildren(this.searchRail, this.readingBody);
   }
 }

@@ -34,7 +34,7 @@ describe("installed DOCX reading and search", () => {
     await expect(root).toHaveText(expect.stringContaining("Market outlook"));
     await expect(root.$('[data-action="open-docx-search"]')).toExist();
     await expect(
-      root.$(".office-viewer-docx-toolbar button:last-child"),
+      root.$('[data-action="open-externally"]'),
     ).toHaveText("Open in default application");
     await expect(
       root.$('a[data-docx-external-link="true"]'),
@@ -79,6 +79,8 @@ describe("installed DOCX reading and search", () => {
       '.workspace-leaf.mod-active .office-viewer-docx-shell[data-state="error"]',
     );
     await expect(rejected).toHaveAttribute("data-error-category", "incompatible");
+    await expect(rejected.$(".office-viewer-error")).toExist();
+    await expect(rejected.$('[data-action="retry"]')).toExist();
     await expect(rejected).toHaveText(
       expect.stringContaining("original DOCX file was not modified"),
     );
