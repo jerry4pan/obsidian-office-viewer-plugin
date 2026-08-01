@@ -95,4 +95,18 @@ describe("PPTX compatibility corpus manifest", () => {
       false,
     ]);
   });
+
+  it("pins the installed Obsidian host used by approved visual baselines", async () => {
+    const { config } = await import("../../wdio.compatibility.conf.mts");
+    const capabilities = config.capabilities as unknown as Array<{
+      browserVersion?: string;
+      "wdio:obsidianOptions"?: { installerVersion?: string };
+    }>;
+
+    expect(capabilities).toHaveLength(1);
+    expect(capabilities[0]?.browserVersion).toBe("1.12.7");
+    expect(
+      capabilities[0]?.["wdio:obsidianOptions"]?.installerVersion,
+    ).toBe("1.12.7");
+  });
 });

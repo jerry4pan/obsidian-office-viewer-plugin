@@ -45,7 +45,11 @@ export interface CandidateHumanReview {
 export interface CandidateBaselineApproval {
   readonly sha256: string;
   readonly reason: string;
-  readonly approvedOn: "2026-07-13" | "2026-07-14" | "2026-07-15";
+  readonly approvedOn:
+    | "2026-07-13"
+    | "2026-07-14"
+    | "2026-07-15"
+    | "2026-08-02";
 }
 
 export interface CorpusFixture {
@@ -150,9 +154,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "5a1949c75081d7401d0f3f5b7e6320dd090fac37c9813fccfa8eb764363d4b9a",
-        reason: "The 2026-07-15 M3 review approved the intentional 462 x 484 main-slide capture after the persistent font-substitution warning took a fixed visible row; the slide remains fully fit, all five readable units remain visible, and presentation rendering is unchanged.",
-        approvedOn: "2026-07-15",
+        sha256: "5b2269876d56d4efc0bab26eb1fc4a702b70b4f16aeb87b2d927812b05cd1aec",
+        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 446 capture: the shell removes 38 px of duplicated vertical chrome while all five readable units, layout, and font-substitution warning remain unchanged.",
+        approvedOn: "2026-08-02",
       },
       "pptx-preview": {
         sha256: "ce1fcdfa514ce879d7da008351f947b35165c31b833a49b441c3953e79ea7167",
@@ -188,9 +192,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "2b4b94b63e69120116a5dacb72847e80d9473224f9d8b401b461998e260706ad",
-        reason: "The 2026-07-15 M3 review approved the intentional 462 x 484 main-slide capture after the persistent unsupported-content warning took a fixed visible row; the slide remains fully fit and the known SVG degradation is unchanged.",
-        approvedOn: "2026-07-15",
+        sha256: "646fd7b344234378de78379cb86b692a33668af8bcf9e263e61fb2dba509285f",
+        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 446 capture: the shell removes 38 px of duplicated vertical chrome while labels, transparency, layout, and the known broken SVG remain unchanged.",
+        approvedOn: "2026-08-02",
       },
       "pptx-preview": {
         sha256: "f9e445481f1dc10b432e24e087d8752da6cef909175baf5d8aad515d960b664a",
@@ -227,9 +231,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "e233151e7c031386b1836d3d05ca79e6eb0ca10b57323f04b12106630f2859de",
-        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
-        approvedOn: "2026-07-14",
+        sha256: "c41b9f5745d95805211a3847c188a41a12593cd7794ca22f562b50a830c3aca8",
+        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 511 capture: the shell removes 38 px of duplicated vertical chrome while the table, axes, labels, and both chart bars remain fully visible.",
+        approvedOn: "2026-08-02",
       },
       "pptx-preview": {
         sha256: "277205fe5a6d1fad1822fcbcf290af10b91acf7eb5bf824dbbcf8ff2809286c7",
@@ -265,9 +269,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "d2b797a99d29f0e198816f436fb04cfbe81b5d11a540e35c5c71dfd9f8a125e4",
-        reason: "The 2026-07-14 M2 review approved the intentional 462 x 549 main-slide capture produced by the default toolbar and thumbnail rail; rendered content and known SVG limitations are unchanged.",
-        approvedOn: "2026-07-14",
+        sha256: "0fc939494920d4c1b0859f679482717d4dab2af7289aee0377caa4fbeaadfdea",
+        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 511 capture: the shell removes 38 px of duplicated vertical chrome while all grouped shapes, labels, and the rotated callout remain fully visible.",
+        approvedOn: "2026-08-02",
       },
       "pptx-preview": {
         sha256: "8b9d9377e42546ca5c585f4eddcf8a033da61ad80a4cbb6fc2b2978399c79856",
@@ -298,9 +302,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "6cfb3690a7665a6872f295ca569f6302a270fd89b59544b7a0a5986d2fba072d",
-        reason: "The 2026-07-15 M3 review approved the intentional 462 x 484 main-slide capture after the persistent unsupported-content warning took a fixed visible row; the slide remains fully fit and the known broken SVG placeholder is unchanged.",
-        approvedOn: "2026-07-15",
+        sha256: "aaab5b5cf96a741cf606ff45faf1d6f62e38b9a0ce15201e274abbf474b13a57",
+        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 446 capture: the shell removes 38 px of duplicated vertical chrome while the title, layout, and known broken complex-SVG placeholder remain unchanged.",
+        approvedOn: "2026-08-02",
       },
       "pptx-preview": {
         sha256: "cee7216f5a842e43b7d850f912fff010bfd81e47e5788249a88f029ff1943400",

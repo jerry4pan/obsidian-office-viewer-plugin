@@ -1,4 +1,4 @@
-import { config as baseConfig } from "./wdio.conf.mts";
+import { config as baseConfig } from "./wdio.docx.conf.mts";
 
 export const config: WebdriverIO.Config = {
   ...baseConfig,

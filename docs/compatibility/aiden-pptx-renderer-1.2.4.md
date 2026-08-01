@@ -101,6 +101,16 @@ the zero-material-drift result. All content and layout remained unchanged. The
 approved hash and reason now record that host-language normalization; the
 visual drift limit remains zero material changed pixels after this approval.
 
+The 2026-08-02 shared-reading-shell revalidation pins both Obsidian and its
+installer to 1.12.7 so local and CI captures use the environment recorded
+above. The shared DOCX/PPTX shell intentionally removes 38 px of duplicated
+vertical chrome, changing the warning-bearing captures from 462 x 484 to
+462 x 446 and the remaining captures from 462 x 549 to 462 x 511. All five
+PNGs were visually inspected: text, fonts, footer, transparency, table/chart,
+grouping, rotation, and layout remain readable; the two documented broken-SVG
+placeholders are unchanged. The refreshed hashes record that approval and
+ordinary reference-host runs continue to require zero material changed pixels.
+
 ## Reproduce
 
 ```bash
