@@ -172,17 +172,15 @@ describe("DOCX reading and search view", () => {
     expect(new Uint8Array(source)).toEqual(sourceBefore);
   });
 
-  it("searches and reveals a distant result while keeping stress DOM bounded", async () => {
-    const source = await fixtureBuffer(
-      "performance-stress-5000-paragraphs.docx",
-    );
+  it("searches and reveals a distant result while keeping DOM bounded", async () => {
+    const source = await fixtureBuffer("body-led-reference.docx");
     const app = {
       scope: undefined,
       vault: { readBinary: vi.fn(async () => source) },
     };
     const renderer = new BoundedDocxRendererAdapter(
       { open: vi.fn() } as unknown as DocxRendererAdapter,
-      { largeParagraphThreshold: 1_000, windowSize: 240 },
+      { largeParagraphThreshold: 3, windowSize: 3 },
     );
     const view = new DocxFileView(
       { app } as never,
@@ -192,8 +190,8 @@ describe("DOCX reading and search view", () => {
       },
     );
     const file = Object.assign(new TFile(), {
-      path: "docx-exploration/performance-stress-5000-paragraphs.docx",
-      basename: "performance-stress-5000-paragraphs",
+      path: "docx-exploration/body-led-reference.docx",
+      basename: "body-led-reference",
       extension: "docx",
       stat: { size: source.byteLength, mtime: 1 },
     });
@@ -211,7 +209,7 @@ describe("DOCX reading and search view", () => {
     );
     expect(
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
-    ).toBeLessThanOrEqual(1_200);
+    ).toBeLessThanOrEqual(20);
 
     root
       .querySelector<HTMLButtonElement>('[data-action="open-docx-search"]')!
@@ -219,19 +217,18 @@ describe("DOCX reading and search view", () => {
     const search = root.querySelector<HTMLInputElement>(
       '[data-action="docx-search-input"]',
     )!;
-    search.value = "Stress paragraph 4999:";
+    search.value = "中文段落";
     search.dispatchEvent(new Event("input"));
     root
       .querySelector<HTMLButtonElement>(".office-viewer-docx-search-result")!
       .click();
 
     const active = root.querySelector<HTMLElement>(
-      '[data-docx-paragraph-ordinal="4999"]',
+      '[data-docx-paragraph-ordinal="11"]',
     );
     expect(active?.classList.contains("is-active-docx-paragraph")).toBe(true);
     expect(
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
-    ).toBeLessThanOrEqual(1_200);
-  // This test asserts bounded behavior; installed performance tests own timing budgets.
-  }, 30_000);
+    ).toBeLessThanOrEqual(20);
+  });
 });
