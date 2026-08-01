@@ -211,6 +211,7 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  position: relative;
 }
 
 .pptx-viewer .pptx-viewer__slide {
@@ -231,6 +232,22 @@
   flex: 0 0 auto;
   max-height: 100%;
   max-width: 100%;
+}
+
+.pptx-viewer .pptx-viewer__selection-copy {
+  box-shadow: var(--shadow-s);
+  font-size: var(--font-ui-small);
+  left: 50%;
+  max-width: calc(100% - var(--size-4-4));
+  position: absolute;
+  top: var(--size-4-2);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: var(--layer-popover, 30);
+}
+
+.pptx-viewer .pptx-viewer__selection-copy[hidden] {
+  display: none;
 }
 
 .pptx-viewer .pptx-viewer__notes-panel {
@@ -993,6 +1010,7 @@
 }
 
 .office-viewer-docx-reading-body {
+  container-type: inline-size;
   flex: 1 1 auto;
   line-height: 1.65;
   min-height: 0;
@@ -1016,10 +1034,63 @@
 }
 
 .office-viewer-docx-reading-body .docx-wrapper > section.docx {
+  box-sizing: border-box;
   box-shadow: none !important;
   margin: 0 auto !important;
   max-width: 52rem;
+  padding-inline: clamp(1.5rem, 12cqi, 7.5rem) !important;
   width: min(100%, 52rem) !important;
+}
+
+/*
+ * docx-preview expresses drawings with fixed point sizes. Keep those authored
+ * dimensions as an upper bound, but let wide drawings shrink with the reading
+ * pane so narrow Obsidian splits do not clip them or gain horizontal scrolling.
+ */
+.office-viewer-docx-reading-body .office-viewer-docx-media-wrapper {
+  box-sizing: border-box !important;
+  height: auto !important;
+  max-width: 100% !important;
+  width: min(
+    100%,
+    var(--office-viewer-docx-media-width, 100%)
+  ) !important;
+}
+
+.office-viewer-docx-reading-body
+  .office-viewer-docx-media-wrapper
+  > .office-viewer-docx-media {
+  display: block;
+  height: auto !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.office-viewer-docx-reading-body .office-viewer-docx-media {
+  height: auto !important;
+  max-width: 100% !important;
+}
+
+.office-viewer-docx-reading-body .office-viewer-docx-table {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  width: min(
+    100%,
+    var(--office-viewer-docx-table-width, 100%)
+  ) !important;
+}
+
+.office-viewer-docx-reading-body
+  .office-viewer-docx-table
+  :is(td, th) {
+  min-width: 0 !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.office-viewer-docx-reading-body .office-viewer-docx-table col {
+  width: var(--office-viewer-docx-column-width, auto) !important;
 }
 
 /*

@@ -3,6 +3,7 @@ import {
   formatSlideReferenceFragment,
   formatSlideReferenceLinkTarget,
   formatSlideReferenceMarkup,
+  formatSelectedSlideTextCopyMarkup,
   formatSpeakerNotesCopyMarkup,
   parseSlideReferenceFragment,
   parseSlideReferenceLink,
@@ -142,5 +143,30 @@ describe("slide reference fragment", () => {
     )).toBe(
       "First paragraph\n\nSecond paragraph\n\n[[deck.pptx#slide-id=257&slide=2|deck — Slide 2]]",
     );
+  });
+
+  it("formats selected slide text with the canonical reference", () => {
+    expect(formatSelectedSlideTextCopyMarkup(
+      "Selected line one\nSelected line two",
+      {
+        sourcePath: "deck.pptx",
+        alias: "deck — Slide 2",
+        slideId: 257,
+        createdSlideNumber: 2,
+        embed: true,
+      },
+    )).toBe(
+      "Selected line one\nSelected line two\n\n[[deck.pptx#slide-id=257&slide=2|deck — Slide 2]]",
+    );
+  });
+
+  it("rejects a whitespace-only slide-text selection", () => {
+    expect(() => formatSelectedSlideTextCopyMarkup(" \n ", {
+      sourcePath: "deck.pptx",
+      alias: "deck — Slide 1",
+      slideId: 256,
+      createdSlideNumber: 1,
+      embed: false,
+    })).toThrow("non-whitespace text");
   });
 });

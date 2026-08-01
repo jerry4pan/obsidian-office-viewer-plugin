@@ -97,6 +97,11 @@ export interface PptxViewOptions<FileRef> {
       target: SlideReferenceTarget,
       paragraphs: readonly string[],
     ): Promise<void>;
+    copySelection?(
+      file: FileRef,
+      target: SlideReferenceTarget,
+      selectedText: string,
+    ): Promise<void>;
   };
   /**
    * File-level Presentation companion note action. Independent of Vault APIs
@@ -130,6 +135,29 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement &&
     (target.isContentEditable ||
       ["INPUT", "BUTTON", "SELECT", "TEXTAREA"].includes(target.tagName));
+}
+
+interface SlideTextSelection {
+  readonly text: string;
+  readonly range: Range;
+}
+
+function readSlideTextSelection(
+  slideContainer: HTMLElement,
+): SlideTextSelection | null {
+  const selection = slideContainer.ownerDocument.getSelection();
+  if (selection === null || selection.isCollapsed || selection.rangeCount !== 1) {
+    return null;
+  }
+  const range = selection.getRangeAt(0);
+  if (
+    !slideContainer.contains(range.startContainer) ||
+    !slideContainer.contains(range.endContainer)
+  ) {
+    return null;
+  }
+  const text = selection.toString();
+  return text.trim().length === 0 ? null : { text, range };
 }
 
 const errorMessageKeys: Record<PptxOpenErrorCategory, MessageKey> = {
@@ -402,9 +430,24 @@ export class PptxViewSession<FileRef> {
     if (copyNotesButton) {
       decorateOfficeViewerIconButton(copyNotesButton, "lucide-notebook-text");
     }
+    const copySelectionButton =
+      this.options.slideReferences?.copySelection === undefined
+        ? null
+        : headerActions.createEl("button", {
+            type: "button",
+            title: this.messages.text("selection.copyWithSource"),
+            attr: {
+              "data-action": "copy-selected-slide-text",
+              "aria-label": this.messages.text("selection.copyWithSource"),
+            },
+          });
+    if (copySelectionButton) {
+      decorateOfficeViewerIconButton(copySelectionButton, "lucide-copy");
+    }
     if (copyReferenceButton) copyReferenceButton.disabled = true;
     if (copyEmbedButton) copyEmbedButton.disabled = true;
     if (copyNotesButton) copyNotesButton.disabled = true;
+    if (copySelectionButton) copySelectionButton.disabled = true;
 
     const actionStatus = content.createDiv({
       cls: "pptx-viewer__action-status",
@@ -446,6 +489,19 @@ export class PptxViewSession<FileRef> {
     const slideContainer = slideStage.createDiv({
       cls: "pptx-viewer__slide",
     });
+    const floatingCopySelectionButton =
+      this.options.slideReferences?.copySelection === undefined
+        ? null
+        : slideStage.createEl("button", {
+            type: "button",
+            cls: "pptx-viewer__selection-copy",
+            text: this.messages.text("selection.copyWithSource"),
+            attr: {
+              "data-action": "copy-selected-slide-text-floating",
+              "aria-label": this.messages.text("selection.copyWithSource"),
+            },
+          });
+    if (floatingCopySelectionButton) floatingCopySelectionButton.hidden = true;
     const notesPanel = slideStage.createDiv({
       cls: "pptx-viewer__notes-panel",
       attr: {
@@ -499,6 +555,47 @@ export class PptxViewSession<FileRef> {
         generation === this.generation &&
         !controller.signal.aborted &&
         this.rendererSession === rendererSession;
+      let selectedSlideText: string | null = null;
+      const clearSlideTextSelectionAction = () => {
+        selectedSlideText = null;
+        if (copySelectionButton) copySelectionButton.disabled = true;
+        if (floatingCopySelectionButton) floatingCopySelectionButton.hidden = true;
+      };
+      const updateSlideTextSelectionAction = () => {
+        if (!isCurrentRun()) {
+          clearSlideTextSelectionAction();
+          return;
+        }
+        const selected = readSlideTextSelection(slideContainer);
+        selectedSlideText = selected?.text ?? null;
+        const available = selected !== null && copyTarget !== null;
+        if (copySelectionButton) copySelectionButton.disabled = !available;
+        if (floatingCopySelectionButton === null) return;
+        floatingCopySelectionButton.hidden = !available;
+        if (!available || selected === null) return;
+        const getRangeRect = selected.range.getBoundingClientRect;
+        if (typeof getRangeRect !== "function") {
+          floatingCopySelectionButton.hidden = true;
+          return;
+        }
+        try {
+          const selectionRect = getRangeRect.call(selected.range);
+          const stageRect = slideStage.getBoundingClientRect();
+          const maximumLeft = Math.max(8, stageRect.width - 8);
+          const left = Math.min(
+            maximumLeft,
+            Math.max(
+              8,
+              selectionRect.left - stageRect.left + selectionRect.width / 2,
+            ),
+          );
+          const top = Math.max(8, selectionRect.bottom - stageRect.top + 8);
+          floatingCopySelectionButton.style.left = `${left}px`;
+          floatingCopySelectionButton.style.top = `${top}px`;
+        } catch {
+          floatingCopySelectionButton.hidden = true;
+        }
+      };
       let notesHighlight: {
         readonly slideId: number;
         readonly snippet: SlideSearchSnippet;
@@ -607,6 +704,7 @@ export class PptxViewSession<FileRef> {
         jumpButton.disabled = false;
         if (copyReferenceButton) copyReferenceButton.disabled = copyTarget === null;
         if (copyEmbedButton) copyEmbedButton.disabled = copyTarget === null;
+        updateSlideTextSelectionAction();
         updateCopyNotesAvailability();
       };
       const updateMountedCount = () => {
@@ -662,6 +760,7 @@ export class PptxViewSession<FileRef> {
       viewController = new PptxViewerController(rendererSession, queue, {
         setNavigationPending: (pending) => {
           if (!isCurrentRun()) return;
+          if (pending) clearSlideTextSelectionAction();
           previousButton.disabled = pending;
           nextButton.disabled = pending;
           pageInput.disabled = pending;
@@ -669,10 +768,12 @@ export class PptxViewSession<FileRef> {
           if (copyReferenceButton) copyReferenceButton.disabled = true;
           if (copyEmbedButton) copyEmbedButton.disabled = true;
           if (copyNotesButton) copyNotesButton.disabled = true;
+          if (copySelectionButton) copySelectionButton.disabled = true;
           if (!pending) restoreControlState();
         },
         commitSlide: (index) => {
           if (!isCurrentRun()) return;
+          clearSlideTextSelectionAction();
           const isInitialCommit = initialCommitPending;
           if (isInitialCommit) {
             initialCommitPending = false;
@@ -704,6 +805,7 @@ export class PptxViewSession<FileRef> {
             ? null
             : { slideId, createdSlideNumber: index + 1 };
           renderSpeakerNotes(index);
+          updateSlideTextSelectionAction();
           updateMountedCount();
           this.root.dataset.state = "ready";
           this.setLifecyclePhase("ready");
@@ -725,6 +827,7 @@ export class PptxViewSession<FileRef> {
           if (copyReferenceButton) copyReferenceButton.disabled = true;
           if (copyEmbedButton) copyEmbedButton.disabled = true;
           if (copyNotesButton) copyNotesButton.disabled = true;
+          clearSlideTextSelectionAction();
           navigationStartedAt = undefined;
           pageInput.value = String(viewController.state.currentSlideIndex + 1);
           this.root.dataset.state = "degraded";
@@ -1059,9 +1162,74 @@ export class PptxViewSession<FileRef> {
           },
         );
       };
+      const copySelectedSlideText = () => {
+        const target = copyTarget;
+        const selectedText = selectedSlideText;
+        if (
+          target === null ||
+          selectedText === null ||
+          !isCurrentRun() ||
+          this.options.slideReferences?.copySelection === undefined
+        ) {
+          return;
+        }
+        actionStatus.textContent = "";
+        void this.options.slideReferences.copySelection(
+          file,
+          target,
+          selectedText,
+        ).then(
+          () => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = this.messages.text(
+                "selection.copiedWithSource",
+              );
+            }
+          },
+          () => {
+            if (isCurrentRun()) {
+              actionStatus.textContent = this.messages.text(
+                "selection.copyFailure",
+              );
+            }
+          },
+        );
+      };
       copyReferenceButton?.addEventListener("click", () => copySlideMarkup(false));
       copyEmbedButton?.addEventListener("click", () => copySlideMarkup(true));
       copyNotesButton?.addEventListener("click", copySpeakerNotes);
+      copySelectionButton?.addEventListener("click", copySelectedSlideText);
+      floatingCopySelectionButton?.addEventListener(
+        "pointerdown",
+        (event) => event.preventDefault(),
+      );
+      floatingCopySelectionButton?.addEventListener(
+        "click",
+        copySelectedSlideText,
+      );
+      const selectionDocument = slideContainer.ownerDocument;
+      selectionDocument.addEventListener(
+        "selectionchange",
+        updateSlideTextSelectionAction,
+      );
+      slideContainer.addEventListener("pointerup", updateSlideTextSelectionAction);
+      slideContainer.addEventListener("keyup", updateSlideTextSelectionAction);
+      slideContainer.addEventListener("scroll", updateSlideTextSelectionAction);
+      this.runCleanups.add(() => {
+        selectionDocument.removeEventListener(
+          "selectionchange",
+          updateSlideTextSelectionAction,
+        );
+        slideContainer.removeEventListener(
+          "pointerup",
+          updateSlideTextSelectionAction,
+        );
+        slideContainer.removeEventListener("keyup", updateSlideTextSelectionAction);
+        slideContainer.removeEventListener(
+          "scroll",
+          updateSlideTextSelectionAction,
+        );
+      });
       const fullscreen = this.options.fullscreen ?? createDefaultFullscreenActions();
       let lastKnownFullscreenState = false;
       const applyFullscreenState = (active: boolean) => {
@@ -1137,6 +1305,19 @@ export class PptxViewSession<FileRef> {
           event.preventDefault();
           closeSearch();
           this.root.focus();
+          return;
+        }
+        if (event.key === "Escape" && selectedSlideText !== null) {
+          event.preventDefault();
+          const selection = slideContainer.ownerDocument.getSelection();
+          if (
+            selection !== null &&
+            selection.rangeCount === 1 &&
+            slideContainer.contains(selection.getRangeAt(0).startContainer)
+          ) {
+            selection.removeAllRanges();
+          }
+          clearSlideTextSelectionAction();
           return;
         }
         if (isEditableTarget(event.target)) return;

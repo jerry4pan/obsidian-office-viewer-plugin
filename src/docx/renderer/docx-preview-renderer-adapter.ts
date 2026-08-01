@@ -5,6 +5,7 @@ import {
   alignRenderedParagraphs,
   comparableParagraphText,
   mapRenderedParagraphs,
+  prepareRenderedDocxReadingLayout,
   sanitizeRenderedDocx,
   type DocxRendererAdapter,
   type DocxRendererSession,
@@ -78,6 +79,7 @@ export class DocxPreviewRendererAdapter implements DocxRendererAdapter {
     }
     signal.throwIfAborted();
     sanitizeRenderedDocx(staging);
+    prepareRenderedDocxReadingLayout(staging);
     const warnings: string[] = [];
     let paragraphElements: ReadonlyMap<number, HTMLElement>;
     try {

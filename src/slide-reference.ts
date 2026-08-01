@@ -128,6 +128,20 @@ export function formatSpeakerNotesCopyMarkup(
   })}`;
 }
 
+/** Selected visible slide text followed by the canonical slide reference. */
+export function formatSelectedSlideTextCopyMarkup(
+  selectedText: string,
+  reference: SlideReferenceMarkupInput,
+): string {
+  if (selectedText.trim().length === 0) {
+    throw new TypeError("Selected slide text copy requires non-whitespace text");
+  }
+  return `${selectedText}\n\n${formatSlideReferenceMarkup({
+    ...reference,
+    embed: false,
+  })}`;
+}
+
 export interface StandaloneSlideEmbedMatch {
   readonly sourcePath: string;
   readonly target: SlideReferenceTarget;

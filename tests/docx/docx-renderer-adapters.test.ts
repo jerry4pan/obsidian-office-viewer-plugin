@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { inspectDocxPackage } from "../../src/docx/docx-semantic-model";
 import {
   mapRenderedParagraphs,
+  prepareRenderedDocxReadingLayout,
   sanitizeRenderedDocx,
   type DocxRendererAdapter,
 } from "../../src/docx/renderer/docx-renderer-adapter";
@@ -184,6 +185,70 @@ describe("DOCX renderer mapping and sanitization", () => {
     expect(container.querySelector("#inline")?.getAttribute("src")).toContain(
       "data:image/png",
     );
+  });
+
+  it("marks fixed-size docx-preview content for responsive reading", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <section class="docx">
+        <div id="large" style="display: inline-block; width: 428.65pt; height: 172.2pt">
+          <img id="large-image" src="data:image/png;base64,AA==" style="width: 428.65pt; height: 172.2pt">
+        </div>
+        <div id="small" style="display: inline-block; width: 72pt; height: 66pt">
+          <img id="small-image" src="data:image/png;base64,AA==" style="width: 72pt; height: 66pt">
+        </div>
+        <div id="complex" style="display: inline-block; width: 200pt">
+          <span>caption</span>
+          <img id="complex-image" src="data:image/png;base64,AA==">
+        </div>
+        <table id="wide-table" style="width: 457.95pt">
+          <colgroup><col id="narrow-column" style="width: 100pt"><col id="wide-column" style="width: 300pt"></colgroup>
+          <tr><td>Label</td><td>Evidence</td></tr>
+        </table>
+      </section>
+    `;
+
+    prepareRenderedDocxReadingLayout(container);
+
+    const large = container.querySelector<HTMLElement>("#large");
+    const small = container.querySelector<HTMLElement>("#small");
+    expect(large?.classList.contains("office-viewer-docx-media-wrapper")).toBe(
+      true,
+    );
+    expect(
+      large?.style.getPropertyValue("--office-viewer-docx-media-width"),
+    ).toBe("428.65pt");
+    expect(small?.classList.contains("office-viewer-docx-media-wrapper")).toBe(
+      true,
+    );
+    expect(
+      small?.style.getPropertyValue("--office-viewer-docx-media-width"),
+    ).toBe("72pt");
+    expect(
+      container
+        .querySelector("#complex")
+        ?.classList.contains("office-viewer-docx-media-wrapper"),
+    ).toBe(false);
+    expect(
+      Array.from(container.querySelectorAll("img")).every((image) =>
+        image.classList.contains("office-viewer-docx-media"),
+      ),
+    ).toBe(true);
+    const table = container.querySelector<HTMLElement>("#wide-table");
+    expect(table?.classList.contains("office-viewer-docx-table")).toBe(true);
+    expect(
+      table?.style.getPropertyValue("--office-viewer-docx-table-width"),
+    ).toBe("457.95pt");
+    expect(
+      container
+        .querySelector<HTMLElement>("#narrow-column")
+        ?.style.getPropertyValue("--office-viewer-docx-column-width"),
+    ).toBe("25%");
+    expect(
+      container
+        .querySelector<HTMLElement>("#wide-column")
+        ?.style.getPropertyValue("--office-viewer-docx-column-width"),
+    ).toBe("75%");
   });
 });
 

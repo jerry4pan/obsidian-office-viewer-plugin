@@ -122,6 +122,52 @@ describe("PPTX slide references", () => {
       "[[performance/representative-12-slides.pptx#slide-id=261&slide=6|representative-12-slides — Slide 6]]",
       "![[performance/representative-12-slides.pptx#slide-id=261&slide=6|representative-12-slides — Slide 6]]",
     ]);
+
+    const selectedText = await browser.execute(() => {
+      const slide = document.querySelector<HTMLElement>(
+        ".workspace-leaf.mod-active .pptx-viewer__slide",
+      );
+      if (slide === null) throw new Error("Missing rendered slide");
+      const walker = document.createTreeWalker(slide, NodeFilter.SHOW_TEXT);
+      let textNode: Text | null = null;
+      while (walker.nextNode()) {
+        const candidate = walker.currentNode as Text;
+        if ((candidate.textContent?.trim().length ?? 0) >= 4) {
+          textNode = candidate;
+          break;
+        }
+      }
+      if (textNode === null || textNode.textContent === null) {
+        throw new Error("Missing selectable slide text");
+      }
+      const firstNonWhitespace = textNode.textContent.search(/\S/);
+      const end = Math.min(textNode.textContent.length, firstNonWhitespace + 12);
+      const range = document.createRange();
+      range.setStart(textNode, firstNonWhitespace);
+      range.setEnd(textNode, end);
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+      return selection?.toString() ?? "";
+    });
+    expect(selectedText.trim().length).toBeGreaterThan(0);
+    const copySelection = root.$(
+      '[data-action="copy-selected-slide-text"]',
+    );
+    await expect(copySelection).toBeEnabled();
+    await copySelection.click();
+    await browser.waitUntil(async () => browser.execute(() =>
+      ((window as unknown as { __pptxCopiedMarkup?: string[] })
+        .__pptxCopiedMarkup?.length ?? 0) === 3), {
+      timeout: 5_000,
+      timeoutMsg: "Selected slide text did not reach the installed clipboard seam",
+    });
+    expect(await browser.execute(() =>
+      (window as unknown as { __pptxCopiedMarkup?: string[] })
+        .__pptxCopiedMarkup?.[2] ?? "")).toBe(
+      `${selectedText}\n\n[[performance/representative-12-slides.pptx#slide-id=261&slide=6|representative-12-slides — Slide 6]]`,
+    );
   });
 
   it("shows an honest stale state instead of falling back to the ordinal", async () => {

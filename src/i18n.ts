@@ -78,6 +78,9 @@ const ENGLISH_MESSAGES = {
   "reference.copied": "Slide reference copied.",
   "reference.embedCopied": "Slide embed copied.",
   "reference.copyFailure": "Unable to copy the slide reference.",
+  "selection.copyWithSource": "Copy selected text with source",
+  "selection.copiedWithSource": "Selected text copied with slide reference.",
+  "selection.copyFailure": "Unable to copy the selected text.",
   "reference.alias": "{name} — Slide {slide}",
   "reference.moved":
     "This reference was created for slide {created}; the same slide is now slide {current}.",
@@ -215,6 +218,9 @@ const SIMPLIFIED_CHINESE_MESSAGES = {
   "reference.copied": "已复制幻灯片引用。",
   "reference.embedCopied": "已复制幻灯片嵌入。",
   "reference.copyFailure": "无法复制幻灯片引用。",
+  "selection.copyWithSource": "复制所选文字并附来源",
+  "selection.copiedWithSource": "已复制所选文字及幻灯片引用。",
+  "selection.copyFailure": "无法复制所选文字。",
   "reference.alias": "{name} — 第 {slide} 张幻灯片",
   "reference.moved":
     "此引用创建时指向第 {created} 张；同一张幻灯片现在是第 {current} 张。",
@@ -344,6 +350,9 @@ const TRADITIONAL_CHINESE_MESSAGES = {
   "reference.copied": "已複製投影片引用。",
   "reference.embedCopied": "已複製投影片嵌入。",
   "reference.copyFailure": "無法複製投影片引用。",
+  "selection.copyWithSource": "複製所選文字並附來源",
+  "selection.copiedWithSource": "已複製所選文字及投影片引用。",
+  "selection.copyFailure": "無法複製所選文字。",
   "reference.alias": "{name} — 第 {slide} 張投影片",
   "reference.moved":
     "此引用建立時指向第 {created} 張；同一張投影片目前是第 {current} 張。",

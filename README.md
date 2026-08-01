@@ -122,6 +122,9 @@ containing sensitive content, filenames, paths, slide text, or images.
 - **Copy slide embed** creates the same stable reference as a live,
   source-backed single-slide embed in Markdown Reading View and, for a
   standalone canonical embed line, in Live Preview.
+- Select visible text on the current slide to use **Copy selected text with
+  source**. Ordinary `Cmd+C` / `Ctrl+C` remains unchanged; the explicit action
+  copies the selected text followed by the stable slide reference.
 - In Live Preview, only a canonical PPTX single-slide embed that is the sole
   non-whitespace content on its line becomes an inline widget. Cursor,
   selection, or a click on the slide canvas reveals the exact Markdown; only

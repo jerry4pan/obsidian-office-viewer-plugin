@@ -178,3 +178,76 @@ export function sanitizeRenderedDocx(container: HTMLElement): void {
     }
   }
 }
+
+/**
+ * Adds project-owned hooks around docx-preview media and tables so reading-mode
+ * CSS can shrink fixed-size content without depending on the renderer's
+ * inline-style shape. Authored widths remain upper bounds on wide panes.
+ */
+export function prepareRenderedDocxReadingLayout(
+  container: HTMLElement,
+): void {
+  for (const image of container.querySelectorAll<HTMLImageElement>("img")) {
+    image.classList.add("office-viewer-docx-media");
+    const wrapper = image.parentElement;
+    if (
+      wrapper === null ||
+      wrapper.tagName !== "DIV" ||
+      wrapper.style.display !== "inline-block" ||
+      wrapper.children.length !== 1 ||
+      wrapper.firstElementChild !== image
+    ) {
+      continue;
+    }
+    wrapper.classList.add("office-viewer-docx-media-wrapper");
+    const authoredWidth = wrapper.style.width.trim();
+    if (authoredWidth.length > 0) {
+      wrapper.style.setProperty(
+        "--office-viewer-docx-media-width",
+        authoredWidth,
+      );
+    }
+  }
+  for (const table of container.querySelectorAll<HTMLTableElement>("table")) {
+    table.classList.add("office-viewer-docx-table");
+    const authoredWidth = table.style.width.trim();
+    if (authoredWidth.length > 0 && authoredWidth !== "auto") {
+      table.style.setProperty(
+        "--office-viewer-docx-table-width",
+        authoredWidth,
+      );
+    }
+    const columns = Array.from(
+      table.querySelectorAll<HTMLTableColElement>("col"),
+    ).filter((column) => column.closest("table") === table);
+    const parsedWidths = columns.map((column) => {
+      const match = column.style.width
+        .trim()
+        .match(/^([0-9]+(?:\.[0-9]+)?)([a-z]+)$/i);
+      if (match === null) return null;
+      const value = Number.parseFloat(match[1] ?? "");
+      const unit = match[2]?.toLowerCase() ?? "";
+      return Number.isFinite(value) && value > 0 ? { value, unit } : null;
+    });
+    const unit = parsedWidths[0]?.unit;
+    if (
+      unit === undefined ||
+      parsedWidths.some((width) => width === null || width.unit !== unit)
+    ) {
+      continue;
+    }
+    const total = parsedWidths.reduce(
+      (sum, width) => sum + (width?.value ?? 0),
+      0,
+    );
+    if (total <= 0) continue;
+    columns.forEach((column, index) => {
+      const width = parsedWidths[index];
+      if (width === undefined || width === null) return;
+      column.style.setProperty(
+        "--office-viewer-docx-column-width",
+        `${(width.value / total) * 100}%`,
+      );
+    });
+  }
+}

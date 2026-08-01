@@ -14,6 +14,7 @@ import type { PptxViewSessionDiagnostics } from "./pptx-view-session";
 import type { DiagnosticEnvironment } from "./diagnostic-summary";
 import { createPptxRendererAdapter } from "./renderer/create-pptx-renderer-adapter";
 import {
+  formatSelectedSlideTextCopyMarkup,
   formatSlideReferenceMarkup,
   formatSpeakerNotesCopyMarkup,
   parseSlideReferenceFragment,
@@ -111,6 +112,21 @@ export class PptxFileView extends FileView {
                 embed: false,
               },
             ));
+          },
+          copySelection: async (file, target, selectedText) => {
+            const alias = this.messages.text("reference.alias", {
+              name: file.basename,
+              slide: target.createdSlideNumber,
+            });
+            await navigator.clipboard.writeText(
+              formatSelectedSlideTextCopyMarkup(selectedText, {
+                sourcePath: file.path,
+                alias,
+                slideId: target.slideId,
+                createdSlideNumber: target.createdSlideNumber,
+                embed: false,
+              }),
+            );
           },
         },
         companionNote: state?.ensureCompanionNote === undefined

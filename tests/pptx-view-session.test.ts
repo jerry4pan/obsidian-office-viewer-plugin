@@ -1730,6 +1730,122 @@ describe("PptxViewSession", () => {
       .toContain("created for slide 2");
   });
 
+  it("copies a slide-only text selection with its stable source", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const { adapter } = makeRenderer(1, [256]);
+    const copySelection = vi.fn(async () => {});
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(8)) },
+      adapter,
+      {
+        slideReferences: {
+          copy: vi.fn(async () => {}),
+          copySelection,
+        },
+      },
+    );
+
+    await session.open("deck.pptx");
+
+    const toolbarAction = root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-selected-slide-text"]',
+    )!;
+    const floatingAction = root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-selected-slide-text-floating"]',
+    )!;
+    expect(toolbarAction.disabled).toBe(true);
+    expect(floatingAction.hidden).toBe(true);
+
+    const slide = root.querySelector<HTMLElement>(".pptx-viewer__slide")!;
+    const text = slide.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, 8);
+    Object.defineProperty(range, "getBoundingClientRect", {
+      value: () => ({
+        bottom: 40,
+        height: 20,
+        left: 10,
+        right: 90,
+        top: 20,
+        width: 80,
+        x: 10,
+        y: 20,
+        toJSON: () => ({}),
+      }),
+    });
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+
+    expect(toolbarAction.disabled).toBe(false);
+    expect(floatingAction.hidden).toBe(false);
+    expect(floatingAction.textContent).toBe("Copy selected text with source");
+    const nativeCopy = new Event("copy", { bubbles: true, cancelable: true });
+    slide.dispatchEvent(nativeCopy);
+    expect(nativeCopy.defaultPrevented).toBe(false);
+
+    toolbarAction.click();
+    await vi.waitFor(() => expect(copySelection).toHaveBeenCalledWith(
+      "deck.pptx",
+      { slideId: 256, createdSlideNumber: 1 },
+      "Obsidian",
+    ));
+    expect(root.querySelector(".pptx-viewer__action-status")?.textContent)
+      .toBe("Selected text copied with slide reference.");
+
+    selection.removeAllRanges();
+    document.dispatchEvent(new Event("selectionchange"));
+    expect(toolbarAction.disabled).toBe(true);
+    expect(floatingAction.hidden).toBe(true);
+
+    session.dispose();
+    root.remove();
+  });
+
+  it("ignores selections outside the rendered slide", async () => {
+    const root = document.createElement("div");
+    const outside = document.createElement("p");
+    outside.textContent = "Outside text";
+    document.body.append(root, outside);
+    const { adapter } = makeRenderer(1, [256]);
+    const copySelection = vi.fn(async () => {});
+    const session = new PptxViewSession(
+      root,
+      { readBinary: vi.fn(async () => new ArrayBuffer(8)) },
+      adapter,
+      {
+        slideReferences: {
+          copy: vi.fn(async () => {}),
+          copySelection,
+        },
+      },
+    );
+    await session.open("deck.pptx");
+
+    const range = document.createRange();
+    range.selectNodeContents(outside);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+
+    const toolbarAction = root.querySelector<HTMLButtonElement>(
+      '[data-action="copy-selected-slide-text"]',
+    )!;
+    expect(toolbarAction.disabled).toBe(true);
+    toolbarAction.click();
+    expect(copySelection).not.toHaveBeenCalled();
+
+    selection.removeAllRanges();
+    session.dispose();
+    root.remove();
+    outside.remove();
+  });
+
   it("fails a missing stable identity honestly without ordinal fallback", async () => {
     const root = document.createElement("div");
     const reader = { readBinary: vi.fn(async () => new ArrayBuffer(8)) };
