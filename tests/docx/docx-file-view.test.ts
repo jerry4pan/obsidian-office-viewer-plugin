@@ -91,6 +91,17 @@ describe("DOCX reading and search view", () => {
       root.querySelector('[data-action="open-externally"]')
         ?.textContent,
     ).toBe("Open in default application");
+    const brand = root.querySelector("[data-office-viewer-brand]")!;
+    expect(brand).not.toBeNull();
+    expect(brand.querySelector(".office-viewer-brand__product")?.textContent)
+      .toBe("Office Viewer");
+    expect(brand.querySelector(".office-viewer-brand__format")?.textContent)
+      .toBe("DOCX");
+    expect(brand.querySelector(".office-viewer-brand__creator")).toBeNull();
+    expect(
+      root.querySelector(".office-viewer-toolbar__primary")
+        ?.previousElementSibling,
+    ).toBe(brand);
 
     root
       .querySelector<HTMLButtonElement>('[data-action="open-docx-search"]')!
@@ -153,6 +164,10 @@ describe("DOCX reading and search view", () => {
     );
     expect(root.querySelector('[data-action="open-externally"]')?.textContent)
       .toBe("Open in default application");
+    expect(root.querySelectorAll("[data-office-viewer-brand]")).toHaveLength(1);
+    expect(
+      root.querySelector(".office-viewer-brand__format")?.textContent,
+    ).toBe("DOCX");
     expect(root.textContent).toContain("original DOCX file was not modified");
     expect(new Uint8Array(source)).toEqual(sourceBefore);
   });

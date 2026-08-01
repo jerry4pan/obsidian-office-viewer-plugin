@@ -26,5 +26,11 @@
       "wdio-obsidian-service"
     ]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "wdio*.conf.mts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "wdio*.conf.mts"
+  ]
 }

@@ -82,3 +82,18 @@ Use one understated line at the end of durable project surfaces:
 The README may use a more explanatory equivalent such as “Office Viewer is an
 open-source project by Jerry Pan.” Do not repeat the creator signature in the
 product hero, settings, toolbar, or error surfaces.
+
+### In-product file-view identity
+
+The installed DOCX and PPTX file-view shells share one restrained product
+identity in the common top toolbar:
+
+```text
+[Office Viewer mark] Office Viewer [DOCX|PPTX]
+```
+
+It is a non-interactive product signature, not a watermark, document authorship
+claim, profile link, or funding entry. Keep `Office Viewer`, `DOCX`, and `PPTX`
+as locked proper names across supported locales. The detailed shell contract
+lives in
+`docs/superpowers/specs/2026-08-01-shared-viewer-brand-identity-design.md`.

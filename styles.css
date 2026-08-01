@@ -2,6 +2,8 @@
   align-items: stretch;
   background: var(--background-secondary);
   color: var(--text-normal);
+  container-name: office-viewer;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--size-4-2);
@@ -10,6 +12,19 @@
   min-width: 0;
   overflow: hidden;
   padding: var(--size-4-3);
+}
+
+.pptx-viewer__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  min-height: 0;
+  min-width: 0;
+}
+
+.pptx-viewer__content > .pptx-viewer__error {
+  margin-block: auto;
 }
 
 .pptx-slide-embed {
@@ -110,14 +125,18 @@
 }
 
 .pptx-viewer .pptx-viewer__toolbar.office-viewer-toolbar {
+  border-bottom: none;
   flex: 0 0 auto;
   margin: 0;
   padding: 0;
-  border-bottom: none;
 }
 
 .pptx-viewer .office-viewer-toolbar__secondary {
   gap: var(--size-4-2);
+}
+
+.pptx-viewer[data-fullscreen="true"] .office-viewer-brand {
+  display: none;
 }
 
 .pptx-viewer .pptx-viewer__header-actions {
@@ -689,14 +708,13 @@
   outline-offset: 2px;
 }
 
-/* Shared Office Viewer chrome: toolbar, error recovery, search feedback. */
+/* Shared Office Viewer chrome: brand, toolbar, error recovery, search feedback. */
 .office-viewer-toolbar {
   align-items: center;
   border-bottom: 1px solid var(--background-modifier-border);
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-4-2);
-  justify-content: space-between;
   padding: var(--size-4-2) var(--size-4-3);
 }
 
@@ -710,6 +728,47 @@
 
 .office-viewer-toolbar__secondary {
   margin-inline-start: auto;
+}
+
+.office-viewer-brand {
+  align-items: center;
+  color: var(--text-normal);
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: var(--size-4-2);
+  min-width: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.office-viewer-brand__mark {
+  display: block;
+  flex: 0 0 auto;
+  height: 20px;
+  width: 20px;
+}
+
+.office-viewer-brand__product {
+  color: var(--text-normal);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+}
+
+.office-viewer-brand__format {
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.2;
+  padding: 0.1em 0.4em;
+  white-space: nowrap;
+}
+
+@container office-viewer (max-width: 380px) {
+  .office-viewer-brand__product,
+  .office-viewer-brand__format {
+    display: none;
+  }
 }
 
 .office-viewer-icon-button {
@@ -784,6 +843,8 @@
 .office-viewer-docx-shell {
   background: var(--background-primary);
   color: var(--text-normal);
+  container-name: office-viewer;
+  container-type: inline-size;
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
   height: 100%;

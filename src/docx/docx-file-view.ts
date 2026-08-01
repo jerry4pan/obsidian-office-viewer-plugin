@@ -64,9 +64,10 @@ function safeExternalProtocol(url: string): boolean {
 
 export class DocxFileView extends FileView {
   private readonly root = document.createElement("div");
-  private readonly toolbar = createOfficeViewerToolbar(
-    "office-viewer-docx-toolbar",
-  );
+  private readonly toolbar = createOfficeViewerToolbar({
+    format: "DOCX",
+    extraClassName: "office-viewer-docx-toolbar",
+  });
   private readonly searchButton: HTMLButtonElement;
   private readonly externalButton: HTMLButtonElement;
   private readonly notices = document.createElement("div");

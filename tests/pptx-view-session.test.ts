@@ -2460,6 +2460,11 @@ describe("PptxViewSession", () => {
     };
     const session = new PptxViewSession(root, reader, adapter);
     await session.open("deck.pptx");
+    const brand = root.querySelector("[data-office-viewer-brand]");
+    expect(brand).not.toBeNull();
+    expect(root.querySelector(".office-viewer-brand__format")?.textContent)
+      .toBe("PPTX");
+    expect(root.querySelectorAll("[data-office-viewer-brand]")).toHaveLength(1);
 
     root.querySelector<HTMLButtonElement>('[data-action="retry"]')?.click();
 
@@ -2467,6 +2472,8 @@ describe("PptxViewSession", () => {
     expect(reader.readBinary).toHaveBeenCalledTimes(2);
     expect(root.textContent).toContain("1 / 2");
     expect(root.dataset.errorCategory).toBeUndefined();
+    expect(root.querySelector("[data-office-viewer-brand]")).toBe(brand);
+    expect(root.querySelectorAll("[data-office-viewer-brand]")).toHaveLength(1);
   });
 
   it("offers the injected default-application fallback", async () => {

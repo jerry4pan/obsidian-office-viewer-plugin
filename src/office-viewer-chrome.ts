@@ -1,4 +1,10 @@
 import { setIcon } from "obsidian";
+import officeViewerMarkDataUrl from "../assets/brand/office-viewer-mark.svg";
+
+export type OfficeViewerFormat = "DOCX" | "PPTX";
+
+export const OFFICE_VIEWER_PRODUCT_NAME = "Office Viewer";
+export const OFFICE_VIEWER_MARK_DATA_URL = officeViewerMarkDataUrl;
 
 export interface OfficeViewerErrorAction {
   readonly label: string;
@@ -26,6 +32,11 @@ export interface OfficeViewerErrorSurfaceOptions {
 export interface OfficeViewerErrorSurface {
   readonly panel: HTMLElement;
   readonly actionStatus: HTMLElement;
+}
+
+export interface OfficeViewerToolbarOptions {
+  readonly format: OfficeViewerFormat;
+  readonly extraClassName?: string;
 }
 
 export interface OfficeViewerToolbar {
@@ -91,17 +102,24 @@ export function createOfficeViewerErrorSurface(
   return { panel, actionStatus };
 }
 
-/** Shared chrome row: primary actions left, secondary actions right. */
+/**
+ * Shared chrome row: brand identity, primary actions left, secondary actions
+ * right. Callers own only the action slots.
+ */
 export function createOfficeViewerToolbar(
-  extraClassName?: string,
+  options: OfficeViewerToolbarOptions,
 ): OfficeViewerToolbar {
   const root = document.createElement("div");
-  root.className = classNames("office-viewer-toolbar", extraClassName);
+  root.className = classNames(
+    "office-viewer-toolbar",
+    options.extraClassName,
+  );
+  const brand = createOfficeViewerBrand(options.format);
   const primary = document.createElement("div");
   primary.className = "office-viewer-toolbar__primary";
   const secondary = document.createElement("div");
   secondary.className = "office-viewer-toolbar__secondary";
-  root.append(primary, secondary);
+  root.append(brand, primary, secondary);
   return { root, primary, secondary };
 }
 
@@ -113,6 +131,31 @@ export function decorateOfficeViewerIconButton(
   button.classList.add("office-viewer-icon-button");
   button.textContent = "";
   setIcon(button, iconId);
+}
+
+function createOfficeViewerBrand(format: OfficeViewerFormat): HTMLElement {
+  const brand = document.createElement("div");
+  brand.className = "office-viewer-brand";
+  brand.dataset.officeViewerBrand = "true";
+  brand.dataset.officeFormat = format;
+
+  const mark = document.createElement("img");
+  mark.className = "office-viewer-brand__mark";
+  mark.src = OFFICE_VIEWER_MARK_DATA_URL;
+  mark.alt = "";
+  mark.setAttribute("aria-hidden", "true");
+  mark.draggable = false;
+
+  const product = document.createElement("span");
+  product.className = "office-viewer-brand__product";
+  product.textContent = OFFICE_VIEWER_PRODUCT_NAME;
+
+  const formatBadge = document.createElement("span");
+  formatBadge.className = "office-viewer-brand__format";
+  formatBadge.textContent = format;
+
+  brand.append(mark, product, formatBadge);
+  return brand;
 }
 
 function createActionButton(

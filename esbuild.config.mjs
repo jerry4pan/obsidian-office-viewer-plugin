@@ -49,6 +49,9 @@ const context = await esbuild.context({
   outfile,
   sourcemap: production ? false : "inline",
   minify: production,
+  loader: {
+    ".svg": "dataurl",
+  },
   define: {
     "process.env.NODE_ENV": production ? '"production"' : '"development"',
     "process.env.PPTX_RENDERER_CANDIDATE": JSON.stringify(rendererCandidate),

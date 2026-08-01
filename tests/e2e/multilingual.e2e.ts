@@ -270,6 +270,11 @@ describe("multilingual installed smoke", () => {
         .endsWith(" / 12"),
       { timeout: 30_000, timeoutMsg: "Representative deck did not become active" },
     );
+    await expect(root.$(".office-viewer-brand__product")).toHaveText(
+      "Office Viewer",
+    );
+    await expect(root.$(".office-viewer-brand__format")).toHaveText("PPTX");
+    await expect(root.$(".office-viewer-brand__creator")).not.toExist();
     await expect(root.$('[data-action="previous-slide"]')).toHaveText(expected.previous);
     await expect(root.$('[data-action="next-slide"]')).toHaveText(expected.next);
     await expect(root.$('[data-action="page-number"]')).toHaveAttribute(

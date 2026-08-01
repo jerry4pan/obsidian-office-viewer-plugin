@@ -82,5 +82,10 @@ describe("release artifacts", () => {
       await zip.file("manifest.json")!.async("text"),
     ) as { version: string };
     expect(packagedManifest.version).toBe(VERSION);
+    const mainJs = await zip.file("main.js")!.async("text");
+    expect(mainJs).toContain("data:image/svg+xml");
+    expect(mainJs).toContain("Office Viewer");
+    expect(mainJs.match(/Office Viewer mark/g)?.length).toBe(1);
+    expect(mainJs).toContain("8066F2");
   });
 });

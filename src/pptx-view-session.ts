@@ -167,6 +167,8 @@ export class PptxViewSession<FileRef> {
   private diagnosticPrefetch = false;
   private referenceNavigator: ((target: SlideReferenceTarget) => void) | null = null;
   private openSlideContentSearchAction: (() => void) | null = null;
+  private toolbar: ReturnType<typeof createOfficeViewerToolbar> | null = null;
+  private contentHost: HTMLElement | null = null;
 
   constructor(
     private readonly root: HTMLElement,
@@ -183,6 +185,44 @@ export class PptxViewSession<FileRef> {
     });
     root.dataset.state = "empty";
     this.setLifecyclePhase("idle");
+  }
+
+  private ensurePersistentShell(): {
+    toolbar: ReturnType<typeof createOfficeViewerToolbar>;
+    content: HTMLElement;
+  } {
+    if (
+      this.toolbar !== null &&
+      this.contentHost !== null &&
+      this.root.contains(this.toolbar.root) &&
+      this.root.contains(this.contentHost)
+    ) {
+      return { toolbar: this.toolbar, content: this.contentHost };
+    }
+    this.root.replaceChildren();
+    this.toolbar = createOfficeViewerToolbar({
+      format: "PPTX",
+      extraClassName: "pptx-viewer__toolbar",
+    });
+    this.contentHost = document.createElement("div");
+    this.contentHost.className = "pptx-viewer__content";
+    this.root.append(this.toolbar.root, this.contentHost);
+    return { toolbar: this.toolbar, content: this.contentHost };
+  }
+
+  private clearShellActionSlots(
+    toolbar: ReturnType<typeof createOfficeViewerToolbar>,
+  ): void {
+    toolbar.primary.replaceChildren();
+    toolbar.secondary.replaceChildren();
+  }
+
+  private disableShellSearchActions(
+    toolbar: ReturnType<typeof createOfficeViewerToolbar>,
+  ): void {
+    for (const button of toolbar.primary.querySelectorAll("button")) {
+      button.disabled = true;
+    }
   }
 
   openSlideContentSearch(): boolean {
@@ -215,12 +255,11 @@ export class PptxViewSession<FileRef> {
     delete this.root.dataset.referenceCreatedSlide;
     delete this.root.dataset.referenceCurrentSlide;
 
-    this.root.replaceChildren();
+    const { toolbar, content } = this.ensurePersistentShell();
+    this.clearShellActionSlots(toolbar);
+    content.replaceChildren();
 
-    const toolbar = createOfficeViewerToolbar("pptx-viewer__toolbar");
-    this.root.append(toolbar.root);
-
-    const header = this.root.createDiv({
+    const header = content.createDiv({
       cls: "pptx-viewer__header pptx-viewer__status",
     });
     const status = header.createDiv({
@@ -230,16 +269,16 @@ export class PptxViewSession<FileRef> {
     });
     const headerActions = toolbar.secondary;
 
-    const compatibility = this.root.createDiv({
+    const compatibility = content.createDiv({
       cls: "pptx-viewer__compatibility",
       attr: { role: "note" },
     });
-    const referenceNotice = this.root.createDiv({
+    const referenceNotice = content.createDiv({
       cls: "pptx-viewer__reference-notice",
       attr: { role: "note" },
     });
 
-    const controls = this.root.createDiv({
+    const controls = content.createDiv({
       cls: "pptx-viewer__controls",
     });
 
@@ -367,7 +406,7 @@ export class PptxViewSession<FileRef> {
     if (copyEmbedButton) copyEmbedButton.disabled = true;
     if (copyNotesButton) copyNotesButton.disabled = true;
 
-    const actionStatus = this.root.createDiv({
+    const actionStatus = content.createDiv({
       cls: "pptx-viewer__action-status",
       attr: { role: "status", "aria-live": "polite" },
     });
@@ -397,7 +436,7 @@ export class PptxViewSession<FileRef> {
       headerActions.append(diagnosticButton);
     }
 
-    const readingBody = this.root.createDiv({
+    const readingBody = content.createDiv({
       cls: "pptx-viewer__reading-body",
     });
     const thumbnailRoot = readingBody.createDiv();
@@ -1189,6 +1228,8 @@ export class PptxViewSession<FileRef> {
     this.disposed = true;
     this.lifecyclePhase = "disposed";
     this.teardownOpenResources();
+    this.toolbar = null;
+    this.contentHost = null;
     this.root.replaceChildren();
     delete this.root.dataset.state;
     delete this.root.dataset.lifecyclePhase;
@@ -1210,7 +1251,9 @@ export class PptxViewSession<FileRef> {
     error: PptxOpenError,
     generation: number,
   ): void {
-    this.root.replaceChildren();
+    const { toolbar, content } = this.ensurePersistentShell();
+    this.disableShellSearchActions(toolbar);
+    content.replaceChildren();
     const { panel, actionStatus } = createOfficeViewerErrorSurface({
       title: this.messages.text(errorMessageKeys[error.category]),
       safetyNote: this.messages.text(
@@ -1262,7 +1305,7 @@ export class PptxViewSession<FileRef> {
       if (diagnosticButton) actions.append(diagnosticButton);
     }
 
-    this.root.append(panel);
+    content.append(panel);
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = error.category;
     this.diagnosticError = error.category;
@@ -1314,8 +1357,10 @@ export class PptxViewSession<FileRef> {
   }
 
   private showMissingReference(file: FileRef, generation: number): void {
-    this.root.replaceChildren();
-    const panel = this.root.createDiv({ cls: "pptx-viewer__error" });
+    const { toolbar, content } = this.ensurePersistentShell();
+    this.disableShellSearchActions(toolbar);
+    content.replaceChildren();
+    const panel = content.createDiv({ cls: "pptx-viewer__error" });
     panel.createDiv({
       cls: "pptx-viewer__status",
       text: this.messages.text("reference.missing"),

@@ -36,6 +36,12 @@ describe("installed DOCX reading and search", () => {
     await expect(
       root.$('[data-action="open-externally"]'),
     ).toHaveText("Open in default application");
+    await expect(root.$("[data-office-viewer-brand]")).toExist();
+    await expect(root.$(".office-viewer-brand__product")).toHaveText(
+      "Office Viewer",
+    );
+    await expect(root.$(".office-viewer-brand__format")).toHaveText("DOCX");
+    await expect(root.$(".office-viewer-brand__creator")).not.toExist();
     await expect(
       root.$('a[data-docx-external-link="true"]'),
     ).toHaveAttribute("href", "https://example.com/evidence");
