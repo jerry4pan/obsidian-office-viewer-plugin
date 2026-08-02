@@ -573,13 +573,12 @@ export class PptxViewSession<FileRef> {
         if (floatingCopySelectionButton === null) return;
         floatingCopySelectionButton.hidden = !available;
         if (!available || selected === null) return;
-        const getRangeRect = selected.range.getBoundingClientRect;
-        if (typeof getRangeRect !== "function") {
+        if (typeof selected.range.getBoundingClientRect !== "function") {
           floatingCopySelectionButton.hidden = true;
           return;
         }
         try {
-          const selectionRect = getRangeRect.call(selected.range);
+          const selectionRect = selected.range.getBoundingClientRect();
           const stageRect = slideStage.getBoundingClientRect();
           const maximumLeft = Math.max(8, stageRect.width - 8);
           const left = Math.min(

@@ -206,7 +206,7 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
       if (nextStart !== start) {
         start = nextStart;
         mounted.clear();
-        const fragment = document.createDocumentFragment();
+        const fragment = createFragment();
         for (let index = start; index < start + size; index += 1) {
           const paragraph = model.paragraphs[index];
           if (paragraph === undefined) continue;

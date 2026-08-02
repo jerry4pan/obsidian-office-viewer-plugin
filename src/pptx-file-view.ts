@@ -216,13 +216,13 @@ export class PptxFileView extends FileView {
   };
 
   private async openCompanionNote(file: TFile): Promise<string> {
-    const ensure = this.state?.ensureCompanionNote;
-    if (ensure === undefined) {
+    const state = this.state;
+    if (state?.ensureCompanionNote === undefined) {
       return this.messages.text("companion.openFailure");
     }
     const actionGeneration = this.companionActionGeneration;
     const sourcePath = file.path;
-    const result = await ensure(sourcePath);
+    const result = await state.ensureCompanionNote(sourcePath);
     if (
       this.disposed ||
       actionGeneration !== this.companionActionGeneration ||

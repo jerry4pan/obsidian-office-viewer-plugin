@@ -194,6 +194,13 @@ function createDetachedEl<K extends keyof HTMLElementTagNameMap>(
 ): HTMLSpanElement {
   return createDetachedEl("span", options, callback);
 };
+(globalThis as any).createFragment = function (
+  callback?: (el: DocumentFragment) => void,
+): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  if (callback) callback(fragment);
+  return fragment;
+};
 
 // Polyfill for Obsidian's setCssStyles on HTMLElement.prototype
 (HTMLElement.prototype as any).setCssStyles = function (
