@@ -699,10 +699,16 @@ describe("PptxViewSession", () => {
 
     const opening = session.open("deck.pptx");
     expect(root.textContent).toContain("正在加载演示文稿…");
-    expect(root.querySelector('[data-action="previous-slide"]')?.textContent)
-      .toBe("上一页");
-    expect(root.querySelector('[data-action="next-slide"]')?.textContent)
-      .toBe("下一页");
+    expect(
+      root.querySelector('[data-action="previous-slide"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("上一页");
+    expect(
+      root.querySelector('[data-action="next-slide"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("下一页");
     expect(
       root.querySelector('[data-action="page-number"]')?.getAttribute(
         "aria-label",
@@ -738,9 +744,6 @@ describe("PptxViewSession", () => {
     await opening;
 
     expect(root.textContent).toContain("1 / 3");
-    expect(root.querySelector(".pptx-viewer__page-total")?.textContent).toBe(
-      "共 3 页",
-    );
   });
 
   it("renders the core reading loop in Traditional Chinese", async () => {
@@ -768,10 +771,16 @@ describe("PptxViewSession", () => {
     const opening = session.open("deck.pptx");
     expect(root.textContent).toContain("正在載入簡報…");
 
-    expect(root.querySelector('[data-action="previous-slide"]')?.textContent)
-      .toBe("上一頁");
-    expect(root.querySelector('[data-action="next-slide"]')?.textContent)
-      .toBe("下一頁");
+    expect(
+      root.querySelector('[data-action="previous-slide"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("上一頁");
+    expect(
+      root.querySelector('[data-action="next-slide"]')?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("下一頁");
     expect(root.querySelector('[data-action="jump-to-slide"]')?.textContent)
       .toBe("跳至");
     expect(root.querySelector('[data-action="toggle-thumbnails"]')?.textContent)
@@ -806,9 +815,6 @@ describe("PptxViewSession", () => {
     finishRead(new ArrayBuffer(1));
     await opening;
 
-    expect(root.querySelector(".pptx-viewer__page-total")?.textContent).toBe(
-      "共 3 頁",
-    );
     expect(
       root.querySelector('.pptx-viewer__thumbnail-rail')?.getAttribute(
         "aria-label",

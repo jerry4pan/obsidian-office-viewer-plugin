@@ -1,6 +1,7 @@
 import {
   FileView,
   Scope,
+  setIcon,
   TFile,
   type WorkspaceLeaf,
 } from "obsidian";
@@ -71,6 +72,8 @@ export class DocxFileView extends FileView {
   private readonly searchButton: HTMLButtonElement;
   private readonly externalButton: HTMLButtonElement;
   private readonly notices = createDiv();
+  private readonly noticesIcon = createSpan();
+  private readonly noticesText = createSpan();
   private readonly actionStatus = createDiv();
   private readonly main = createDiv();
   private readonly searchRail = createDiv();
@@ -114,6 +117,12 @@ export class DocxFileView extends FileView {
     this.externalButton.setAttribute("data-action", "open-externally");
     this.notices.className = "office-viewer-docx-notices";
     this.notices.setAttribute("role", "status");
+    this.notices.hidden = true;
+    this.noticesIcon.className = "office-viewer-docx-notices__icon";
+    this.noticesIcon.setAttribute("aria-hidden", "true");
+    setIcon(this.noticesIcon, "lucide-info");
+    this.noticesText.className = "office-viewer-docx-notices__text";
+    this.notices.append(this.noticesIcon, this.noticesText);
     this.actionStatus.className = "office-viewer-docx-action-status";
     this.actionStatus.setAttribute("aria-live", "polite");
     this.main.className = "office-viewer-docx-main";
@@ -332,7 +341,7 @@ export class DocxFileView extends FileView {
   }
 
   private setNotice(message: string): void {
-    this.notices.textContent = message;
+    this.noticesText.textContent = message;
     this.notices.hidden = message.length === 0;
   }
 

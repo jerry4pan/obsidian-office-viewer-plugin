@@ -310,26 +310,41 @@ export class PptxViewSession<FileRef> {
       cls: "pptx-viewer__controls",
     });
 
-    const previousButton = controls.createEl("button", {
+    const navGroup = controls.createDiv({
+      cls: "pptx-viewer__control-group",
+    });
+
+    const previousButton = navGroup.createEl("button", {
       type: "button",
-      text: this.messages.text("navigation.previous"),
       attr: { "data-action": "previous-slide" },
     });
+    previousButton.title = this.messages.text("navigation.previous");
+    previousButton.setAttribute(
+      "aria-label",
+      this.messages.text("navigation.previous"),
+    );
+    decorateOfficeViewerIconButton(previousButton, "lucide-chevron-left");
     previousButton.disabled = true;
 
-    const pageCounter = controls.createDiv({
+    const pageCounter = navGroup.createDiv({
       cls: "pptx-viewer__page-counter",
+      attr: { role: "status", "aria-live": "polite" },
     });
 
-    const nextButton = controls.createEl("button", {
+    const nextButton = navGroup.createEl("button", {
       type: "button",
-      text: this.messages.text("navigation.next"),
       attr: { "data-action": "next-slide" },
     });
+    nextButton.title = this.messages.text("navigation.next");
+    nextButton.setAttribute(
+      "aria-label",
+      this.messages.text("navigation.next"),
+    );
+    decorateOfficeViewerIconButton(nextButton, "lucide-chevron-right");
     nextButton.disabled = true;
 
     const jumpForm = controls.createEl("form", {
-      cls: "pptx-viewer__page-jump",
+      cls: "pptx-viewer__page-jump pptx-viewer__control-group",
     });
     jumpForm.createSpan({
       text: this.messages.text("navigation.slide"),
@@ -346,11 +361,6 @@ export class PptxViewSession<FileRef> {
     pageInput.value = "1";
     pageInput.disabled = true;
 
-    const pageTotal = jumpForm.createSpan({
-      cls: "pptx-viewer__page-total",
-      text: this.messages.text("navigation.pageTotalPending"),
-    });
-
     const jumpButton = jumpForm.createEl("button", {
       type: "button",
       text: this.messages.text("navigation.go"),
@@ -358,7 +368,11 @@ export class PptxViewSession<FileRef> {
     });
     jumpButton.disabled = true;
 
-    const toggleFullscreen = controls.createEl("button", {
+    const viewGroup = controls.createDiv({
+      cls: "pptx-viewer__control-group",
+    });
+
+    const toggleFullscreen = viewGroup.createEl("button", {
       type: "button",
       text: this.messages.text("fullscreen.button"),
       attr: {
@@ -367,7 +381,7 @@ export class PptxViewSession<FileRef> {
       },
     });
 
-    const toggleThumbnails = controls.createEl("button", {
+    const toggleThumbnails = viewGroup.createEl("button", {
       type: "button",
       text: this.messages.text("thumbnails.toggle"),
       attr: {
@@ -378,7 +392,7 @@ export class PptxViewSession<FileRef> {
     });
 
     const notesPanelId = `pptx-viewer-speaker-notes-${this.generation}`;
-    const toggleNotes = controls.createEl("button", {
+    const toggleNotes = viewGroup.createEl("button", {
       type: "button",
       text: this.messages.text("notes.toggle"),
       attr: {
@@ -1096,9 +1110,6 @@ export class PptxViewSession<FileRef> {
       });
       pageInput.value = String(currentSlideIndex + 1);
       pageInput.max = String(rendererSession.slideCount);
-      pageTotal.textContent = this.messages.text("page.total", {
-        total: rendererSession.slideCount,
-      });
       restoreControlState();
       status.textContent = "";
       this.root.dataset.state = "ready";

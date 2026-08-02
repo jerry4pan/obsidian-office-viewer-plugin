@@ -55,7 +55,6 @@ const EXPECTED_UI = {
       "No matching speaker notes. Slide text, images, charts, and SmartArt are outside this scope.",
     embedCurrent: "representative-12-slides — Slide 6",
     openPresentation: "Open presentation",
-    pageTotal: "of 12",
     invalidPage: "Enter a slide number from 1 to 12.",
   },
   zh: {
@@ -100,7 +99,6 @@ const EXPECTED_UI = {
       "未在讲者备注中找到结果；幻灯片文字、图片、图表和 SmartArt 不在此范围内。",
     embedCurrent: "representative-12-slides — 第 6 张幻灯片",
     openPresentation: "打开演示文稿",
-    pageTotal: "共 12 页",
     invalidPage: "请输入 1 到 12 之间的幻灯片编号。",
   },
   "zh-TW": {
@@ -145,7 +143,6 @@ const EXPECTED_UI = {
       "在講者備註中找不到結果；投影片文字、圖片、圖表和 SmartArt 不在此範圍內。",
     embedCurrent: "representative-12-slides — 第 6 張投影片",
     openPresentation: "開啟簡報",
-    pageTotal: "共 12 頁",
     invalidPage: "請輸入 1 到 12 之間的投影片編號。",
   },
   fr: {
@@ -191,7 +188,6 @@ const EXPECTED_UI = {
       "No matching speaker notes. Slide text, images, charts, and SmartArt are outside this scope.",
     embedCurrent: "representative-12-slides — Slide 6",
     openPresentation: "Open presentation",
-    pageTotal: "of 12",
     invalidPage: "Enter a slide number from 1 to 12.",
   },
 } as const;
@@ -275,8 +271,14 @@ describe("multilingual installed smoke", () => {
     );
     await expect(root.$(".office-viewer-brand__format")).toHaveText("PPTX");
     await expect(root.$(".office-viewer-brand__creator")).not.toExist();
-    await expect(root.$('[data-action="previous-slide"]')).toHaveText(expected.previous);
-    await expect(root.$('[data-action="next-slide"]')).toHaveText(expected.next);
+    await expect(root.$('[data-action="previous-slide"]')).toHaveAttribute(
+      "aria-label",
+      expected.previous,
+    );
+    await expect(root.$('[data-action="next-slide"]')).toHaveAttribute(
+      "aria-label",
+      expected.next,
+    );
     await expect(root.$('[data-action="page-number"]')).toHaveAttribute(
       "aria-label",
       expected.slideNumber,
@@ -315,8 +317,6 @@ describe("multilingual installed smoke", () => {
       "aria-label",
       expected.companionOpen,
     );
-    await expect(root.$('.pptx-viewer__page-total')).toHaveText(expected.pageTotal);
-
     await root.$('[data-action="next-slide"]').click();
     await expect(root.$('.pptx-viewer__page-counter')).toHaveText("2 / 12");
     const pageInput = root.$('[data-action="page-number"]');
