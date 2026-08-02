@@ -5,7 +5,9 @@ import type {
 } from "../docx-semantic-model";
 import type {
   DocxRendererAdapter,
+  DocxRendererOpenOptions,
   DocxRendererSession,
+  DocxViewMode,
 } from "./docx-renderer-adapter";
 
 export interface BoundedDocxRendererOptions {
@@ -19,6 +21,8 @@ const DEFAULT_OPTIONS: BoundedDocxRendererOptions = {
   windowSize: 240,
   unavailablePlaceholder: "This document content cannot be displayed.",
 };
+
+const READING_ONLY: readonly DocxViewMode[] = ["reading"];
 
 function positiveInteger(value: number, name: string): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
@@ -133,35 +137,43 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
 
   async open(
     buffer: ArrayBuffer,
-    container: HTMLElement,
     model: DocxSemanticModel,
-    signal: AbortSignal,
+    options: DocxRendererOpenOptions,
   ): Promise<DocxRendererSession> {
-    if (model.paragraphs.length <= this.options.largeParagraphThreshold) {
-      try {
-        return await this.delegate.open(buffer, container, model, signal);
-      } catch (error) {
-        signal.throwIfAborted();
-        if (
-          !(error instanceof DocxOpenError) ||
-          error.category !== "incompatible"
-        ) {
-          throw error;
-        }
-        // Preview could not bind safely: fall back to semantic reading instead
-        // of failing the whole open.
-        return this.openBoundedSemantic(container, model, signal, [
-          "preview-unavailable-simplified-rendering",
-        ]);
+    const { mode, signal } = options;
+    if (model.paragraphs.length > this.options.largeParagraphThreshold) {
+      if (mode === "layout") {
+        throw new DocxOpenError(
+          "incompatible",
+          "Layout view is unavailable for large documents",
+        );
       }
+      return this.openBoundedSemantic(model, signal, [
+        "large-document-simplified-rendering",
+      ]);
     }
-    return this.openBoundedSemantic(container, model, signal, [
-      "large-document-simplified-rendering",
-    ]);
+    try {
+      return await this.delegate.open(buffer, model, options);
+    } catch (error) {
+      signal.throwIfAborted();
+      if (mode === "layout") {
+        throw error;
+      }
+      if (
+        !(error instanceof DocxOpenError) ||
+        error.category !== "incompatible"
+      ) {
+        throw error;
+      }
+      // Preview could not bind safely: fall back to semantic reading instead
+      // of failing the whole open.
+      return this.openBoundedSemantic(model, signal, [
+        "preview-unavailable-simplified-rendering",
+      ]);
+    }
   }
 
   private async openBoundedSemantic(
-    container: HTMLElement,
     model: DocxSemanticModel,
     signal: AbortSignal,
     warnings: readonly string[],
@@ -170,7 +182,7 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
 
     const root = document.createElement("div");
     root.className =
-      "office-viewer-docx office-viewer-docx--bounded-semantic";
+      "office-viewer-docx office-viewer-docx--bounded-semantic office-viewer-docx--reading";
     const topSpacer = document.createElement("div");
     topSpacer.className = "office-viewer-docx-bounded-spacer";
     topSpacer.setAttribute("aria-hidden", "true");
@@ -193,6 +205,8 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
     const size = Math.min(this.options.windowSize, count);
     const estimatedParagraphHeight = 36;
     let start = -1;
+    let mountedContainer: HTMLElement | null = null;
+    let disposed = false;
 
     const renderWindow = (targetOrdinal: number): HTMLElement | null => {
       const targetIndex = Math.max(
@@ -247,8 +261,9 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
     };
 
     const onScroll = (): void => {
+      if (mountedContainer === null) return;
       const approximateOrdinal =
-        Math.floor(container.scrollTop / estimatedParagraphHeight) + 1;
+        Math.floor(mountedContainer.scrollTop / estimatedParagraphHeight) + 1;
       if (
         approximateOrdinal < start + Math.floor(size / 4) ||
         approximateOrdinal > start + Math.floor((size * 3) / 4)
@@ -259,27 +274,47 @@ export class BoundedDocxRendererAdapter implements DocxRendererAdapter {
 
     renderWindow(1);
     signal.throwIfAborted();
-    container.replaceChildren(root);
-    container.addEventListener("scroll", onScroll, { passive: true });
 
     return {
       candidate: "bounded-semantic",
-      paragraphElements: mounted,
+      mode: "reading",
+      supportedModes: READING_ONLY,
+      paragraphAnchors: mounted,
       warnings,
       managesUnavailableContent: true,
-      revealParagraph: (ordinal) => {
+      mount: (container) => {
+        if (disposed) return;
+        if (mountedContainer !== null) {
+          throw new Error("DOCX renderer session is already mounted");
+        }
+        mountedContainer = container;
+        container.replaceChildren(root);
+        container.addEventListener("scroll", onScroll, { passive: true });
+      },
+      revealParagraph: (ordinal, _textHint) => {
+        if (mountedContainer === null || disposed) return null;
         if (!Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > count) {
           return null;
         }
         const element = renderWindow(ordinal);
-        container.scrollTop = (ordinal - 1) * estimatedParagraphHeight;
+        mountedContainer.scrollTop = (ordinal - 1) * estimatedParagraphHeight;
         return element;
       },
       dispose: () => {
-        container.removeEventListener("scroll", onScroll);
+        if (disposed) return;
+        disposed = true;
+        if (mountedContainer !== null) {
+          mountedContainer.removeEventListener("scroll", onScroll);
+        }
         mounted.clear();
         root.replaceChildren();
-        if (root.parentElement === container) container.replaceChildren();
+        if (
+          mountedContainer !== null &&
+          root.parentElement === mountedContainer
+        ) {
+          mountedContainer.replaceChildren();
+        }
+        mountedContainer = null;
       },
     };
   }

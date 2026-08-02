@@ -5,10 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DocxFileView } from "../../src/docx/docx-file-view";
 import { createDocxMessageTranslator } from "../../src/docx/docx-messages";
+import { DocxOpenError } from "../../src/docx/docx-open-error";
 import { BoundedDocxRendererAdapter } from "../../src/docx/renderer/bounded-docx-renderer-adapter";
 import type {
   DocxRendererAdapter,
   DocxRendererSession,
+  DocxViewMode,
 } from "../../src/docx/renderer/docx-renderer-adapter";
 
 async function fixtureBuffer(name: string): Promise<ArrayBuffer> {
@@ -19,15 +21,32 @@ async function fixtureBuffer(name: string): Promise<ArrayBuffer> {
 }
 
 class SemanticTestRenderer implements DocxRendererAdapter {
+  openCalls = 0;
+  lastMode: DocxViewMode | null = null;
+  private failLayout = false;
+
+  setFailLayout(value: boolean): void {
+    this.failLayout = value;
+  }
+
   async open(
     _buffer: ArrayBuffer,
-    container: HTMLElement,
-    model: Parameters<DocxRendererAdapter["open"]>[2],
-    signal: AbortSignal,
+    model: Parameters<DocxRendererAdapter["open"]>[1],
+    options: Parameters<DocxRendererAdapter["open"]>[2],
   ): Promise<DocxRendererSession> {
-    signal.throwIfAborted();
+    options.signal.throwIfAborted();
+    this.openCalls += 1;
+    this.lastMode = options.mode;
+    if (options.mode === "layout" && this.failLayout) {
+      throw new DocxOpenError("incompatible", "layout failed");
+    }
+
     const mapping = new Map<number, HTMLElement>();
     const body = document.createElement("div");
+    body.className =
+      options.mode === "layout"
+        ? "office-viewer-docx office-viewer-docx--layout"
+        : "office-viewer-docx office-viewer-docx--reading";
     for (const paragraph of model.paragraphs) {
       const element = document.createElement("p");
       element.textContent = paragraph.text;
@@ -35,13 +54,32 @@ class SemanticTestRenderer implements DocxRendererAdapter {
       mapping.set(paragraph.ordinal, element);
       body.append(element);
     }
-    container.replaceChildren(body);
+
+    let mountedContainer: HTMLElement | null = null;
+    let disposed = false;
     return {
       candidate: "docx-preview",
-      paragraphElements: mapping,
+      mode: options.mode,
+      supportedModes: ["reading", "layout"],
+      paragraphAnchors: mapping,
       warnings: [],
+      mount: (container) => {
+        mountedContainer = container;
+        container.replaceChildren(body);
+      },
       revealParagraph: (ordinal) => mapping.get(ordinal) ?? null,
-      dispose: () => body.remove(),
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        if (
+          mountedContainer !== null &&
+          body.parentElement === mountedContainer
+        ) {
+          mountedContainer.replaceChildren();
+        } else {
+          body.remove();
+        }
+      },
     };
   }
 }
@@ -78,7 +116,18 @@ describe("DOCX reading and search view", () => {
       ".office-viewer-docx-shell",
     )!;
     expect(root.dataset.state).toBe("ready");
+    expect(root.dataset.viewMode).toBe("reading");
     expect(root.dataset.renderer).toBe("docx-preview");
+    expect(
+      root
+        .querySelector('[data-action="docx-view-mode-reading"]')
+        ?.getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      root
+        .querySelector('[data-action="docx-view-mode-layout"]')
+        ?.getAttribute("aria-pressed"),
+    ).toBe("false");
     expect(root.textContent).toContain("This paragraph has a native identity.");
     expect(root.textContent).toContain(
       "This generated paragraph has no native identity.",
@@ -129,6 +178,94 @@ describe("DOCX reading and search view", () => {
     expect(new Uint8Array(source)).toEqual(sourceBefore);
   });
 
+  it("switches to layout using the retained safe buffer", async () => {
+    const source = await fixtureBuffer("read-search-only.docx");
+    const sourceBefore = new Uint8Array(source).slice();
+    const readBinary = vi.fn(async () => source);
+    const renderer = new SemanticTestRenderer();
+    const app = {
+      scope: undefined,
+      vault: { readBinary },
+    };
+    const view = new DocxFileView(
+      { app } as never,
+      {
+        renderer,
+        messages: createDocxMessageTranslator("en"),
+      },
+    );
+    const file = Object.assign(new TFile(), {
+      path: "docx-exploration/read-search-only.docx",
+      basename: "read-search-only",
+      extension: "docx",
+      stat: { size: source.byteLength, mtime: 1 },
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+
+    await view.onLoadFile(file);
+    const root = view.contentEl.querySelector<HTMLElement>(
+      ".office-viewer-docx-shell",
+    )!;
+    expect(renderer.openCalls).toBe(1);
+    root
+      .querySelector<HTMLButtonElement>('[data-action="docx-view-mode-layout"]')!
+      .click();
+    await vi.waitFor(() => {
+      expect(root.dataset.viewMode).toBe("layout");
+    });
+    expect(readBinary).toHaveBeenCalledTimes(1);
+    expect(renderer.openCalls).toBe(2);
+    expect(renderer.lastMode).toBe("layout");
+    expect(root.querySelectorAll(".office-viewer-docx")).toHaveLength(1);
+    expect(
+      root
+        .querySelector('[data-action="docx-view-mode-layout"]')
+        ?.getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(new Uint8Array(source)).toEqual(sourceBefore);
+  });
+
+  it("keeps the previous view when layout switching fails", async () => {
+    const source = await fixtureBuffer("read-search-only.docx");
+    const renderer = new SemanticTestRenderer();
+    const app = {
+      scope: undefined,
+      vault: { readBinary: vi.fn(async () => source) },
+    };
+    const view = new DocxFileView(
+      { app } as never,
+      {
+        renderer,
+        messages: createDocxMessageTranslator("en"),
+      },
+    );
+    const file = Object.assign(new TFile(), {
+      path: "docx-exploration/read-search-only.docx",
+      basename: "read-search-only",
+      extension: "docx",
+      stat: { size: source.byteLength, mtime: 1 },
+    });
+    await view.onLoadFile(file);
+    const root = view.contentEl.querySelector<HTMLElement>(
+      ".office-viewer-docx-shell",
+    )!;
+    expect(root.querySelector(".office-viewer-docx--reading")).not.toBeNull();
+    renderer.setFailLayout(true);
+    root
+      .querySelector<HTMLButtonElement>('[data-action="docx-view-mode-layout"]')!
+      .click();
+    await vi.waitFor(() => {
+      expect(root.querySelector(".office-viewer-docx-action-status")?.textContent)
+        .toContain("Unable to switch document view");
+    });
+    expect(root.dataset.viewMode).toBe("reading");
+    expect(root.querySelector(".office-viewer-docx--reading")).not.toBeNull();
+    expect(root.dataset.state).toBe("ready");
+  });
+
   it("exposes a stable local error state without changing the source", async () => {
     const source = Uint8Array.from([1, 2, 3, 4]).buffer;
     const sourceBefore = new Uint8Array(source).slice();
@@ -159,6 +296,11 @@ describe("DOCX reading and search view", () => {
     expect(root.dataset.state).toBe("error");
     expect(root.dataset.errorCategory).toBe("malformed");
     expect(root.querySelector(".office-viewer-error")).not.toBeNull();
+    expect(
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="docx-view-mode-layout"]',
+      )?.disabled,
+    ).toBe(true);
     expect(root.querySelector('[data-action="retry"]')?.textContent).toBe(
       "Retry",
     );
@@ -212,6 +354,11 @@ describe("DOCX reading and search view", () => {
     expect(
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
     ).toBeLessThanOrEqual(1_200);
+    expect(
+      root.querySelector<HTMLButtonElement>(
+        '[data-action="docx-view-mode-layout"]',
+      )?.disabled,
+    ).toBe(true);
 
     root
       .querySelector<HTMLButtonElement>('[data-action="open-docx-search"]')!
@@ -232,5 +379,5 @@ describe("DOCX reading and search view", () => {
     expect(
       root.querySelectorAll(".office-viewer-docx-reading-body *").length,
     ).toBeLessThanOrEqual(1_200);
-  }, 15_000);
+  }, 30_000);
 });

@@ -20,7 +20,10 @@ export interface DocxSearchPanelOptions {
   readonly messages: DocxMessageTranslator;
   readonly getModel: () => DocxSemanticModel | null;
   readonly currentParagraphOrdinal: () => number | null;
-  readonly onNavigate: (paragraphOrdinal: number) => void;
+  readonly onNavigate: (
+    paragraphOrdinal: number,
+    textHint?: string,
+  ) => void;
   readonly onDismiss: () => void;
 }
 
@@ -142,6 +145,10 @@ export class DocxSearchPanel {
     return this.root.dataset.searchOpen === "true";
   }
 
+  get currentQuery(): string {
+    return this.input.value;
+  }
+
   open(): void {
     if (this.disposed) return;
     this.root.dataset.searchOpen = "true";
@@ -234,7 +241,7 @@ export class DocxSearchPanel {
           current === null ? true : paragraphOrdinal > current,
         ) ?? this.matches[0];
     if (target !== undefined) {
-      this.options.onNavigate(target.paragraphOrdinal);
+      this.options.onNavigate(target.paragraphOrdinal, this.input.value);
       this.syncCurrentResult();
     }
   };
@@ -322,7 +329,7 @@ export class DocxSearchPanel {
       button.append(title, snippet, matchCount);
       button.addEventListener("click", () => {
         if (!this.disposed) {
-          this.options.onNavigate(result.paragraphOrdinal);
+          this.options.onNavigate(result.paragraphOrdinal, query);
           this.syncCurrentResult();
         }
       });

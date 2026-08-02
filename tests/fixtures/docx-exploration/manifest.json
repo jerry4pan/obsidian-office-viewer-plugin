@@ -11,6 +11,10 @@
       "expected": "readable-searchable"
     },
     {
+      "path": "layout-pages.docx",
+      "expected": "layout-page-geometry"
+    },
+    {
       "path": "final-revisions.docx",
       "expected": "final-body-text-only"
     },

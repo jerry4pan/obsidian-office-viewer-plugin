@@ -31,7 +31,10 @@ describe("installed DOCX reading and search", () => {
       '.workspace-leaf.mod-active .office-viewer-docx-shell[data-state="ready"]',
     );
     await expect(root).toExist();
+    await expect(root).toHaveAttribute("data-view-mode", "reading");
     await expect(root).toHaveText(expect.stringContaining("Market outlook"));
+    await expect(root.$('[data-action="docx-view-mode-reading"]')).toExist();
+    await expect(root.$('[data-action="docx-view-mode-layout"]')).toExist();
     await expect(root.$('[data-action="open-docx-search"]')).toExist();
     await expect(
       root.$('[data-action="open-externally"]'),
@@ -57,6 +60,66 @@ describe("installed DOCX reading and search", () => {
       root.$('[data-docx-paragraph-ordinal="3"]'),
     ).toHaveElementClass("is-active-docx-paragraph");
 
+    expect(await vaultSha256(path)).toBe(before);
+    await assertNoNetworkRequests();
+  });
+
+  it("switches to layout view with page geometry and keeps the source unchanged", async () => {
+    await installNetworkGuard();
+    const path = "docx-exploration/layout-pages.docx";
+    const before = await vaultSha256(path);
+
+    await obsidianPage.openFile(path);
+    const root = await browser.$(
+      '.workspace-leaf.mod-active .office-viewer-docx-shell[data-state="ready"]',
+    );
+    await expect(root).toHaveAttribute("data-view-mode", "reading");
+
+    await root.$('[data-action="docx-view-mode-layout"]').click();
+    await browser.waitUntil(
+      async () => (await root.getAttribute("data-view-mode")) === "layout",
+      { timeout: 15_000 },
+    );
+    const pageCount = await browser.execute(() =>
+      document.querySelectorAll(
+        ".workspace-leaf.mod-active .office-viewer-docx-reading-body section.docx",
+      ).length);
+    expect(pageCount).toBeGreaterThan(1);
+
+    const geometry = await browser.execute(() =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".workspace-leaf.mod-active .office-viewer-docx-reading-body section.docx",
+        ),
+      ).map((page) => ({
+        width: page.style.width || page.style.minWidth,
+        minHeight: page.style.minHeight || page.style.height,
+        clientWidth: page.clientWidth,
+      })));
+    expect(
+      geometry.some((page) => page.width.length > 0 || page.minHeight.length > 0),
+    ).toBe(true);
+    const clientWidths = new Set(
+      geometry.map((page) => page.clientWidth).filter((width) => width > 0),
+    );
+    expect(clientWidths.size).toBeGreaterThan(0);
+
+    await root.$('[data-action="open-docx-search"]').click();
+    await root
+      .$('[data-action="docx-search-input"]')
+      .setValue("unique layout marker");
+    await root.$(".office-viewer-docx-search-result").click();
+    const activeCount = await browser.execute(() =>
+      document.querySelectorAll(
+        ".workspace-leaf.mod-active .is-active-docx-paragraph",
+      ).length);
+    expect(activeCount).toBeGreaterThan(0);
+
+    await root.$('[data-action="docx-view-mode-reading"]').click();
+    await browser.waitUntil(
+      async () => (await root.getAttribute("data-view-mode")) === "reading",
+      { timeout: 15_000 },
+    );
     expect(await vaultSha256(path)).toBe(before);
     await assertNoNetworkRequests();
   });
@@ -104,6 +167,9 @@ describe("installed DOCX reading and search", () => {
       '.workspace-leaf.mod-active .office-viewer-docx-shell[data-state="ready"]',
     );
     await expect(root).toHaveAttribute("data-renderer", "bounded-semantic");
+    await expect(
+      root.$('[data-action="docx-view-mode-layout"]'),
+    ).toBeDisabled();
     expect(
       await browser.execute(() =>
         document.querySelectorAll(

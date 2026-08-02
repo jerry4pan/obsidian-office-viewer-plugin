@@ -146,6 +146,15 @@ It does not promise Word pagination, print-layout fidelity, or pixel-level
 formatting equivalence.
 _Avoid_: Word preview, Page view, Print preview
 
+**DOCX layout view**:
+A local, read-only, page-grouped representation of DOCX **Knowledge material**.
+It preserves source-declared paper size, margins, section orientation, explicit
+page breaks, and available saved pagination marks so readers can understand page
+organization and layout relationships. It does not reimplement the Microsoft
+Word layout engine and does not promise live pagination, page-number accuracy,
+print consistency, or pixel-level formatting equivalence.
+_Avoid_: Word print preview, Exact pagination, Print-identical layout
+
 **Unavailable document body content**:
 Reader-visible content detected in the main body of DOCX **Knowledge material**
 but not representable in the **DOCX reading view**. It retains an in-flow

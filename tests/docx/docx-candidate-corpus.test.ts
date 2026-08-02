@@ -88,14 +88,32 @@ describe("docx-preview committed DOCX corpus", () => {
     const container = document.createElement("div");
     const adapter: DocxRendererAdapter = createAdapter();
 
-    const session = await adapter.open(
-      rendererBytes,
-      container,
-      model,
+    const session = await adapter.open(rendererBytes, model, {
+      mode: "reading",
       signal,
-    );
+    });
+    session.mount(container);
 
-    expect(session.paragraphElements.size).toBe(model.paragraphs.length);
+    expect(session.paragraphAnchors.size).toBe(model.paragraphs.length);
     session.dispose();
+  });
+
+  it("maps layout-pages in both reading and layout modes", async () => {
+    const bytes = await fixtureBytes("layout-pages.docx");
+    const signal = new AbortController().signal;
+    const model = await inspectDocxPackage(bytes, signal);
+    const rendererBytes = await createSafeDocxRendererBuffer(bytes, signal);
+    const adapter: DocxRendererAdapter = createAdapter();
+
+    for (const mode of ["reading", "layout"] as const) {
+      const container = document.createElement("div");
+      const session = await adapter.open(rendererBytes, model, { mode, signal });
+      session.mount(container);
+      expect(session.paragraphAnchors.size).toBe(model.paragraphs.length);
+      if (mode === "layout") {
+        expect(container.querySelectorAll("section.docx").length).toBeGreaterThan(1);
+      }
+      session.dispose();
+    }
   });
 });

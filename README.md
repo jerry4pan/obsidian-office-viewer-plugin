@@ -81,6 +81,11 @@ containing sensitive content, filenames, paths, slide text, or images.
 - Read final-view main-body headings, paragraphs, lists, tables, inline images,
   and safe hyperlinks. Headers, footers, comments, text boxes, and deleted or
   hidden text are outside the DOCX view.
+- Switch from the default continuous reading view to an optional layout view
+  that shows source-declared paper size, margins, section orientation, explicit
+  page breaks, and available saved pagination marks. Layout view is approximate
+  page evidence from the local renderer; it is not live Word pagination or
+  print-identical fidelity.
 - Common embedded raster images, placeable Windows metafiles (WMF/EMF payloads
   that convert locally), and Office charts with usable cached series data are
   shown as preview images. Exact Word print layout is not claimed.
@@ -89,8 +94,9 @@ containing sensitive content, filenames, paths, slide text, or images.
   document only. Results are one entry per matching paragraph, with a match
   count and excerpt, and jump to a visible session-only highlight.
 - Very large documents use a clearly labelled simplified reading mode with a
-  bounded DOM. Detected content that cannot be represented is marked in flow
-  with a document-level notice.
+  bounded DOM, and layout view stays unavailable for those documents. Detected
+  content that cannot be represented is marked in flow with a document-level
+  notice.
 - DOCX does not create stable paragraph references, embeds, companion notes,
   persistent reading positions, or a Vault-wide search index.
 

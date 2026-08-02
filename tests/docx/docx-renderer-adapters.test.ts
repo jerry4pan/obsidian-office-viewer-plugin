@@ -4,6 +4,7 @@ import { inspectDocxPackage } from "../../src/docx/docx-semantic-model";
 import {
   mapRenderedParagraphs,
   prepareRenderedDocxReadingLayout,
+  revealParagraphFragment,
   sanitizeRenderedDocx,
   type DocxRendererAdapter,
 } from "../../src/docx/renderer/docx-renderer-adapter";
@@ -12,6 +13,25 @@ import { DocxPreviewRendererAdapter } from "../../src/docx/renderer/docx-preview
 const W =
   "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const W14 = "http://schemas.microsoft.com/office/word/2010/wordml";
+
+function semanticParagraph(
+  ordinal: number,
+  text: string,
+  styleId: string | null = null,
+) {
+  return {
+    ordinal,
+    text,
+    searchText: text.toLocaleLowerCase(),
+    styleId,
+    listItem: false,
+    tableDepth: 0,
+    bookmarks: [],
+    hyperlinks: [],
+    inlineImageCount: 0,
+    unavailableContent: [],
+  };
+}
 
 async function rendererFixture(): Promise<ArrayBuffer> {
   const zip = new JSZip();
@@ -58,6 +78,50 @@ async function rendererFixture(): Promise<ArrayBuffer> {
   return zip.generateAsync({ type: "arraybuffer" });
 }
 
+async function layoutPagesFixture(): Promise<ArrayBuffer> {
+  const zip = new JSZip();
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Override PartName="/word/document.xml"
+          ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>`,
+  );
+  zip.file(
+    "_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1"
+          Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+          Target="word/document.xml"/>
+      </Relationships>`,
+  );
+  zip.file(
+    "word/document.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+      <w:document xmlns:w="${W}" xmlns:w14="${W14}">
+        <w:body>
+          <w:p w14:paraId="00000001">
+            <w:r><w:t>Before page break</w:t></w:r>
+            <w:r><w:br w:type="page"/></w:r>
+            <w:r><w:t>After page break unique marker</w:t></w:r>
+          </w:p>
+          <w:p w14:paraId="00000002">
+            <w:r><w:t>Second paragraph</w:t></w:r>
+          </w:p>
+          <w:sectPr>
+            <w:pgSz w:w="12240" w:h="15840"/>
+            <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+          </w:sectPr>
+        </w:body>
+      </w:document>`,
+  );
+  return zip.generateAsync({ type: "arraybuffer" });
+}
+
 describe("DOCX renderer mapping and sanitization", () => {
   it("maps only exact semantic paragraph text in document order", () => {
     const container = document.createElement("div");
@@ -66,61 +130,85 @@ describe("DOCX renderer mapping and sanitization", () => {
       <p>Demand remains resilient.</p>
     `;
     const mapping = mapRenderedParagraphs(container, [
-      {
-        ordinal: 1,
-        text: "Quarterly outlook",
-        searchText: "quarterly outlook",
-        styleId: "Heading1",
-        listItem: false,
-        tableDepth: 0,
-        bookmarks: [],
-        hyperlinks: [],
-        inlineImageCount: 0,
-        unavailableContent: [],
-      },
-      {
-        ordinal: 2,
-        text: "Demand remains resilient.",
-        searchText: "demand remains resilient.",
-        styleId: null,
-        listItem: false,
-        tableDepth: 0,
-        bookmarks: [],
-        hyperlinks: [],
-        inlineImageCount: 0,
-        unavailableContent: [],
-      },
+      semanticParagraph(1, "Quarterly outlook", "Heading1"),
+      semanticParagraph(2, "Demand remains resilient."),
     ]);
 
     expect(mapping.get(2)?.dataset.docxParagraphOrdinal).toBe("2");
     expect(() =>
       mapRenderedParagraphs(container, [
-        {
-          ordinal: 1,
-          text: "Different text",
-          searchText: "different text",
-          styleId: null,
-          listItem: false,
-          tableDepth: 0,
-          bookmarks: [],
-          hyperlinks: [],
-          inlineImageCount: 0,
-          unavailableContent: [],
-        },
-        {
-          ordinal: 2,
-          text: "Demand remains resilient.",
-          searchText: "demand remains resilient.",
-          styleId: null,
-          listItem: false,
-          tableDepth: 0,
-          bookmarks: [],
-          hyperlinks: [],
-          inlineImageCount: 0,
-          unavailableContent: [],
-        },
-      ])
-    ).toThrow(/does not match/);
+        semanticParagraph(1, "Different text"),
+        semanticParagraph(2, "Demand remains resilient."),
+      ]),
+    ).toThrow(/does not match|fragments do not match/);
+  });
+
+  it("maps consecutive fragments of one semantic paragraph", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <section class="docx">
+        <p>Before page break</p>
+      </section>
+      <section class="docx">
+        <p>After page break unique marker</p>
+        <p>Second paragraph</p>
+      </section>
+    `;
+    const mapping = mapRenderedParagraphs(container, [
+      semanticParagraph(1, "Before page breakAfter page break unique marker"),
+      semanticParagraph(2, "Second paragraph"),
+    ]);
+    const fragments = container.querySelectorAll(
+      '[data-docx-paragraph-ordinal="1"]',
+    );
+    expect(fragments).toHaveLength(2);
+    expect(mapping.get(1)).toBe(fragments[0]);
+    expect(
+      revealParagraphFragment(
+        container,
+        mapping,
+        1,
+        "unique marker",
+      )?.textContent,
+    ).toContain("unique marker");
+  });
+
+  it("fails when fragment concatenation mismatches or reorders", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <p>Alpha</p>
+      <p>Gamma</p>
+      <p>Beta</p>
+    `;
+    expect(() =>
+      mapRenderedParagraphs(container, [
+        semanticParagraph(1, "AlphaBeta"),
+        semanticParagraph(2, "Gamma"),
+      ]),
+    ).toThrow(/does not match|fragments do not match/);
+  });
+
+  it("ignores header and footer text during mapping", () => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <header><p>Header twin</p></header>
+      <p>Header twin</p>
+      <p>Body only</p>
+      <footer><p>Body only</p></footer>
+    `;
+    const mapping = mapRenderedParagraphs(container, [
+      semanticParagraph(1, "Header twin"),
+      semanticParagraph(2, "Body only"),
+    ]);
+    expect(mapping.size).toBe(2);
+    expect(
+      (container.querySelector("header p") as HTMLElement | null)?.dataset
+        .docxParagraphOrdinal,
+    ).toBeUndefined();
+    expect(
+      (container.querySelector("footer p") as HTMLElement | null)?.dataset
+        .docxParagraphOrdinal,
+    ).toBeUndefined();
   });
 
   it("treats hyperlink break whitespace as equivalent for mapping", () => {
@@ -130,30 +218,8 @@ describe("DOCX renderer mapping and sanitization", () => {
       <p>Next paragraph</p>
     `;
     const mapping = mapRenderedParagraphs(container, [
-      {
-        ordinal: 1,
-        text: "【腾讯文档】记录\nhttps://docs.qq.com/sheet/A",
-        searchText: "【腾讯文档】记录\nhttps://docs.qq.com/sheet/a",
-        styleId: null,
-        listItem: false,
-        tableDepth: 0,
-        bookmarks: [],
-        hyperlinks: [],
-        inlineImageCount: 0,
-        unavailableContent: [],
-      },
-      {
-        ordinal: 2,
-        text: "Next paragraph",
-        searchText: "next paragraph",
-        styleId: null,
-        listItem: false,
-        tableDepth: 0,
-        bookmarks: [],
-        hyperlinks: [],
-        inlineImageCount: 0,
-        unavailableContent: [],
-      },
+      semanticParagraph(1, "【腾讯文档】记录\nhttps://docs.qq.com/sheet/A"),
+      semanticParagraph(2, "Next paragraph"),
     ]);
     expect(mapping.get(1)?.dataset.docxParagraphOrdinal).toBe("1");
     expect(mapping.size).toBe(2);
@@ -254,6 +320,7 @@ describe("DOCX renderer mapping and sanitization", () => {
 
 describe("docx-preview renderer adapter", () => {
   const createAdapter = () => new DocxPreviewRendererAdapter();
+
   it("maps the same fixture to the project-owned semantic paragraphs", async () => {
     const bytes = await rendererFixture();
     const signal = new AbortController().signal;
@@ -261,19 +328,46 @@ describe("docx-preview renderer adapter", () => {
     const container = document.createElement("div");
     const adapter: DocxRendererAdapter = createAdapter();
 
-    const session = await adapter.open(bytes, container, model, signal);
+    const session = await adapter.open(bytes, model, {
+      mode: "reading",
+      signal,
+    });
+    expect(container.childElementCount).toBe(0);
+    session.mount(container);
 
-    expect(session.paragraphElements.size).toBe(3);
-    expect(session.paragraphElements.get(1)?.textContent).toContain(
+    expect(session.mode).toBe("reading");
+    expect(session.supportedModes).toEqual(["reading", "layout"]);
+    expect(session.paragraphAnchors.size).toBe(3);
+    expect(session.paragraphAnchors.get(1)?.textContent).toContain(
       "Quarterly outlook",
     );
-    expect(session.paragraphElements.get(3)?.textContent).toContain(
+    expect(session.paragraphAnchors.get(3)?.textContent).toContain(
       "Table evidence",
     );
     expect(container.querySelectorAll("[data-docx-paragraph-ordinal]"))
       .toHaveLength(3);
+    expect(container.querySelector(".office-viewer-docx--reading")).not.toBeNull();
     session.dispose();
     expect(container.childElementCount).toBe(0);
+  });
+
+  it("renders layout pages without mutating destination until mount", async () => {
+    const bytes = await layoutPagesFixture();
+    const signal = new AbortController().signal;
+    const model = await inspectDocxPackage(bytes, signal);
+    const container = document.createElement("div");
+    container.textContent = "unchanged";
+    const session = await createAdapter().open(bytes, model, {
+      mode: "layout",
+      signal,
+    });
+    expect(container.textContent).toBe("unchanged");
+    session.mount(container);
+    expect(session.mode).toBe("layout");
+    expect(container.querySelector(".office-viewer-docx--layout")).not.toBeNull();
+    expect(container.querySelectorAll("section.docx").length).toBeGreaterThan(1);
+    expect(session.paragraphAnchors.size).toBe(model.paragraphs.length);
+    session.dispose();
   });
 
   it("keeps a readable preview when only one hyperlink paragraph disagrees on whitespace", async () => {
@@ -335,9 +429,13 @@ describe("docx-preview renderer adapter", () => {
     const signal = new AbortController().signal;
     const model = await inspectDocxPackage(bytes, signal);
     const container = document.createElement("div");
-    const session = await createAdapter().open(bytes, container, model, signal);
+    const session = await createAdapter().open(bytes, model, {
+      mode: "reading",
+      signal,
+    });
+    session.mount(container);
     expect(session.candidate).toBe("docx-preview");
-    expect(session.paragraphElements.size).toBe(model.paragraphs.length);
+    expect(session.paragraphAnchors.size).toBe(model.paragraphs.length);
     expect(container.textContent).toContain("【腾讯文档】记录");
     expect(container.textContent).toContain("https://docs.qq.com/sheet/A");
     session.dispose();
@@ -355,7 +453,10 @@ describe("docx-preview renderer adapter", () => {
     container.textContent = "unchanged";
 
     await expect(
-      createAdapter().open(bytes, container, model, controller.signal),
+      createAdapter().open(bytes, model, {
+        mode: "reading",
+        signal: controller.signal,
+      }),
     ).rejects.toMatchObject({ name: "AbortError" });
     expect(container.textContent).toBe("unchanged");
   });

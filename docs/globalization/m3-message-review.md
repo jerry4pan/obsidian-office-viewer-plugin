@@ -132,3 +132,20 @@ explicitly approved both Chinese catalogs on 2026-07-18.
   owner `@jerry4pan` on 2026-07-18; reviewed commit: `975ef9e`.
 - [x] Traditional Chinese messages for Issues #37–#39 approved by repository
   owner `@jerry4pan` on 2026-07-18; reviewed commit: `975ef9e`.
+
+### DOCX layout view review scope
+
+Pending human language review for `src/docx/docx-messages.ts`:
+
+| Key | English source | Simplified Chinese | Traditional Chinese |
+| --- | --- | --- | --- |
+| `viewModeLabel` | Document view | 文档视图 | 文件檢視 |
+| `readingView` | Reading view | 阅读视图 | 閱讀檢視 |
+| `layoutView` | Layout view | 版式视图 | 版面配置檢視 |
+| `layoutViewUnavailable` | Layout view is unavailable for this document. Use reading view or open the file in the default application. | 此文档无法使用版式视图。请继续使用阅读视图，或在默认应用中打开文件。 | 此文件無法使用版面配置檢視。請繼續使用閱讀檢視，或在預設應用程式中開啟檔案。 |
+| `viewModeSwitchFailed` | Unable to switch document view. The previous view remains available. | 无法切换文档视图，仍保留先前视图。 | 無法切換文件檢視，仍保留先前檢視。 |
+
+- [ ] Simplified Chinese DOCX layout view messages reviewed by a proficient
+  human; reviewer, date, and reviewed commit recorded here.
+- [ ] Traditional Chinese DOCX layout view messages reviewed by a proficient
+  human; reviewer, date, and reviewed commit recorded here.

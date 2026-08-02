@@ -99,12 +99,12 @@ const numbering = `<?xml version="1.0" encoding="UTF-8"?>
     <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
   </w:numbering>`;
 
-function mainDocument(body) {
+function mainDocument(body, { includeDefaultSectPr = true } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>
     <w:document xmlns:w="${W}" xmlns:w14="${W14}" xmlns:r="${R}"
       xmlns:m="${M}" xmlns:a="${A}" xmlns:wp="${WP}" xmlns:pic="${PIC}"
       xmlns:c="${C}">
-      <w:body>${body}<w:sectPr/></w:body>
+      <w:body>${body}${includeDefaultSectPr ? "<w:sectPr/>" : ""}</w:body>
     </w:document>`;
 }
 
@@ -113,11 +113,16 @@ async function packageDocx({
   relationships = "",
   extraContentTypes = "",
   extraParts = {},
+  includeDefaultSectPr = true,
 }) {
   const zip = new JSZip();
   addZipFile(zip, "[Content_Types].xml", contentTypes(extraContentTypes));
   addZipFile(zip, "_rels/.rels", rootRelationships);
-  addZipFile(zip, "word/document.xml", mainDocument(body));
+  addZipFile(
+    zip,
+    "word/document.xml",
+    mainDocument(body, { includeDefaultSectPr }),
+  );
   addZipFile(zip, "word/styles.xml", styles);
   addZipFile(zip, "word/numbering.xml", numbering);
   addZipFile(
@@ -212,6 +217,48 @@ fixtures.set(
     body:
       paragraph("20000001", "This paragraph has a native identity.") +
       paragraph(null, "This generated paragraph has no native identity."),
+  }),
+);
+
+fixtures.set(
+  "layout-pages.docx",
+  await packageDocx({
+    includeDefaultSectPr: false,
+    relationships: `
+      <Relationship Id="rImage" Type="${R}/image" Target="media/layout.png"/>
+    `,
+    extraParts: { "word/media/layout.png": onePixelPng },
+    body: `
+      <w:p w14:paraId="80000001">
+        <w:r><w:t>Before page break</w:t></w:r>
+        <w:r><w:br w:type="page"/></w:r>
+        <w:r><w:lastRenderedPageBreak/></w:r>
+        <w:r><w:t>After page break unique layout marker</w:t></w:r>
+      </w:p>
+      ${paragraph("80000002", "Portrait section continues after the break.")}
+      <w:tbl><w:tr>
+        <w:tc>${paragraph("80000003", "Layout table label")}</w:tc>
+        <w:tc>${paragraph("80000004", "Layout table value")}</w:tc>
+      </w:tr></w:tbl>
+      <w:p w14:paraId="80000005">
+        <w:r><w:t>Inline layout evidence image</w:t></w:r>${imageDrawing}
+      </w:p>
+      <w:p>
+        <w:pPr>
+          <w:sectPr>
+            <w:pgSz w:w="12240" w:h="15840"/>
+            <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"
+              w:header="720" w:footer="720" w:gutter="0"/>
+          </w:sectPr>
+        </w:pPr>
+      </w:p>
+      ${paragraph("80000006", "Landscape section unique search text.")}
+      <w:sectPr>
+        <w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/>
+        <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"
+          w:header="720" w:footer="720" w:gutter="0"/>
+      </w:sectPr>
+    `,
   }),
 );
 
@@ -319,6 +366,10 @@ const manifest = {
     {
       path: "read-search-only.docx",
       expected: "readable-searchable",
+    },
+    {
+      path: "layout-pages.docx",
+      expected: "layout-page-geometry",
     },
     {
       path: "final-revisions.docx",

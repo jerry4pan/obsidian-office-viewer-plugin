@@ -1,23 +1,61 @@
 import { renderAsync } from "docx-preview";
 import { DocxOpenError } from "../docx-open-error";
 import type { DocxSemanticModel } from "../docx-semantic-model";
+import { DocxLayoutViewport } from "./docx-layout-viewport";
 import {
   alignRenderedParagraphs,
   comparableParagraphText,
   mapRenderedParagraphs,
   prepareRenderedDocxReadingLayout,
+  revealParagraphFragment,
   sanitizeRenderedDocx,
   type DocxRendererAdapter,
+  type DocxRendererOpenOptions,
   type DocxRendererSession,
+  type DocxViewMode,
 } from "./docx-renderer-adapter";
+
+const SUPPORTED_MODES: readonly DocxViewMode[] = ["reading", "layout"];
+
+interface DocxPreviewRenderProfile {
+  readonly ignoreWidth: boolean;
+  readonly ignoreHeight: boolean;
+  readonly breakPages: boolean;
+  readonly ignoreLastRenderedPageBreak: boolean;
+}
+
+function previewRenderProfile(mode: DocxViewMode): DocxPreviewRenderProfile {
+  if (mode === "layout") {
+    return {
+      ignoreWidth: false,
+      ignoreHeight: false,
+      breakPages: true,
+      ignoreLastRenderedPageBreak: false,
+    };
+  }
+  return {
+    ignoreWidth: true,
+    ignoreHeight: true,
+    breakPages: false,
+    ignoreLastRenderedPageBreak: true,
+  };
+}
 
 function revealMappedOrUniqueText(
   staging: HTMLElement,
-  paragraphElements: ReadonlyMap<number, HTMLElement>,
+  paragraphAnchors: ReadonlyMap<number, HTMLElement>,
   model: DocxSemanticModel,
   ordinal: number,
+  textHint?: string,
 ): HTMLElement | null {
-  const mapped = paragraphElements.get(ordinal);
+  const hinted = revealParagraphFragment(
+    staging,
+    paragraphAnchors,
+    ordinal,
+    textHint,
+  );
+  if (hinted !== null) return hinted;
+  const mapped = paragraphAnchors.get(ordinal);
   if (mapped !== undefined) return mapped;
   const semantic = model.paragraphs[ordinal - 1];
   if (semantic === undefined || semantic.ordinal !== ordinal) return null;
@@ -40,21 +78,25 @@ function revealMappedOrUniqueText(
 export class DocxPreviewRendererAdapter implements DocxRendererAdapter {
   async open(
     buffer: ArrayBuffer,
-    container: HTMLElement,
     model: DocxSemanticModel,
-    signal: AbortSignal,
+    options: DocxRendererOpenOptions,
   ): Promise<DocxRendererSession> {
+    const { mode, signal } = options;
     signal.throwIfAborted();
+    const profile = previewRenderProfile(mode);
     const staging = document.createElement("div");
-    staging.className = "office-viewer-docx office-viewer-docx--preview";
+    staging.className =
+      mode === "layout"
+        ? "office-viewer-docx office-viewer-docx--preview office-viewer-docx--layout"
+        : "office-viewer-docx office-viewer-docx--preview office-viewer-docx--reading";
     try {
       await renderAsync(buffer.slice(0), staging, staging, {
         inWrapper: true,
         hideWrapperOnPrint: false,
-        ignoreWidth: true,
-        ignoreHeight: true,
+        ignoreWidth: profile.ignoreWidth,
+        ignoreHeight: profile.ignoreHeight,
         ignoreFonts: false,
-        breakPages: false,
+        breakPages: profile.breakPages,
         debug: false,
         experimental: false,
         className: "docx",
@@ -63,7 +105,7 @@ export class DocxPreviewRendererAdapter implements DocxRendererAdapter {
         renderFooters: false,
         renderFootnotes: false,
         renderEndnotes: false,
-        ignoreLastRenderedPageBreak: true,
+        ignoreLastRenderedPageBreak: profile.ignoreLastRenderedPageBreak,
         useBase64URL: true,
         renderChanges: false,
         renderComments: false,
@@ -79,19 +121,21 @@ export class DocxPreviewRendererAdapter implements DocxRendererAdapter {
     }
     signal.throwIfAborted();
     sanitizeRenderedDocx(staging);
-    prepareRenderedDocxReadingLayout(staging);
+    if (mode === "reading") {
+      prepareRenderedDocxReadingLayout(staging);
+    }
     const warnings: string[] = [];
-    let paragraphElements: ReadonlyMap<number, HTMLElement>;
+    let paragraphAnchors: ReadonlyMap<number, HTMLElement>;
     try {
-      paragraphElements = mapRenderedParagraphs(staging, model.paragraphs);
+      paragraphAnchors = mapRenderedParagraphs(staging, model.paragraphs);
     } catch {
       // Keep the readable preview: bind only order-preserving exact-character
       // matches instead of failing the whole document open.
-      paragraphElements = alignRenderedParagraphs(staging, model.paragraphs);
-      if (paragraphElements.size < model.paragraphs.length) {
+      paragraphAnchors = alignRenderedParagraphs(staging, model.paragraphs);
+      if (paragraphAnchors.size < model.paragraphs.length) {
         warnings.push("preview-paragraph-mapping-degraded");
       }
-      if (paragraphElements.size === 0 && model.paragraphs.length > 0) {
+      if (paragraphAnchors.size === 0 && model.paragraphs.length > 0) {
         throw new DocxOpenError(
           "incompatible",
           "docx-preview output does not map to the project-owned paragraph model",
@@ -99,22 +143,58 @@ export class DocxPreviewRendererAdapter implements DocxRendererAdapter {
       }
     }
     signal.throwIfAborted();
-    container.replaceChildren(staging);
+
+    let mountedContainer: HTMLElement | null = null;
+    let layoutViewport: DocxLayoutViewport | null = null;
+    let disposed = false;
+
+    const dispose = (): void => {
+      if (disposed) return;
+      disposed = true;
+      layoutViewport?.dispose();
+      layoutViewport = null;
+      staging.replaceChildren();
+      if (
+        mountedContainer !== null &&
+        staging.parentElement === mountedContainer
+      ) {
+        mountedContainer.replaceChildren();
+      }
+      mountedContainer = null;
+    };
+
     return {
       candidate: "docx-preview",
-      paragraphElements,
+      mode,
+      supportedModes: SUPPORTED_MODES,
+      paragraphAnchors,
       warnings,
-      revealParagraph: (ordinal) =>
-        revealMappedOrUniqueText(
+      mount: (container) => {
+        if (disposed) return;
+        if (mountedContainer !== null) {
+          throw new Error("DOCX renderer session is already mounted");
+        }
+        mountedContainer = container;
+        container.replaceChildren(staging);
+        if (mode === "layout") {
+          layoutViewport = new DocxLayoutViewport({
+            container,
+            pagesRoot: staging,
+          });
+          layoutViewport.start();
+        }
+      },
+      revealParagraph: (ordinal, textHint) => {
+        if (mountedContainer === null || disposed) return null;
+        return revealMappedOrUniqueText(
           staging,
-          paragraphElements,
+          paragraphAnchors,
           model,
           ordinal,
-        ),
-      dispose: () => {
-        staging.replaceChildren();
-        if (staging.parentElement === container) container.replaceChildren();
+          textHint,
+        );
       },
+      dispose,
     };
   }
 }

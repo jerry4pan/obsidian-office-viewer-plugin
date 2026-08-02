@@ -2,10 +2,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
+import { DocxOpenError } from "../../src/docx/docx-open-error";
 import { inspectDocxPackage } from "../../src/docx/docx-semantic-model";
 import type { DocxSemanticModel } from "../../src/docx/docx-semantic-model";
 import { BoundedDocxRendererAdapter } from "../../src/docx/renderer/bounded-docx-renderer-adapter";
-import type { DocxRendererAdapter } from "../../src/docx/renderer/docx-renderer-adapter";
+import type {
+  DocxRendererAdapter,
+  DocxRendererSession,
+} from "../../src/docx/renderer/docx-renderer-adapter";
 
 async function stressFixture(): Promise<ArrayBuffer> {
   const bytes = await readFile(
@@ -14,6 +18,19 @@ async function stressFixture(): Promise<ArrayBuffer> {
     ),
   );
   return Uint8Array.from(bytes).buffer;
+}
+
+function readingSession(): DocxRendererSession {
+  return {
+    candidate: "docx-preview",
+    mode: "reading",
+    supportedModes: ["reading", "layout"],
+    paragraphAnchors: new Map(),
+    warnings: [],
+    mount: () => undefined,
+    revealParagraph: () => null,
+    dispose: () => undefined,
+  };
 }
 
 describe("bounded DOCX renderer", () => {
@@ -29,9 +46,15 @@ describe("bounded DOCX renderer", () => {
     });
     const container = document.createElement("div");
 
-    const session = await renderer.open(source, container, model, signal);
+    const session = await renderer.open(source, model, {
+      mode: "reading",
+      signal,
+    });
+    session.mount(container);
 
     expect(delegateOpen).not.toHaveBeenCalled();
+    expect(session.mode).toBe("reading");
+    expect(session.supportedModes).toEqual(["reading"]);
     expect(
       container.querySelectorAll("[data-docx-paragraph-ordinal]").length,
     ).toBeLessThanOrEqual(240);
@@ -44,6 +67,136 @@ describe("bounded DOCX renderer", () => {
       container.querySelectorAll("[data-docx-paragraph-ordinal]").length,
     ).toBeLessThanOrEqual(240);
     expect(container.querySelectorAll("*").length).toBeLessThanOrEqual(1_200);
+  });
+
+  it("rejects layout for large documents without calling the rich delegate", async () => {
+    const source = await stressFixture();
+    const signal = new AbortController().signal;
+    const model = await inspectDocxPackage(source, signal);
+    const delegateOpen = vi.fn();
+    const renderer = new BoundedDocxRendererAdapter(
+      { open: delegateOpen } as unknown as DocxRendererAdapter,
+      { largeParagraphThreshold: 1_000, windowSize: 240 },
+    );
+
+    await expect(
+      renderer.open(source, model, { mode: "layout", signal }),
+    ).rejects.toBeInstanceOf(DocxOpenError);
+    expect(delegateOpen).not.toHaveBeenCalled();
+  });
+
+  it("propagates small-document layout failures without faking success", async () => {
+    const model: DocxSemanticModel = {
+      paragraphs: [
+        {
+          ordinal: 1,
+          text: "Only paragraph",
+          searchText: "only paragraph",
+          styleId: null,
+          listItem: false,
+          tableDepth: 0,
+          bookmarks: [],
+          hyperlinks: [],
+          unavailableContent: [],
+          inlineImageCount: 0,
+        },
+      ],
+      bookmarkTargets: [],
+      unavailableBodyBlocks: [],
+      hasUnavailableBodyContent: false,
+    };
+    const delegateOpen = vi.fn(async () => {
+      throw new DocxOpenError("incompatible", "layout failed");
+    });
+    const renderer = new BoundedDocxRendererAdapter(
+      { open: delegateOpen } as unknown as DocxRendererAdapter,
+      { largeParagraphThreshold: 1_000, windowSize: 240 },
+    );
+
+    await expect(
+      renderer.open(new ArrayBuffer(0), model, {
+        mode: "layout",
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBeInstanceOf(DocxOpenError);
+    expect(delegateOpen).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to reading-only support when preview is incompatible", async () => {
+    const model: DocxSemanticModel = {
+      paragraphs: [
+        {
+          ordinal: 1,
+          text: "Only paragraph",
+          searchText: "only paragraph",
+          styleId: null,
+          listItem: false,
+          tableDepth: 0,
+          bookmarks: [],
+          hyperlinks: [],
+          unavailableContent: [],
+          inlineImageCount: 0,
+        },
+      ],
+      bookmarkTargets: [],
+      unavailableBodyBlocks: [],
+      hasUnavailableBodyContent: false,
+    };
+    const renderer = new BoundedDocxRendererAdapter(
+      {
+        open: vi.fn(async () => {
+          throw new DocxOpenError("incompatible", "preview failed");
+        }),
+      } as unknown as DocxRendererAdapter,
+      { largeParagraphThreshold: 1_000, windowSize: 240 },
+    );
+    const container = document.createElement("div");
+    const session = await renderer.open(new ArrayBuffer(0), model, {
+      mode: "reading",
+      signal: new AbortController().signal,
+    });
+    session.mount(container);
+    expect(session.candidate).toBe("bounded-semantic");
+    expect(session.supportedModes).toEqual(["reading"]);
+    expect(session.warnings).toContain(
+      "preview-unavailable-simplified-rendering",
+    );
+  });
+
+  it("delegates ordinary documents in either mode", async () => {
+    const model: DocxSemanticModel = {
+      paragraphs: [
+        {
+          ordinal: 1,
+          text: "Body",
+          searchText: "body",
+          styleId: null,
+          listItem: false,
+          tableDepth: 0,
+          bookmarks: [],
+          hyperlinks: [],
+          unavailableContent: [],
+          inlineImageCount: 0,
+        },
+      ],
+      bookmarkTargets: [],
+      unavailableBodyBlocks: [],
+      hasUnavailableBodyContent: false,
+    };
+    const delegateOpen = vi.fn(async () => readingSession());
+    const renderer = new BoundedDocxRendererAdapter(
+      { open: delegateOpen } as unknown as DocxRendererAdapter,
+      { largeParagraphThreshold: 1_000, windowSize: 240 },
+    );
+    await renderer.open(new ArrayBuffer(0), model, {
+      mode: "layout",
+      signal: new AbortController().signal,
+    });
+    expect(delegateOpen).toHaveBeenCalledOnce();
+    const openArgs = delegateOpen.mock.calls[0] as
+      | [ArrayBuffer, DocxSemanticModel, { mode: string }]
+      | undefined;
+    expect(openArgs?.[2]).toMatchObject({ mode: "layout" });
   });
 
   it("does not silently omit links, images, or unavailable body content", async () => {
@@ -77,10 +230,10 @@ describe("bounded DOCX renderer", () => {
 
     const session = await renderer.open(
       new ArrayBuffer(0),
-      container,
       model,
-      new AbortController().signal,
+      { mode: "reading", signal: new AbortController().signal },
     );
+    session.mount(container);
     const distant = session.revealParagraph(1_001)!;
 
     const external = distant.querySelector<HTMLAnchorElement>(

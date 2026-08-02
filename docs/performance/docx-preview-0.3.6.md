@@ -19,6 +19,14 @@ The 5,000-paragraph stress fixture was opened separately in the bounded mode.
 | Stress body DOM elements | 244 | 1,200 | PASS |
 | Stress heap delta | 1,239,048 bytes | 268,435,456 bytes | PASS |
 
+Additional layout-view gates for representative documents:
+
+- reading→layout and layout→reading p95 each at most 3,000 ms;
+- rapid switch cancellation/cleanup at most 2,000 ms;
+- only one `.office-viewer-docx` root mounted at a time;
+- the 5,000-paragraph stress document never creates layout DOM and keeps body
+  DOM at most 1,200 elements.
+
 The run installed the production bundle into a sandboxed Vault, blocked and
 recorded HTTP(S), WebSocket, Fetch, and XHR paths, and completed with no network
 requests. The baseline test recomputes the p95 values, verifies the exact fixture

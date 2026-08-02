@@ -18,6 +18,11 @@ to a matching paragraph without modifying or uploading the source.
   images, and hyperlinks in document order. Include inserted changes; exclude
   deleted changes, hidden text, headers, footers, notes, comments, and text
   boxes.
+- Default each open to the continuous **DOCX reading view**. Offer an explicit
+  session-local **DOCX layout view** that preserves source-declared paper size,
+  margins, section orientation, explicit page breaks, and available saved
+  pagination marks. Layout view is approximate evidence from the pinned
+  renderer, not live Word pagination or print fidelity.
 - Rasterize common placeable Windows metafiles and Office charts that carry
   usable cached series data into local PNG previews before display. Exact Word
   print layout and unsupported chart types remain outside fidelity claims.
@@ -26,7 +31,8 @@ to a matching paragraph without modifying or uploading the source.
   result per matching paragraph with a match count and readable excerpt.
 - Activate, reveal, and visibly highlight a result in the current session.
   `Cmd+F`/`Ctrl+F` opens the document search panel and focuses its field;
-  `Escape` closes it.
+  `Escape` closes it. Search state survives reading/layout switches within the
+  same open file.
 - Preserve explicit `http`, `https`, and `mailto` hyperlinks and unique
   main-body bookmark jumps. Never prefetch or automatically open them.
 - Mark every detected unrepresentable main-body unit with an in-flow
@@ -39,8 +45,10 @@ to a matching paragraph without modifying or uploading the source.
 
 - Stable DOCX paragraph references, sourced paragraph copy, and DOCX embeds.
 - Persistent DOCX reading position, companion notes, and Vault-wide search.
-- Word pagination, print-layout fidelity, editing, conversion, OCR, and cloud
-  viewers.
+- Live Word pagination, exact page numbers, print-layout fidelity, editing,
+  conversion, OCR, and cloud viewers.
+- Layout view for documents that exceed the bounded-renderer threshold.
+- Persisted reading/layout mode preference across files or sessions.
 
 ## Safety and correctness gates
 

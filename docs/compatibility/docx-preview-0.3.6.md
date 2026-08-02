@@ -14,6 +14,12 @@ for detected unrepresentable content. Every extracted paragraph mapped to one
 rendered location. The installed run blocked network APIs and observed no
 requests.
 
+Layout view is an optional session-local mode on the same corpus. It uses the
+pinned renderer’s page-break and section geometry evidence and does not claim
+live Word pagination or print-identical fidelity. Compatibility runs should
+toggle layout for rich-preview documents and keep at least 90% layout-readable
+while preserving body markers and paragraph mapping.
+
 The corresponding acceptance spec is
 `tests/e2e/docx-compatibility.compatibility.ts`; the same committed corpus is
 also checked by `tests/docx/docx-candidate-corpus.test.ts` and exact semantic

@@ -7,21 +7,30 @@ export type DocxRendererCandidate =
   | "docx-preview"
   | "bounded-semantic";
 
+export type DocxViewMode = "reading" | "layout";
+
+export interface DocxRendererOpenOptions {
+  readonly mode: DocxViewMode;
+  readonly signal: AbortSignal;
+}
+
 export interface DocxRendererSession {
   readonly candidate: DocxRendererCandidate;
-  readonly paragraphElements: ReadonlyMap<number, HTMLElement>;
+  readonly mode: DocxViewMode;
+  readonly supportedModes: readonly DocxViewMode[];
+  readonly paragraphAnchors: ReadonlyMap<number, HTMLElement>;
   readonly warnings: readonly string[];
   readonly managesUnavailableContent?: boolean;
-  revealParagraph(ordinal: number): HTMLElement | null;
+  mount(container: HTMLElement): void;
+  revealParagraph(ordinal: number, textHint?: string): HTMLElement | null;
   dispose(): void;
 }
 
 export interface DocxRendererAdapter {
   open(
     buffer: ArrayBuffer,
-    container: HTMLElement,
     model: DocxSemanticModel,
-    signal: AbortSignal,
+    options: DocxRendererOpenOptions,
   ): Promise<DocxRendererSession>;
 }
 
@@ -39,6 +48,8 @@ export function comparableParagraphText(value: string): string {
 }
 
 const PARAGRAPH_SELECTOR = "p, h1, h2, h3, h4, h5, h6, li";
+const EXCLUDED_CONTAINER_SELECTOR =
+  "header, footer, .docx-header, .docx-footer, .docx-footnote, .docx-endnote, .docx-footnotes, .docx-endnotes";
 
 function leafRenderedParagraphs(container: HTMLElement): HTMLElement[] {
   return Array.from(
@@ -48,39 +59,101 @@ function leafRenderedParagraphs(container: HTMLElement): HTMLElement[] {
   );
 }
 
-function visibleRenderedParagraphs(container: HTMLElement): HTMLElement[] {
+function isMainBodyParagraph(element: HTMLElement): boolean {
+  return element.closest(EXCLUDED_CONTAINER_SELECTOR) === null;
+}
+
+function visibleMainBodyParagraphs(container: HTMLElement): HTMLElement[] {
   return leafRenderedParagraphs(container).filter(
     (element) =>
+      isMainBodyParagraph(element) &&
       comparableParagraphText(element.textContent ?? "").length > 0,
   );
 }
 
+function bindFragments(
+  fragments: readonly HTMLElement[],
+  ordinal: number,
+  mapping: Map<number, HTMLElement>,
+): void {
+  const anchor = fragments[0];
+  if (anchor === undefined) {
+    throw new Error(`Renderer paragraph ${ordinal} has no fragments`);
+  }
+  for (const fragment of fragments) {
+    fragment.dataset.docxParagraphOrdinal = String(ordinal);
+  }
+  mapping.set(ordinal, anchor);
+}
+
+function accumulateExactFragments(
+  rendered: readonly HTMLElement[],
+  startIndex: number,
+  semanticText: string,
+): { fragments: HTMLElement[]; nextIndex: number } {
+  if (semanticText.length === 0) {
+    return { fragments: [], nextIndex: startIndex };
+  }
+  let accumulated = "";
+  const fragments: HTMLElement[] = [];
+  for (let index = startIndex; index < rendered.length; index += 1) {
+    const element = rendered[index];
+    if (element === undefined) break;
+    const piece = comparableParagraphText(element.textContent ?? "");
+    if (piece.length === 0) continue;
+    const next = accumulated + piece;
+    if (next === semanticText) {
+      fragments.push(element);
+      return { fragments, nextIndex: index + 1 };
+    }
+    if (semanticText.startsWith(next)) {
+      fragments.push(element);
+      accumulated = next;
+      continue;
+    }
+    throw new Error(
+      "Renderer paragraph fragments do not match the semantic model",
+    );
+  }
+  throw new Error(
+    "Renderer paragraph fragments do not match the semantic model",
+  );
+}
+
+/**
+ * Maps semantic paragraphs to rendered anchors, allowing one paragraph to span
+ * multiple consecutive main-body fragments after page breaks.
+ */
 export function mapRenderedParagraphs(
   container: HTMLElement,
   paragraphs: readonly DocxSemanticParagraph[],
 ): ReadonlyMap<number, HTMLElement> {
-  const rendered = visibleRenderedParagraphs(container);
-  if (rendered.length !== paragraphs.length) {
+  const rendered = visibleMainBodyParagraphs(container);
+  const mapping = new Map<number, HTMLElement>();
+  let renderedIndex = 0;
+  for (const semantic of paragraphs) {
+    const semanticText = comparableParagraphText(semantic.text);
+    if (semanticText.length === 0) continue;
+    const { fragments, nextIndex } = accumulateExactFragments(
+      rendered,
+      renderedIndex,
+      semanticText,
+    );
+    bindFragments(fragments, semantic.ordinal, mapping);
+    renderedIndex = nextIndex;
+  }
+  if (renderedIndex < rendered.length) {
     throw new Error(
-      `Renderer paragraph count ${rendered.length} does not match semantic paragraph count ${paragraphs.length}`,
+      `Renderer paragraph count leftover after semantic mapping at index ${renderedIndex}`,
     );
   }
-  const mapping = new Map<number, HTMLElement>();
-  for (let index = 0; index < paragraphs.length; index += 1) {
-    const semantic = paragraphs[index];
-    const element = rendered[index];
-    if (semantic === undefined || element === undefined) {
-      throw new Error("Renderer paragraph mapping is incomplete");
-    }
-    const semanticText = comparableParagraphText(semantic.text);
-    const renderedText = comparableParagraphText(element.textContent ?? "");
-    if (semanticText !== renderedText) {
-      throw new Error(
-        `Renderer paragraph ${semantic.ordinal} text does not match the semantic model`,
-      );
-    }
-    element.dataset.docxParagraphOrdinal = String(semantic.ordinal);
-    mapping.set(semantic.ordinal, element);
+  const expected = paragraphs.filter(
+    (paragraph) => comparableParagraphText(paragraph.text).length > 0,
+  ).length;
+  if (mapping.size !== expected) {
+    throw new Error(
+      `Renderer paragraph count ${mapping.size} does not match semantic paragraph count ${expected}`,
+    );
   }
   return mapping;
 }
@@ -88,34 +161,70 @@ export function mapRenderedParagraphs(
 /**
  * Order-preserving exact-character mapping used when positional mapping fails.
  * Only binds paragraphs whose comparable text matches; never invents a binding.
+ * Supports multi-fragment paragraphs with the same exact-prefix rules.
  */
 export function alignRenderedParagraphs(
   container: HTMLElement,
   paragraphs: readonly DocxSemanticParagraph[],
 ): ReadonlyMap<number, HTMLElement> {
-  const rendered = visibleRenderedParagraphs(container);
+  const rendered = visibleMainBodyParagraphs(container);
   const mapping = new Map<number, HTMLElement>();
   let renderedIndex = 0;
   for (const semantic of paragraphs) {
     const semanticText = comparableParagraphText(semantic.text);
     if (semanticText.length === 0) continue;
-    let found = -1;
-    for (let index = renderedIndex; index < rendered.length; index += 1) {
-      const element = rendered[index];
-      if (element === undefined) continue;
-      if (comparableParagraphText(element.textContent ?? "") === semanticText) {
-        found = index;
+    let bound = false;
+    for (let start = renderedIndex; start < rendered.length; start += 1) {
+      try {
+        const { fragments, nextIndex } = accumulateExactFragments(
+          rendered,
+          start,
+          semanticText,
+        );
+        bindFragments(fragments, semantic.ordinal, mapping);
+        renderedIndex = nextIndex;
+        bound = true;
         break;
+      } catch {
+        // Keep scanning forward; never skip by fuzzy matching.
       }
     }
-    if (found < 0) continue;
-    const element = rendered[found];
-    if (element === undefined) continue;
-    element.dataset.docxParagraphOrdinal = String(semantic.ordinal);
-    mapping.set(semantic.ordinal, element);
-    renderedIndex = found + 1;
+    if (!bound) continue;
   }
   return mapping;
+}
+
+export function fragmentsForParagraphOrdinal(
+  root: ParentNode,
+  ordinal: number,
+): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      `[data-docx-paragraph-ordinal="${ordinal}"]`,
+    ),
+  ).filter(isMainBodyParagraph);
+}
+
+export function revealParagraphFragment(
+  root: ParentNode,
+  paragraphAnchors: ReadonlyMap<number, HTMLElement>,
+  ordinal: number,
+  textHint?: string,
+): HTMLElement | null {
+  const fragments = fragmentsForParagraphOrdinal(root, ordinal);
+  if (fragments.length === 0) {
+    return paragraphAnchors.get(ordinal) ?? null;
+  }
+  const hint = textHint === undefined
+    ? ""
+    : comparableParagraphText(textHint);
+  if (hint.length > 0) {
+    const matching = fragments.find((fragment) =>
+      comparableParagraphText(fragment.textContent ?? "").includes(hint)
+    );
+    if (matching !== undefined) return matching;
+  }
+  return fragments[0] ?? null;
 }
 
 export function sanitizeRenderedDocx(container: HTMLElement): void {

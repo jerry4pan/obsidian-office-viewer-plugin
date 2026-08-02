@@ -20,9 +20,11 @@ import {
   type DocxSemanticModel,
   type DocxSemanticParagraph,
 } from "./docx-semantic-model";
-import type {
-  DocxRendererAdapter,
-  DocxRendererSession,
+import {
+  fragmentsForParagraphOrdinal,
+  type DocxRendererAdapter,
+  type DocxRendererSession,
+  type DocxViewMode,
 } from "./renderer/docx-renderer-adapter";
 
 export const DOCX_VIEW_TYPE = "docx-viewer";
@@ -68,6 +70,9 @@ export class DocxFileView extends FileView {
     format: "DOCX",
     extraClassName: "office-viewer-docx-toolbar",
   });
+  private readonly viewModeGroup = document.createElement("div");
+  private readonly readingModeButton: HTMLButtonElement;
+  private readonly layoutModeButton: HTMLButtonElement;
   private readonly searchButton: HTMLButtonElement;
   private readonly externalButton: HTMLButtonElement;
   private readonly notices = document.createElement("div");
@@ -78,10 +83,14 @@ export class DocxFileView extends FileView {
   private readonly searchPanel: DocxSearchPanel;
   private currentFile: TFile | null = null;
   private model: DocxSemanticModel | null = null;
+  private safeRendererBuffer: ArrayBuffer | null = null;
   private rendererSession: DocxRendererSession | null = null;
+  private viewMode: DocxViewMode = "reading";
   private activeParagraph: DocxSemanticParagraph | null = null;
   private openGeneration = 0;
+  private renderGeneration = 0;
   private abortController: AbortController | null = null;
+  private modeSwitchController: AbortController | null = null;
   private disposed = false;
   private diagnostics: DocxViewPerformanceDiagnostics = {
     candidate: null,
@@ -99,6 +108,35 @@ export class DocxFileView extends FileView {
     super(leaf);
     this.root.className = "office-viewer-docx-shell";
     this.root.dataset.state = "idle";
+    this.root.dataset.viewMode = "reading";
+
+    this.viewModeGroup.className = "office-viewer-docx-view-mode";
+    this.viewModeGroup.setAttribute("role", "group");
+    this.viewModeGroup.setAttribute(
+      "aria-label",
+      dependencies.messages.text("viewModeLabel"),
+    );
+    this.readingModeButton = button(
+      dependencies.messages.text("readingView"),
+    );
+    this.readingModeButton.setAttribute(
+      "data-action",
+      "docx-view-mode-reading",
+    );
+    this.readingModeButton.setAttribute("aria-pressed", "true");
+    this.layoutModeButton = button(
+      dependencies.messages.text("layoutView"),
+    );
+    this.layoutModeButton.setAttribute(
+      "data-action",
+      "docx-view-mode-layout",
+    );
+    this.layoutModeButton.setAttribute("aria-pressed", "false");
+    this.viewModeGroup.append(
+      this.readingModeButton,
+      this.layoutModeButton,
+    );
+
     this.searchButton = button("");
     decorateOfficeViewerIconButton(this.searchButton, "lucide-search");
     this.searchButton.title = dependencies.messages.text("searchOpen");
@@ -125,13 +163,13 @@ export class DocxFileView extends FileView {
       messages: dependencies.messages,
       getModel: () => this.model,
       currentParagraphOrdinal: () => this.activeParagraph?.ordinal ?? null,
-      onNavigate: (paragraphOrdinal) => {
-        this.activateOrdinal(paragraphOrdinal, true);
+      onNavigate: (paragraphOrdinal, textHint) => {
+        this.activateOrdinal(paragraphOrdinal, true, textHint);
       },
       onDismiss: () => this.closeSearch(),
     });
 
-    this.toolbar.primary.append(this.searchButton);
+    this.toolbar.primary.append(this.viewModeGroup, this.searchButton);
     this.toolbar.secondary.append(this.externalButton);
     this.main.append(this.searchRail, this.readingBody);
     this.root.append(
@@ -142,6 +180,12 @@ export class DocxFileView extends FileView {
     );
     this.contentEl.replaceChildren(this.root);
 
+    this.readingModeButton.addEventListener("click", () => {
+      void this.requestViewMode("reading");
+    });
+    this.layoutModeButton.addEventListener("click", () => {
+      void this.requestViewMode("layout");
+    });
     this.searchButton.addEventListener("click", () => this.toggleSearch());
     this.externalButton.addEventListener("click", () => {
       void this.openCurrentFileExternally();
@@ -173,20 +217,27 @@ export class DocxFileView extends FileView {
     const generation = ++this.openGeneration;
     const startedAt = performance.now();
     this.abortController?.abort();
+    this.modeSwitchController?.abort();
     const controller = new AbortController();
     this.abortController = controller;
+    this.modeSwitchController = null;
     this.rendererSession?.dispose();
     this.rendererSession = null;
+    this.safeRendererBuffer = null;
+    this.viewMode = "reading";
     this.currentFile = file;
     this.root.dataset.state = "loading";
+    this.root.dataset.viewMode = "reading";
     delete this.root.dataset.errorCategory;
     delete this.root.dataset.renderer;
     delete this.root.dataset.firstReadableMs;
     delete this.root.dataset.searchReadyMs;
+    delete this.root.dataset.viewModeSwitching;
     this.model = null;
     this.setActiveParagraph(null, false);
     this.searchPanel.close();
     this.updateSearchButton();
+    this.updateViewModeControls();
     this.restoreReadingShell();
     this.readingBody.replaceChildren();
     this.setNotice(this.dependencies.messages.text("loading"));
@@ -211,38 +262,23 @@ export class DocxFileView extends FileView {
         buffer,
         controller.signal,
       );
-      const session = await this.dependencies.renderer.open(
-        rendererBuffer,
-        this.readingBody,
-        model,
-        controller.signal,
-      );
       if (
         this.disposed ||
         generation !== this.openGeneration ||
         this.currentFile !== file
       ) {
-        session.dispose();
         return;
       }
       this.model = model;
-      this.rendererSession = session;
-      if (session.managesUnavailableContent !== true) {
-        this.installUnavailablePlaceholders(model, session);
-      }
-      const firstReadableMs = performance.now() - startedAt;
-      this.diagnostics = {
-        candidate: session.candidate,
-        sourceBytes: buffer.byteLength,
-        paragraphCount: model.paragraphs.length,
-        firstReadableMs,
+      this.safeRendererBuffer = rendererBuffer;
+      await this.renderMode("reading", "initial-open", {
+        generation,
+        file,
+        startedAt,
         searchReadyMs,
-      };
-      this.root.dataset.state = "ready";
-      this.root.dataset.renderer = session.candidate;
-      this.root.dataset.firstReadableMs = firstReadableMs.toFixed(1);
-      this.root.dataset.searchReadyMs = searchReadyMs.toFixed(1);
-      this.renderDocumentNotices(model, session);
+        sourceBytes: buffer.byteLength,
+        signal: controller.signal,
+      });
     } catch (error) {
       if (
         this.disposed ||
@@ -263,16 +299,157 @@ export class DocxFileView extends FileView {
     if (this.disposed) return;
     this.disposed = true;
     this.openGeneration += 1;
+    this.renderGeneration += 1;
     this.abortController?.abort();
     this.abortController = null;
+    this.modeSwitchController?.abort();
+    this.modeSwitchController = null;
     this.searchPanel.dispose();
     this.rendererSession?.dispose();
     this.rendererSession = null;
+    this.safeRendererBuffer = null;
     this.model = null;
     this.currentFile = null;
     this.activeParagraph = null;
     this.contentEl.replaceChildren();
     this.onDisposed();
+  }
+
+  private async requestViewMode(mode: DocxViewMode): Promise<void> {
+    if (
+      this.disposed ||
+      this.root.dataset.state !== "ready" ||
+      this.model === null ||
+      this.safeRendererBuffer === null ||
+      mode === this.viewMode
+    ) {
+      return;
+    }
+    const supported = this.rendererSession?.supportedModes ?? ["reading"];
+    if (!supported.includes(mode)) {
+      this.actionStatus.textContent =
+        this.dependencies.messages.text("layoutViewUnavailable");
+      return;
+    }
+    await this.renderMode(mode, "user-switch");
+  }
+
+  private async renderMode(
+    requestedMode: DocxViewMode,
+    reason: "initial-open" | "user-switch",
+    initial?: {
+      readonly generation: number;
+      readonly file: TFile;
+      readonly startedAt: number;
+      readonly searchReadyMs: number;
+      readonly sourceBytes: number;
+      readonly signal: AbortSignal;
+    },
+  ): Promise<void> {
+    const model = this.model;
+    const buffer = this.safeRendererBuffer;
+    const file = this.currentFile;
+    if (model === null || buffer === null || file === null) return;
+
+    const previousSession = this.rendererSession;
+    const previousMode = this.viewMode;
+    const restoreOrdinal = this.activeParagraph?.ordinal ??
+      this.topVisibleParagraphOrdinal();
+    const restoreHint = this.searchPanel.currentQuery.trim() || undefined;
+    const renderGeneration = ++this.renderGeneration;
+    this.modeSwitchController?.abort();
+    const controller = new AbortController();
+    this.modeSwitchController = controller;
+    const signal = reason === "initial-open" && initial !== undefined
+      ? initial.signal
+      : controller.signal;
+
+    if (reason === "user-switch") {
+      this.root.dataset.viewModeSwitching = "true";
+      this.updateViewModeControls();
+    }
+
+    try {
+      const session = await this.dependencies.renderer.open(buffer, model, {
+        mode: requestedMode,
+        signal,
+      });
+      if (
+        this.disposed ||
+        renderGeneration !== this.renderGeneration ||
+        this.currentFile !== file ||
+        (initial !== undefined && initial.generation !== this.openGeneration)
+      ) {
+        session.dispose();
+        return;
+      }
+      session.mount(this.readingBody);
+      if (previousSession !== null && previousSession !== session) {
+        previousSession.dispose();
+      }
+      this.rendererSession = session;
+      this.viewMode = session.mode;
+      this.root.dataset.viewMode = session.mode;
+      delete this.root.dataset.viewModeSwitching;
+      if (session.managesUnavailableContent !== true) {
+        this.installUnavailablePlaceholders(model, session);
+      }
+      if (restoreOrdinal !== null) {
+        this.activateOrdinal(restoreOrdinal, true, restoreHint);
+      } else {
+        this.setActiveParagraph(null, false);
+      }
+      this.renderDocumentNotices(model, session);
+      if (reason === "initial-open" && initial !== undefined) {
+        const firstReadableMs = performance.now() - initial.startedAt;
+        this.diagnostics = {
+          candidate: session.candidate,
+          sourceBytes: initial.sourceBytes,
+          paragraphCount: model.paragraphs.length,
+          firstReadableMs,
+          searchReadyMs: initial.searchReadyMs,
+        };
+        this.root.dataset.state = "ready";
+        this.root.dataset.renderer = session.candidate;
+        this.root.dataset.firstReadableMs = firstReadableMs.toFixed(1);
+        this.root.dataset.searchReadyMs = initial.searchReadyMs.toFixed(1);
+      }
+      this.updateViewModeControls();
+    } catch (error) {
+      if (
+        this.disposed ||
+        renderGeneration !== this.renderGeneration ||
+        signal.aborted
+      ) {
+        return;
+      }
+      if (reason === "initial-open") {
+        throw error;
+      }
+      this.rendererSession = previousSession;
+      this.viewMode = previousMode;
+      this.root.dataset.viewMode = previousMode;
+      delete this.root.dataset.viewModeSwitching;
+      this.updateViewModeControls();
+      this.actionStatus.textContent =
+        this.dependencies.messages.text("viewModeSwitchFailed");
+    }
+  }
+
+  private topVisibleParagraphOrdinal(): number | null {
+    const bodyTop = this.readingBody.getBoundingClientRect().top;
+    let best: { ordinal: number; distance: number } | null = null;
+    for (const element of this.readingBody.querySelectorAll<HTMLElement>(
+      "[data-docx-paragraph-ordinal]",
+    )) {
+      const ordinal = Number(element.dataset.docxParagraphOrdinal);
+      if (!Number.isSafeInteger(ordinal)) continue;
+      const distance = Math.abs(element.getBoundingClientRect().top - bodyTop);
+      if (best === null || distance < best.distance) {
+        best = { ordinal, distance };
+      }
+    }
+    return best?.ordinal ?? null;
   }
 
   private openSearch(): void {
@@ -304,6 +481,31 @@ export class DocxFileView extends FileView {
     this.searchButton.setAttribute(
       "aria-label",
       this.dependencies.messages.text(key),
+    );
+  }
+
+  private updateViewModeControls(): void {
+    const ready = this.root.dataset.state === "ready";
+    const switching = this.root.dataset.viewModeSwitching === "true";
+    const supported = this.rendererSession?.supportedModes ?? ["reading"];
+    const layoutSupported = supported.includes("layout");
+    this.readingModeButton.setAttribute(
+      "aria-pressed",
+      String(this.viewMode === "reading"),
+    );
+    this.layoutModeButton.setAttribute(
+      "aria-pressed",
+      String(this.viewMode === "layout"),
+    );
+    this.readingModeButton.disabled = !ready || switching;
+    this.layoutModeButton.disabled =
+      !ready || switching || !layoutSupported;
+    this.layoutModeButton.title = layoutSupported
+      ? this.dependencies.messages.text("layoutView")
+      : this.dependencies.messages.text("layoutViewUnavailable");
+    this.layoutModeButton.setAttribute(
+      "aria-label",
+      this.layoutModeButton.title,
     );
   }
 
@@ -344,7 +546,13 @@ export class DocxFileView extends FileView {
       this.dependencies.messages.text("unavailablePlaceholder");
     for (const paragraph of model.paragraphs) {
       if (paragraph.unavailableContent.length === 0) continue;
-      const element = session.paragraphElements.get(paragraph.ordinal);
+      const fragments = fragmentsForParagraphOrdinal(
+        this.readingBody,
+        paragraph.ordinal,
+      );
+      const element =
+        fragments[fragments.length - 1] ??
+        session.paragraphAnchors.get(paragraph.ordinal);
       if (element === undefined) continue;
       const placeholder = document.createElement("span");
       placeholder.className = "office-viewer-docx-unavailable-content";
@@ -360,8 +568,13 @@ export class DocxFileView extends FileView {
       placeholder.setAttribute("role", "note");
       placeholder.dataset.docxUnavailableKinds = block.kinds.join(",");
       placeholder.textContent = placeholderText;
+      const precedingFragments = fragmentsForParagraphOrdinal(
+        this.readingBody,
+        block.afterParagraphOrdinal,
+      );
       const preceding =
-        session.paragraphElements.get(block.afterParagraphOrdinal);
+        precedingFragments[precedingFragments.length - 1] ??
+        session.paragraphAnchors.get(block.afterParagraphOrdinal);
       if (preceding === undefined) {
         this.readingBody.prepend(placeholder);
       } else {
@@ -373,6 +586,7 @@ export class DocxFileView extends FileView {
   private setActiveParagraph(
     paragraph: DocxSemanticParagraph | null,
     reveal: boolean,
+    textHint?: string,
   ): void {
     for (const element of this.readingBody.querySelectorAll(
       ".is-active-docx-paragraph",
@@ -385,22 +599,38 @@ export class DocxFileView extends FileView {
       this.searchPanel.syncCurrentResult();
       return;
     }
-    const element = reveal
-      ? this.rendererSession?.revealParagraph(paragraph.ordinal)
-      : this.rendererSession?.paragraphElements.get(paragraph.ordinal);
-    if (element == null) return;
-    element.classList.add("is-active-docx-paragraph");
-    element.setAttribute("aria-current", "true");
-    if (reveal) {
+    const revealed = reveal
+      ? this.rendererSession?.revealParagraph(paragraph.ordinal, textHint) ??
+        null
+      : null;
+    const fragments = fragmentsForParagraphOrdinal(
+      this.readingBody,
+      paragraph.ordinal,
+    );
+    for (const fragment of fragments) {
+      fragment.classList.add("is-active-docx-paragraph");
+      fragment.setAttribute("aria-current", "true");
+    }
+    const element =
+      revealed ??
+      fragments[0] ??
+      this.rendererSession?.paragraphAnchors.get(paragraph.ordinal) ??
+      null;
+    if (element == null && fragments.length === 0) return;
+    if (reveal && element != null) {
       element.scrollIntoView({ block: "center", behavior: "auto" });
     }
     this.searchPanel.syncCurrentResult();
   }
 
-  private activateOrdinal(ordinal: number, reveal: boolean): boolean {
+  private activateOrdinal(
+    ordinal: number,
+    reveal: boolean,
+    textHint?: string,
+  ): boolean {
     const paragraph = this.model?.paragraphs[ordinal - 1];
     if (paragraph === undefined || paragraph.ordinal !== ordinal) return false;
-    this.setActiveParagraph(paragraph, reveal);
+    this.setActiveParagraph(paragraph, reveal, textHint);
     return true;
   }
 
@@ -475,9 +705,15 @@ export class DocxFileView extends FileView {
   private renderOpenError(error: unknown): void {
     this.readingBody.replaceChildren();
     this.model = null;
+    this.safeRendererBuffer = null;
+    this.rendererSession?.dispose();
     this.rendererSession = null;
+    this.viewMode = "reading";
+    this.root.dataset.viewMode = "reading";
+    delete this.root.dataset.viewModeSwitching;
     this.searchPanel.close();
     this.updateSearchButton();
+    this.updateViewModeControls();
     this.setNotice("");
     this.actionStatus.textContent = "";
     const key =
@@ -489,6 +725,8 @@ export class DocxFileView extends FileView {
     this.root.dataset.state = "error";
     this.root.dataset.errorCategory = key;
     this.searchButton.disabled = true;
+    this.readingModeButton.disabled = true;
+    this.layoutModeButton.disabled = true;
     const file = this.currentFile;
     const { panel } = createOfficeViewerErrorSurface({
       title: this.dependencies.messages.text(key),

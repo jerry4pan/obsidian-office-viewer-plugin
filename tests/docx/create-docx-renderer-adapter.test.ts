@@ -19,15 +19,15 @@ describe("production DOCX renderer", () => {
     const model = await inspectDocxPackage(source, signal);
     const container = document.createElement("div");
 
-    const session = await createDocxRendererAdapter().open(
-      source,
-      container,
-      model,
+    const session = await createDocxRendererAdapter().open(source, model, {
+      mode: "reading",
       signal,
-    );
+    });
+    session.mount(container);
 
     expect(session.candidate).toBe("docx-preview");
-    expect(session.paragraphElements.size).toBe(model.paragraphs.length);
+    expect(session.supportedModes).toEqual(["reading", "layout"]);
+    expect(session.paragraphAnchors.size).toBe(model.paragraphs.length);
   });
 
   it("uses bounded semantic rendering for the stress document", async () => {
@@ -38,14 +38,14 @@ describe("production DOCX renderer", () => {
     const model = await inspectDocxPackage(source, signal);
     const container = document.createElement("div");
 
-    const session = await createDocxRendererAdapter().open(
-      source,
-      container,
-      model,
+    const session = await createDocxRendererAdapter().open(source, model, {
+      mode: "reading",
       signal,
-    );
+    });
+    session.mount(container);
 
     expect(session.candidate).toBe("bounded-semantic");
+    expect(session.supportedModes).toEqual(["reading"]);
     expect(container.querySelectorAll("*").length).toBeLessThanOrEqual(1_200);
   });
 });
