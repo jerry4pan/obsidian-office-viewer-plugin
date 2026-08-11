@@ -49,7 +49,8 @@ export interface CandidateBaselineApproval {
     | "2026-07-13"
     | "2026-07-14"
     | "2026-07-15"
-    | "2026-08-02";
+    | "2026-08-02"
+    | "2026-08-11";
 }
 
 export interface CorpusFixture {
@@ -154,9 +155,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "5b2269876d56d4efc0bab26eb1fc4a702b70b4f16aeb87b2d927812b05cd1aec",
-        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 446 capture: the shell removes 38 px of duplicated vertical chrome while all five readable units, layout, and font-substitution warning remain unchanged.",
-        approvedOn: "2026-08-02",
+        sha256: "5a1949c75081d7401d0f3f5b7e6320dd090fac37c9813fccfa8eb764363d4b9a",
+        reason: "The 2026-08-11 PPTX control-polish review approved the intentional 462 x 484 capture after icon-led navigation regrouping restored one chrome row of slide height; all five readable units, layout, and font-substitution warning remain unchanged.",
+        approvedOn: "2026-08-11",
       },
       "pptx-preview": {
         sha256: "ce1fcdfa514ce879d7da008351f947b35165c31b833a49b441c3953e79ea7167",
@@ -192,9 +193,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "646fd7b344234378de78379cb86b692a33668af8bcf9e263e61fb2dba509285f",
-        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 446 capture: the shell removes 38 px of duplicated vertical chrome while labels, transparency, layout, and the known broken SVG remain unchanged.",
-        approvedOn: "2026-08-02",
+        sha256: "df12427a29880164c576ce27ee2df0ec4c46d9f4124951edace639e32498417b",
+        reason: "The 2026-08-11 PPTX control-polish review approved the intentional 462 x 484 capture after icon-led navigation regrouping restored one chrome row of slide height; labels, transparency, layout, and the known broken SVG remain unchanged.",
+        approvedOn: "2026-08-11",
       },
       "pptx-preview": {
         sha256: "f9e445481f1dc10b432e24e087d8752da6cef909175baf5d8aad515d960b664a",
@@ -231,9 +232,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "c41b9f5745d95805211a3847c188a41a12593cd7794ca22f562b50a830c3aca8",
-        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 511 capture: the shell removes 38 px of duplicated vertical chrome while the table, axes, labels, and both chart bars remain fully visible.",
-        approvedOn: "2026-08-02",
+        sha256: "636479744d95b69b19fbf04698303c0a88b925ea9af7f746f04ef0419f61e129",
+        reason: "The 2026-08-11 PPTX control-polish review approved the intentional 462 x 549 capture after icon-led navigation regrouping restored one chrome row of slide height; the table, axes, labels, and both chart bars remain fully visible.",
+        approvedOn: "2026-08-11",
       },
       "pptx-preview": {
         sha256: "277205fe5a6d1fad1822fcbcf290af10b91acf7eb5bf824dbbcf8ff2809286c7",
@@ -269,9 +270,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "0fc939494920d4c1b0859f679482717d4dab2af7289aee0377caa4fbeaadfdea",
-        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 511 capture: the shell removes 38 px of duplicated vertical chrome while all grouped shapes, labels, and the rotated callout remain fully visible.",
-        approvedOn: "2026-08-02",
+        sha256: "7d267421a5de57159320f3c938f30ff71cda3a937e79faf0603e4015d3edb1e6",
+        reason: "The 2026-08-11 PPTX control-polish review approved the intentional 462 x 549 capture after icon-led navigation regrouping restored one chrome row of slide height; all grouped shapes, labels, and the rotated callout remain fully visible.",
+        approvedOn: "2026-08-11",
       },
       "pptx-preview": {
         sha256: "8b9d9377e42546ca5c585f4eddcf8a033da61ad80a4cbb6fc2b2978399c79856",
@@ -302,9 +303,9 @@ export const corpusManifest: readonly CorpusFixture[] = [
     },
     baselineApproval: {
       aiden: {
-        sha256: "aaab5b5cf96a741cf606ff45faf1d6f62e38b9a0ce15201e274abbf474b13a57",
-        reason: "The 2026-08-02 shared-reading-shell review approved the intentional 462 x 446 capture: the shell removes 38 px of duplicated vertical chrome while the title, layout, and known broken complex-SVG placeholder remain unchanged.",
-        approvedOn: "2026-08-02",
+        sha256: "6cfb3690a7665a6872f295ca569f6302a270fd89b59544b7a0a5986d2fba072d",
+        reason: "The 2026-08-11 PPTX control-polish review approved the intentional 462 x 484 capture after icon-led navigation regrouping restored one chrome row of slide height; the title, layout, and known broken complex-SVG placeholder remain unchanged.",
+        approvedOn: "2026-08-11",
       },
       "pptx-preview": {
         sha256: "cee7216f5a842e43b7d850f912fff010bfd81e47e5788249a88f029ff1943400",
