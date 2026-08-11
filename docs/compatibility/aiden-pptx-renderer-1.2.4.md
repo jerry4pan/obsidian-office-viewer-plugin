@@ -111,6 +111,15 @@ grouping, rotation, and layout remain readable; the two documented broken-SVG
 placeholders are unchanged. The refreshed hashes record that approval and
 ordinary reference-host runs continue to require zero material changed pixels.
 
+The 2026-08-11 PPTX control-polish revalidation follows the icon-led navigation
+regrouping that restored one chrome row of main-slide height. Warning-bearing
+captures return to 462 x 484 and the remaining captures return to 462 x 549.
+All five PNGs were visually inspected again: text, fonts, footer, transparency,
+table/chart, grouping, rotation, and layout remain readable; the two documented
+broken-SVG placeholders are unchanged. The refreshed hashes record that
+approval and ordinary reference-host runs continue to require zero material
+changed pixels.
+
 ## Reproduce
 
 ```bash
