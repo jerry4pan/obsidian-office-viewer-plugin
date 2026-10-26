@@ -83,7 +83,7 @@
     "pptx-preview": "1.0.7",
     "pptxgenjs": "4.0.1",
     "typescript": "7.0.2",
-    "vitest": "4.1.10",
+    "vitest": "4.1.12",
     "wdio-obsidian-reporter": "3.1.1",
     "wdio-obsidian-service": "3.1.1"
   },
